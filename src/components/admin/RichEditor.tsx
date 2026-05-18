@@ -32,7 +32,7 @@ export function RichEditor({ value, onChange, placeholder }: Props) {
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm max-w-none min-h-[300px] px-4 py-3 bg-white border-2 border-kp-ink shadow-brutal-sm focus:outline-none",
+          "kp-prose max-w-none min-h-[300px] px-4 py-3 bg-white border-2 border-kp-ink shadow-brutal-sm focus:outline-none",
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
