@@ -108,6 +108,27 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
   const [slugTouched, setSlugTouched] = useState(editing);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const fetchRpLocales = useServerFn(listRpLocales);
+  const rpLocalesQuery = useQuery({
+    queryKey: ["rp", "locales"],
+    queryFn: () => fetchRpLocales(),
+    staleTime: 60_000,
+    retry: 0,
+  });
+  const usedQuery = useQuery({
+    queryKey: ["sedes", "usedRpIds"],
+    queryFn: getUsedRpLocalIds,
+    staleTime: 30_000,
+  });
+  const usedById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const u of usedQuery.data ?? []) {
+      if (u.sede_id !== initial?.id) m.set(u.rp_local_id, u.nombre);
+    }
+    return m;
+  }, [usedQuery.data, initial?.id]);
+
+
   useEffect(() => {
     if (!slugTouched) setForm((f) => ({ ...f, slug: slugifySede(f.nombre) }));
   }, [form.nombre, slugTouched]);
