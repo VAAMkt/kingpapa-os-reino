@@ -291,19 +291,80 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
 
       <BrutalCard tone="cheese" className="p-5 space-y-3">
         <h3 className="font-display uppercase text-lg">Restaurant.pe & ubicación</h3>
-        <div className="grid md:grid-cols-4 gap-3">
-          <div className={fieldCls}>
-            <label className={labelCls}>local_id Restaurant.pe</label>
-            <BrutalInput
-              type="number"
-              value={form.rp_local_id ?? ""}
-              onChange={(e) =>
-                setForm({ ...form, rp_local_id: e.target.value ? Number(e.target.value) : null })
-              }
-              placeholder="1"
-            />
-            {errors.rp_local_id && <p className="text-xs text-kp-red">{errors.rp_local_id}</p>}
-          </div>
+        <div className={fieldCls}>
+          <label className={labelCls}>Sede en Restaurant.pe</label>
+          {rpLocalesQuery.isLoading || usedQuery.isLoading ? (
+            <p className="text-xs text-kp-ink/70 py-2">Cargando locales…</p>
+          ) : rpLocalesQuery.isError ? (
+            <div className="space-y-2">
+              <p className="text-xs text-kp-red">
+                No se pudo cargar la lista. Verifica el token de Restaurant.pe.
+              </p>
+              <div className="flex gap-2">
+                <BrutalButton type="button" variant="ghost" onClick={() => rpLocalesQuery.refetch()}>
+                  Reintentar
+                </BrutalButton>
+                <Link
+                  to="/admin/sincronizacion"
+                  className="font-display uppercase text-xs underline self-center"
+                >
+                  Ir a sincronización
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <>
+              {(() => {
+                const locales = rpLocalesQuery.data ?? [];
+                const currentId = form.rp_local_id ?? null;
+                const currentInList = currentId != null && locales.some((l) => l.rp_local_id === currentId);
+                return (
+                  <select
+                    value={currentId ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value ? Number(e.target.value) : null;
+                      const local = locales.find((l) => l.rp_local_id === v);
+                      setForm((f) => ({
+                        ...f,
+                        rp_local_id: v,
+                        lat: f.lat == null && local?.lat != null ? local.lat : f.lat,
+                        lng: f.lng == null && local?.lng != null ? local.lng : f.lng,
+                      }));
+                    }}
+                    className={inputBaseCls}
+                  >
+                    <option value="">— Sin vincular —</option>
+                    {locales.map((l) => {
+                      const usadaPor = usedById.get(l.rp_local_id);
+                      const disabled = !!usadaPor;
+                      return (
+                        <option key={l.rp_local_id} value={l.rp_local_id} disabled={disabled}>
+                          {l.nombre} (#{l.rp_local_id})
+                          {usadaPor ? ` · en uso por ${usadaPor}` : ""}
+                        </option>
+                      );
+                    })}
+                    {currentId != null && !currentInList && (
+                      <option value={currentId}>
+                        ⚠ ID {currentId} no encontrado en Restaurant.pe
+                      </option>
+                    )}
+                  </select>
+                );
+              })()}
+              {(rpLocalesQuery.data?.length ?? 0) === 0 && (
+                <p className="text-xs text-kp-ink/70 mt-1">
+                  No se encontraron locales en Restaurant.pe.{" "}
+                  <Link to="/admin/sincronizacion" className="underline">
+                    Sincronizar
+                  </Link>
+                </p>
+              )}
+            </>
+          )}
+          {errors.rp_local_id && <p className="text-xs text-kp-red">{errors.rp_local_id}</p>}
+        </div>
+        <div className="grid md:grid-cols-3 gap-3">
           <div className={fieldCls}>
             <label className={labelCls}>Latitud</label>
             <BrutalInput
