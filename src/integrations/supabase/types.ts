@@ -18,8 +18,10 @@ export type Database = {
         Row: {
           activo: boolean
           created_at: string
+          descripcion_override: string | null
           id: string
           nombre: string
+          nombre_override: string | null
           orden: number
           rp_id: number
           updated_at: string
@@ -27,8 +29,10 @@ export type Database = {
         Insert: {
           activo?: boolean
           created_at?: string
+          descripcion_override?: string | null
           id?: string
           nombre: string
+          nombre_override?: string | null
           orden?: number
           rp_id: number
           updated_at?: string
@@ -36,8 +40,10 @@ export type Database = {
         Update: {
           activo?: boolean
           created_at?: string
+          descripcion_override?: string | null
           id?: string
           nombre?: string
+          nombre_override?: string | null
           orden?: number
           rp_id?: number
           updated_at?: string
@@ -99,14 +105,23 @@ export type Database = {
         Row: {
           almacen_id: number | null
           categoria_id: string | null
+          clasificacion_me: string | null
           created_at: string
           descripcion: string | null
+          descripcion_override: string | null
+          destacado: boolean
           disponible: boolean
+          es_mas_vendido: boolean
+          es_nuevo: boolean
+          es_recomendado: boolean
+          etiqueta_custom: string | null
           id: string
           imagen_url: string | null
+          margen_pct: number | null
           modificadores: Json
           modificadores_raw: Json
           nombre: string
+          nombre_override: string | null
           orden: number
           precio: number
           rp_id: number
@@ -115,14 +130,23 @@ export type Database = {
         Insert: {
           almacen_id?: number | null
           categoria_id?: string | null
+          clasificacion_me?: string | null
           created_at?: string
           descripcion?: string | null
+          descripcion_override?: string | null
+          destacado?: boolean
           disponible?: boolean
+          es_mas_vendido?: boolean
+          es_nuevo?: boolean
+          es_recomendado?: boolean
+          etiqueta_custom?: string | null
           id?: string
           imagen_url?: string | null
+          margen_pct?: number | null
           modificadores?: Json
           modificadores_raw?: Json
           nombre: string
+          nombre_override?: string | null
           orden?: number
           precio?: number
           rp_id: number
@@ -131,14 +155,23 @@ export type Database = {
         Update: {
           almacen_id?: number | null
           categoria_id?: string | null
+          clasificacion_me?: string | null
           created_at?: string
           descripcion?: string | null
+          descripcion_override?: string | null
+          destacado?: boolean
           disponible?: boolean
+          es_mas_vendido?: boolean
+          es_nuevo?: boolean
+          es_recomendado?: boolean
+          etiqueta_custom?: string | null
           id?: string
           imagen_url?: string | null
+          margen_pct?: number | null
           modificadores?: Json
           modificadores_raw?: Json
           nombre?: string
+          nombre_override?: string | null
           orden?: number
           precio?: number
           rp_id?: number
