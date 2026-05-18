@@ -9,6 +9,8 @@ import { ProductCard } from "@/components/kp/ProductCard";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { listPublicSedes } from "@/lib/sedes";
 import { rpProductoToProducto, buildCategorias, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
+import { useActiveSede } from "@/lib/active-sede";
+import { ActiveSedePill } from "@/components/kp/ActiveSedePill";
 
 export const Route = createFileRoute("/menu")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -34,7 +36,8 @@ function MenuPage() {
 
   const sedesQ = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
   const sedes = sedesQ.data ?? [];
-  const sedeSlug = sedeParam ?? sedes[0]?.slug;
+  const activeSede = useActiveSede();
+  const sedeSlug = sedeParam ?? activeSede?.slug ?? sedes[0]?.slug;
 
   const fetchMenu = useServerFn(getMenuForSede);
   const menuQ = useQuery({

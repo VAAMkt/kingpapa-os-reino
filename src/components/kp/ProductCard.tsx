@@ -74,7 +74,19 @@ export function ProductCard({ producto, compact = false }: { producto: Producto;
 
         <div className="mt-auto pt-3 flex items-center justify-between gap-2">
           <span className="font-display text-2xl">{cop(producto.precioDesde)}</span>
-          <BrutalButton size="sm" variant="primary" onClick={() => {/* TODO: addToOrder(producto.id) */}}>
+          <BrutalButton
+            size="sm"
+            variant="primary"
+            onClick={() => {
+              addItem({
+                productoId: producto.id,
+                nombre: producto.nombre,
+                precio: producto.precioDesde,
+                imagen: producto.imagen,
+              });
+              toast.success(`${producto.nombre} al carrito`);
+            }}
+          >
             Pedir esta corona
           </BrutalButton>
         </div>
