@@ -12,7 +12,7 @@ export const Route = createFileRoute("/admin")({
 
 const adminNav = [
   { to: "/admin", label: "Dashboard", soon: false, exact: true },
-  { to: "/admin", label: "Contenidos", soon: true },
+  { to: "/admin/contenidos", label: "Contenidos", soon: false },
   { to: "/admin", label: "Menú", soon: true },
   { to: "/admin", label: "Sedes", soon: true },
   { to: "/admin", label: "Pedidos", soon: true },
