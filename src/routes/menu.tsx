@@ -99,10 +99,9 @@ function MenuPage() {
         <OrderRouter />
       </section>
 
-      {/* SEDE ACTIVA */}
-      <section className="mx-auto max-w-7xl px-4 md:px-6 flex items-center gap-3 flex-wrap">
-        <ActiveSedePill />
-        {sedes.length > 1 && (
+      {/* SELECTOR DE SEDE — el pill de ubicación vive en el header */}
+      {sedes.length > 1 && (
+        <section className="mx-auto max-w-7xl px-4 md:px-6 flex items-center gap-3 flex-wrap">
           <select
             value={sedeSlug ?? ""}
             onChange={(e) => navigate({ search: { sede: e.target.value } })}
@@ -114,8 +113,8 @@ function MenuPage() {
               </option>
             ))}
           </select>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* FILTROS */}
       {categoriasUI.length > 1 && (
