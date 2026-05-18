@@ -95,6 +95,10 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           maps_url: initial.maps_url ?? "",
           orden: initial.orden,
           publicado: initial.publicado,
+          rp_local_id: initial.rp_local_id ?? null,
+          lat: initial.lat != null ? Number(initial.lat) : null,
+          lng: initial.lng != null ? Number(initial.lng) : null,
+          cobertura_radio_km: initial.cobertura_radio_km != null ? Number(initial.cobertura_radio_km) : 5,
         }
       : emptyState,
   );
