@@ -34,6 +34,10 @@ const SedeSchema = z.object({
   maps_url: z.string().url("URL inválida").optional().nullable(),
   orden: z.number().int().min(0).max(9999),
   publicado: z.boolean(),
+  rp_local_id: z.number().int().min(0).max(999999).nullable().optional(),
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lng: z.number().min(-180).max(180).nullable().optional(),
+  cobertura_radio_km: z.number().min(0).max(50),
 });
 
 type FormState = z.input<typeof SedeSchema>;
