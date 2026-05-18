@@ -30,7 +30,8 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const estrellas = productos.slice(0, 4);
   const retos = historias.filter((h) => h.categoria === "Retos" || h.categoria === "Festivales").slice(0, 3);
-  const sedesResumen = sedes.slice(0, 4);
+  const { data: sedesData = [] } = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
+  const sedesResumen = sedesData.slice(0, 4);
 
   return (
     <>
