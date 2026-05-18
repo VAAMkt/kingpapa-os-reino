@@ -26,6 +26,7 @@ function SyncPage() {
 
   const syncBranchesFn = useServerFn(syncBranches);
   const syncMenuFn = useServerFn(syncMenuForSede);
+  const syncAllMenusFn = useServerFn(syncAllMenus);
 
   const branchesMut = useMutation({
     mutationFn: () => syncBranchesFn(),
