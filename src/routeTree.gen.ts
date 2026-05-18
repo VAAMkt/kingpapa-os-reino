@@ -30,6 +30,7 @@ import { Route as MiReinoFavoritosRouteImport } from './routes/mi-reino.favorito
 import { Route as MiReinoDatosRouteImport } from './routes/mi-reino.datos'
 import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
+import { Route as AdminSincronizacionRouteImport } from './routes/admin.sincronizacion'
 import { Route as AdminSedesRouteImport } from './routes/admin.sedes'
 import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
 import { Route as AdminSedesIndexRouteImport } from './routes/admin.sedes.index'
@@ -144,6 +145,11 @@ const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSincronizacionRoute = AdminSincronizacionRouteImport.update({
+  id: '/sincronizacion',
+  path: '/sincronizacion',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSedesRoute = AdminSedesRouteImport.update({
   id: '/sedes',
   path: '/sedes',
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/sedes': typeof AdminSedesRouteWithChildren
+  '/admin/sincronizacion': typeof AdminSincronizacionRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/sincronizacion': typeof AdminSincronizacionRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -260,6 +268,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/sedes': typeof AdminSedesRouteWithChildren
+  '/admin/sincronizacion': typeof AdminSincronizacionRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -293,6 +302,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/admin/contenidos'
     | '/admin/sedes'
+    | '/admin/sincronizacion'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -320,6 +330,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/sitemap.xml'
+    | '/admin/sincronizacion'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -351,6 +362,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/admin/contenidos'
     | '/admin/sedes'
+    | '/admin/sincronizacion'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -532,6 +544,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsuariosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/sincronizacion': {
+      id: '/admin/sincronizacion'
+      path: '/sincronizacion'
+      fullPath: '/admin/sincronizacion'
+      preLoaderRoute: typeof AdminSincronizacionRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/sedes': {
       id: '/admin/sedes'
       path: '/sedes'
@@ -626,6 +645,7 @@ const AdminSedesRouteWithChildren = AdminSedesRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminContenidosRoute: typeof AdminContenidosRouteWithChildren
   AdminSedesRoute: typeof AdminSedesRouteWithChildren
+  AdminSincronizacionRoute: typeof AdminSincronizacionRoute
   AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -633,6 +653,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminContenidosRoute: AdminContenidosRouteWithChildren,
   AdminSedesRoute: AdminSedesRouteWithChildren,
+  AdminSincronizacionRoute: AdminSincronizacionRoute,
   AdminUsuariosRoute: AdminUsuariosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
