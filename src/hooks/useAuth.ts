@@ -9,6 +9,7 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   roles: AppRole[];
+  roleError: string | null;
   loading: boolean;
 }
 
@@ -24,6 +25,7 @@ export function useAuth() {
     user: null,
     session: null,
     roles: [],
+    roleError: null,
     loading: true,
   });
 
@@ -31,7 +33,7 @@ export function useAuth() {
     let mounted = true;
 
     const loadRoles = async (userId: string) => {
-      setState((prev) => ({ ...prev, loading: true }));
+      setState((prev) => ({ ...prev, loading: true, roleError: null }));
 
       const { data, error } = await supabase
         .from("user_roles")
@@ -42,6 +44,7 @@ export function useAuth() {
       setState((prev) => ({
         ...prev,
         roles: error ? [] : (data ?? []).map((r) => r.role as AppRole),
+        roleError: error ? error.message : null,
         loading: false,
       }));
     };
@@ -54,6 +57,7 @@ export function useAuth() {
         user: session?.user ?? null,
         session,
         roles: session ? [] : [],
+        roleError: null,
         loading: session ? true : false,
       }));
       if (session?.user) {
@@ -70,6 +74,7 @@ export function useAuth() {
         user: session?.user ?? null,
         session,
         roles: session ? [] : [],
+        roleError: null,
         loading: session ? true : false,
       }));
       if (session?.user) loadRoles(session.user.id);
