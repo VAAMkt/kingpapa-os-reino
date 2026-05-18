@@ -1,75 +1,106 @@
-# Fase 4 — Persistencia, Imágenes reales y Menu Engineering
 
-## 1. Persistencia total al re-sincronizar
+# Plan: Trampa nuclear de imágenes + Flujo "Mata-Monsters"
 
-Hoy el upsert ya respeta `orden` y `activo`/`disponible` para filas existentes, pero **sí sobrescribe** el `nombre` de categorías y productos. Si tú renombraste "ADICIONES" → "EXTRAS", la próxima sync lo borra.
+Dos fases. La Fase 1 es quirúrgica y bloqueante (necesitamos el JSON crudo real antes de tocar normalización). La Fase 2 es el flujo de conversión completo, todo en Drawers/Sheets sobre el menú — el cliente nunca siente que cambia de pantalla.
 
-**Cambio quirúrgico en `syncSedeMenu`** (`src/lib/rp.functions.ts`):
+## Fase 1 — Trampa nuclear (5 min, bloqueante)
 
-- Categorías existentes: NO mandar `nombre` en el upsert (solo updatear `updated_at`). Para crear filas nuevas sí se manda.
-- Productos existentes: NO mandar `nombre` ni `descripcion` (campos editables por admin). Sí seguir refrescando `precio`, `imagen_url`, `modificadores`, `almacen_id` — porque eso viene del POS y debe actualizarse.
-- Agregar columnas `nombre_override` y `descripcion_override` en `productos_master` y `categorias_master` para que el admin pueda renombrar sin perder el original del POS (futuro toggle "Usar nombre del POS").
+**Objetivo:** ver exactamente cómo viene 1 producto crudo de Restaurant.pe en producción para esta cuenta, no según la doc.
 
-Resultado: cualquier toggle (oculto/visible), reorden, o rename hecho en `/admin/menu` sobrevive todas las syncs futuras.
+Cambio quirúrgico en `src/lib/rp.functions.ts`, dentro de `syncSedeMenu`, justo después de obtener `catalogo.data` y antes del bucle de normalización:
 
-## 2. Imágenes correctas (extraer del producto real, no del padre)
+```ts
+// TRAMPA NUCLEAR — quitar tras diagnóstico
+const primerCrudo = (catalogo.data ?? [])[0];
+if (primerCrudo) {
+  await supabase.from("rp_sync_log").insert({
+    tipo: "debug_raw_product",
+    sede_id: sede.id,
+    ok: true,
+    mensaje: "DEBUG_RAW_PRODUCT_0",
+    payload: primerCrudo as never,
+  });
+  throw new Error(
+    "TRAMPA NUCLEAR: producto crudo guardado en rp_sync_log. " +
+    "Revisa /admin/sincronizacion → último log debug_raw_product."
+  );
+}
+```
 
-Diagnóstico mirando `normalizeProduct` + el OAS3: hoy priorizamos `productogeneral_urlimagen` (la foto del **combo padre**) sobre `lista_presentacion[0].producto_urlimagen` (la foto de la **variante real** que se vende). Por eso TODAS las adiciones se ven con la misma foto del combo padre — están heredando la imagen del nodo general en vez de la propia.
+**Por qué guardar en `rp_sync_log` y no `console.error`:**
+- Los logs del worker se truncan y se pierden entre intentos.
+- `rp_sync_log` ya existe, ya tiene RLS de editor, ya se muestra en `/admin/sincronizacion`.
+- El admin puede copiar el JSON limpio de la UI y pegarlo aquí sin abrir devtools.
 
-**Cambios en `src/lib/restaurantpe-normalize.ts`:**
+**Acción del usuario:**
+1. Aprueba el plan → implemento la trampa.
+2. Vas a `/admin/sincronizacion` y le das **Sincronizar** a cualquier sede.
+3. Saldrá el error rojo. Bajas y copias el `payload` del último log `debug_raw_product`.
+4. Me lo pegas en el chat.
 
-- Para productos NORMALES (no combo): leer imagen así, en orden:
-  1. `lista_presentacion[0].producto_urlimagen` (la real)
-  2. `producto_imagen`
-  3. `productogeneral_urlimagen` (último recurso)
-- Para COMBOS: mantener `productogeneral_urlimagen` (es la del combo armado).
-- Agregar logging de cuántos productos quedaron sin imagen tras la normalización.
+Apenas tengamos ese JSON, en la siguiente vuelta:
+- Arreglo `normalizeProduct` con las llaves reales (no las que asume la doc).
+- Quito la trampa.
+- Verifico que los modificadores también caigan bien para alimentar el Módulo 2.
 
-**Quitar "picante" y "hambre" del ProductCard** (no aplica al negocio):
-- Borrar componentes `Chili` y `HambreBar`, y la línea "Perfecta pa'…".
-- Reemplazar con: precio grande + descripción + badges de menu engineering (ver punto 3).
+## Fase 2 — Flujo Mata-Monsters (después del JSON)
 
-## 3. Menu Engineering en `/admin/menu`
+Todo Neubrutalista, todo sobre Sheet/Drawer. El cliente nunca abandona `/menu` hasta el "gracias".
 
-Agregar columnas a `productos_master` y exponerlas en el admin:
+### Módulo 1 — Intent (Delivery / Pickup)
+- Nuevo componente `OrderIntentDialog.tsx` (usa `ui/dialog` brutalizado).
+- Se dispara una sola vez tras `LocationGate` resolver sede activa, si no hay `orderType` en estado.
+- 2 botones gigantes: `🛵 Domicilio` / `🏃 Recoger en sede`.
+- Guardamos `orderType` en `cart.ts` (nuevo campo en el store) — persiste en localStorage junto al carrito.
+- Pill visible en header (junto a `ActiveSedePill`) para cambiarlo después.
 
-| Columna | Tipo | Uso UI |
-|---|---|---|
-| `destacado` | bool | Card grande en el grid (col-span-2) |
-| `es_nuevo` | bool | Badge "NUEVO" verde |
-| `es_mas_vendido` | bool | Badge "MÁS VENDIDO" rojo |
-| `es_recomendado` | bool | Badge "🔥 RECOMENDADO" |
-| `clasificacion_me` | enum: `star`, `plowhorse`, `puzzle`, `dog` | Indicador interno para el admin (no se ve al cliente) — clásico Kasavana & Smith |
-| `margen_pct` | numeric nullable | Para que el admin marque margen y la matriz ME se autoclasifique |
-| `etiqueta_custom` | text nullable | Badge libre tipo "EDICIÓN LIMITADA" |
+### Módulo 2 — Upsell Sheet (adiciones)
+- Nuevo `ProductCustomizerSheet.tsx` con `ui/sheet` (side=bottom en mobile, right en desktop).
+- En `ProductCard.tsx`: si `producto.modificadores.length > 0` o `modificadores_raw.lista_productoadicional?.length > 0` → el CTA abre el Sheet; si no, va directo al carrito (comportamiento actual).
+- Sheet renderiza:
+  - Hero del producto (imagen + nombre + precio base).
+  - Por cada grupo de `modificadores`: título + min/max + checkboxes (o radio si max=1) con precio delta.
+  - Validación reactiva del min/max por grupo (deshabilita CTA si no cumple).
+  - Stepper de cantidad.
+  - Footer sticky: total calculado + botón brutal "Agregar al carrito por $X.XXX".
+- `addItem` en `cart.ts` acepta `modificadores: {grupo_id, opcion_id, nombre, precio}[]` y los incluye en el `key` para que dos configuraciones distintas del mismo producto sean líneas separadas.
 
-**UI nueva en `/admin/menu`** (cada fila de producto):
-- Switches actuales (visible) + nuevos toggles compactos: ⭐ Destacado · 🆕 Nuevo · 🔥 Top
-- Selector ME: Estrella / Caballo / Puzzle / Perro (con tooltip explicando la matriz)
-- Input opcional de margen %
-- Vista "Matriz ME": tab nueva que pinta los 4 cuadrantes con tus productos arrastrados según popularidad (de pedidos reales si hay, manual si no) vs margen.
+### Módulo 3 — Checkout de un solo paso
+- Refactor de `routes/checkout.tsx`:
+  - Si `cart.items.length === 0` → `Navigate to="/menu"`.
+  - Layout 2 columnas (desktop) / stacked (mobile): izq formulario, der resumen sticky.
+  - Form: nombre, teléfono, dirección (prefill desde `active-sede` / location gate), notas, método de pago (`efectivo` / `datafono` / `online`).
+  - Si `orderType === "pickup"` ocultamos dirección y mostramos la dirección de la sede.
+  - Submit → genera `orderId = "KP-" + nanoid(8).toUpperCase()`, persiste en localStorage (`kp.lastOrder`), limpia carrito, redirige a `/gracias?order_id=...`.
+  - (No tocamos `rpRegistrarDelivery` todavía — eso es otra fase; por ahora el pedido es local + WhatsApp.)
 
-**UI nueva en `/menu` (cliente):**
-- Productos `destacado=true` ocupan card 2x grande arriba del grid de su categoría.
-- Badges visibles según flags.
-- Sección "Las coronas del Rey" al inicio del menú: top 4 estrellas + más vendidos.
+### Módulo 4 — Pantalla de tracking
+- Nueva ruta `src/routes/gracias.tsx`.
+- Lee `order_id` de `useSearch`. Lee `kp.lastOrder` de localStorage para reconstruir items + sede.
+- Hero brutal: "👑 Tu corona se está forjando" + Order ID gigante monoespaciado.
+- Integra `TrackerOperativo.tsx` (etapas: Recibido → En cocina → En camino / Listo para recoger → Entregado), avanza con timers simulados o estado manual.
+- CTA secundario: "Escribir a la sede por WhatsApp" → `https://wa.me/{sede.whatsapp}?text=Hola%20mi%20pedido%20{orderId}`.
+- CTA terciario: "Volver al menú".
 
-## Plan técnico de archivos
+### Archivos que se tocan en Fase 2
+- `src/lib/cart.ts` — añadir `orderType`, soporte de modificadores en key/total.
+- `src/components/kp/OrderIntentDialog.tsx` (nuevo).
+- `src/components/kp/ProductCustomizerSheet.tsx` (nuevo).
+- `src/components/kp/ProductCard.tsx` — ramificar CTA según mods.
+- `src/routes/menu.tsx` — montar el `OrderIntentDialog` arriba del grid.
+- `src/routes/checkout.tsx` — reescritura de un paso.
+- `src/routes/gracias.tsx` (nuevo).
+- `src/components/kp/TrackerOperativo.tsx` — pequeño ajuste para aceptar `orderId` y `sede` como props si hace falta.
 
-1. **Migration nueva** — `phase4_menu_engineering.sql`:
-   - ALTER `categorias_master` ADD `nombre_override`, `descripcion_override`.
-   - ALTER `productos_master` ADD las 7 columnas de ME.
-2. **`src/lib/restaurantpe-normalize.ts`** — reescribir extracción de imagen para normales vs combos.
-3. **`src/lib/rp.functions.ts`** — `syncSedeMenu`: dejar de pisar `nombre`/`descripcion` en filas existentes. Nuevos serverFn: `updateProductoMenuEngineering`, `listMenuEngineeringMatrix`.
-4. **`src/routes/admin.menu.tsx`** — añadir controles ME por fila + tab matriz.
-5. **`src/components/kp/ProductCard.tsx`** — quitar picante/hambre, agregar badges y soporte `destacado` (variante card grande).
-6. **`src/routes/menu.tsx`** — sección "Coronas del Rey" arriba + grid con `col-span-2` para destacados.
-7. **`src/lib/menu.ts`** — pasar los nuevos campos del row al tipo `Producto`.
+## Lo que NO se toca
+- `restaurantpe.server.ts` (el cliente HTTP está fino).
+- Auth, roles, RLS.
+- `rpRegistrarDelivery` real al POS (queda para fase siguiente cuando confirmes que el flujo local convierte).
+- Menu engineering admin (Fase 4 ya está).
 
-## Lo que NO toco
+## Orden de ejecución
+1. Apruebas → implemento **solo** la trampa nuclear (Fase 1).
+2. Sincronizas, me pegas el JSON.
+3. Arreglo normalización + quito trampa + ejecuto los 4 módulos de Fase 2 en una sola vuelta.
 
-- Lógica de gate de ubicación, checkout, sedes.
-- Token de Restaurant.pe (ya resuelto).
-- Tablas de sedes / overrides (los overrides per-sede siguen igual; la ingeniería de menú es global como dijimos en Fase 3).
-
-¿Le doy?
+¿Le doy a la trampa?
