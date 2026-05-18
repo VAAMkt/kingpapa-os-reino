@@ -1,47 +1,18 @@
-import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
-import { historias } from "@/data/historias";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { BrutalBadge } from "@/components/ui-kp/Brutal";
 import { EventCard, formatFecha } from "@/components/kp/Cards";
+import { getPublicPostBySlug, listPublicPosts } from "@/lib/posts";
 
 export const Route = createFileRoute("/historias/$slug")({
-  loader: ({ params }) => {
-    const historia = historias.find((h) => h.slug === params.slug);
-    if (!historia) throw notFound();
-    return { historia };
-  },
-  head: ({ loaderData, params }) => {
-    const h = loaderData?.historia;
-    if (!h) {
-      return {
-        meta: [{ title: "Historia no encontrada — KINGPAPA" }],
-      };
-    }
-    return {
-      meta: [
-        { title: `${h.titulo} — Historias del Reino` },
-        { name: "description", content: h.extracto },
-        { property: "og:title", content: h.titulo },
-        { property: "og:description", content: h.extracto },
-        { property: "og:type", content: "article" },
-        { property: "og:url", content: `/historias/${params.slug}` },
-        { property: "og:image", content: h.imagen },
-        { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:image", content: h.imagen },
-      ],
-      links: [{ rel: "canonical", href: `/historias/${params.slug}` }],
-      scripts: [{
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "Article",
-          headline: h.titulo,
-          image: [h.imagen],
-          datePublished: h.fecha,
-          description: h.extracto,
-        }),
-      }],
-    };
-  },
+  head: ({ params }) => ({
+    meta: [
+      { title: `${params.slug} — Historias del Reino` },
+      { property: "og:type", content: "article" },
+      { property: "og:url", content: `/historias/${params.slug}` },
+    ],
+    links: [{ rel: "canonical", href: `/historias/${params.slug}` }],
+  }),
   component: HistoriaDetalle,
   errorComponent: ({ error, reset }) => {
     const router = useRouter();
@@ -69,8 +40,36 @@ export const Route = createFileRoute("/historias/$slug")({
 });
 
 function HistoriaDetalle() {
-  const { historia } = Route.useLoaderData();
-  const relacionadas = historias
+  const { slug } = Route.useParams();
+  const { data: historia, isLoading } = useQuery({
+    queryKey: ["posts", "public", slug],
+    queryFn: () => getPublicPostBySlug(slug),
+  });
+  const { data: todas = [] } = useQuery({
+    queryKey: ["posts", "public"],
+    queryFn: listPublicPosts,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <p className="font-display uppercase text-sm">Cargando historia…</p>
+      </div>
+    );
+  }
+
+  if (!historia) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <h1 className="font-display text-5xl uppercase">Esa historia no está coronada</h1>
+        <Link to="/historias" className="mt-5 inline-block px-6 py-3 bg-kp-yellow text-kp-ink font-display uppercase border-2 border-kp-ink shadow-brutal-sm">
+          Ver todas las historias
+        </Link>
+      </div>
+    );
+  }
+
+  const relacionadas = todas
     .filter((h) => h.slug !== historia.slug && h.categoria === historia.categoria)
     .slice(0, 3);
 
