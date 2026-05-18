@@ -21,6 +21,47 @@ import {
 // para que las RLS validen el rol editor/super_admin.
 // Para lecturas públicas usamos `supabaseAdmin` (sin sesión disponible).
 
+// Extrae categorías y productos del envelope real devuelto por
+// `obtenerCartaPorLocal`. El envelope trae los productos en `data` (array)
+// y las categorías en `listaCategorias` (raíz). Si `listaCategorias` viene
+// vacío pero los productos traen `categoria_id` + `categoria_descripcion`,
+// derivamos las categorías desde los productos como fallback.
+function extractMenu(menu: unknown) {
+  const env = (menu ?? {}) as Record<string, unknown>;
+  const productosRaw = Array.isArray(env.data)
+    ? (env.data as Record<string, unknown>[])
+    : Array.isArray(menu)
+      ? (menu as Record<string, unknown>[])
+      : [];
+  let categoriasRaw = Array.isArray(env.listaCategorias)
+    ? (env.listaCategorias as Record<string, unknown>[])
+    : [];
+  if (categoriasRaw.length === 0 && productosRaw.length > 0) {
+    const map = new Map<string, Record<string, unknown>>();
+    for (const p of productosRaw) {
+      const id = p["categoria_id"];
+      const desc = p["categoria_descripcion"];
+      if (id == null) continue;
+      const key = String(id);
+      if (!map.has(key)) {
+        map.set(key, {
+          categoria_id: id,
+          categoria_descripcion: desc ?? `Categoría ${key}`,
+          categoria_orden: 0,
+        });
+      }
+    }
+    categoriasRaw = Array.from(map.values());
+  }
+  const categorias = categoriasRaw.map((c) =>
+    normalizeCategoria(c as Parameters<typeof normalizeCategoria>[0]),
+  );
+  const productos = productosRaw.map((p) =>
+    normalizeProduct(p as Parameters<typeof normalizeProduct>[0]),
+  );
+  return { categorias, productos };
+}
+
 export const syncBranches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
