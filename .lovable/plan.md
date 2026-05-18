@@ -1,23 +1,18 @@
 ## Diagnóstico
 
-La sincronización ya está leyendo el menú, pero falla en el `upsert` masivo porque Restaurant.pe devuelve productos con IDs colisionados dentro de la misma sede. Ejemplo real de la API: en Granada, el ID `304` aparece dos veces, una como `productogeneral_id=304` y otra como `producto_id=304` con `productogeneral_id=274`. Postgres no permite que un mismo `INSERT ... ON CONFLICT DO UPDATE` intente actualizar la misma fila dos veces en una sola operación.
+La sincronización funcionó: hay 151 productos únicos por sede en la base. El menú no muestra nada porque **todos los productos están guardados con `disponible = false`**, y la consulta pública filtra solo los disponibles.
+
+Causa raíz: en `src/lib/restaurantpe-normalize.ts`, `normalizeProduct` lee `productogeneral_estado` que la API devuelve como string `"Activo"`/`"Inactivo"`, pero lo pasa por `toBool01` (que solo entiende `"1"`/`"0"`). Resultado: todo queda como `false`.
 
 ## Plan de corrección
 
-1. **Cambiar la normalización del ID del producto**
-   - En `src/lib/restaurantpe-normalize.ts`, priorizar `productogeneral_id` sobre `producto_id` para `rp_id`.
-   - Confirmado contra la API: usando `productogeneral_id` no hay duplicados en las 15 sedes consultadas.
-   - Esto mantiene compatibilidad usando `producto_id` solo como fallback si no existe `productogeneral_id`.
+1. **Arreglar parseo de disponibilidad** en `src/lib/restaurantpe-normalize.ts`:
+   - Cuando `productogeneral_estado` sea string, considerar disponible si vale `"Activo"`, `"activo"`, `"1"` o `"true"`.
+   - Mantener `producto_agotado` como señal prioritaria (si viene, manda).
+   - Mantener fallback `true` cuando no haya ninguna señal.
 
-2. **Blindar el batch antes del upsert**
-   - En `src/lib/rp.functions.ts`, deduplicar categorías por `rp_id` antes del upsert de `rp_categorias`.
-   - Deduplicar productos por `rp_id` antes del upsert de `rp_productos`, para que aunque la API vuelva a mandar datos raros, nunca llegue un batch con claves repetidas.
-   - Usar el array deduplicado también para `incomingIds` y para los conteos devueltos.
+2. **Resincronizar** los 14 sedes desde `/admin/sincronizacion`. El upsert sobrescribirá `disponible` con el valor correcto.
 
-3. **Mantener el diseño y la UI intactos**
-   - No tocar componentes visuales ni clases de UI.
-   - No cambiar rutas externas: lectura sigue por `/readonly/rest` y escritura/stock sigue por `/public/v2/rest`.
+3. **Verificar** con una consulta directa que ahora hay productos con `disponible = true` y que `/menu` los renderiza.
 
-4. **Validación posterior**
-   - Hacer una verificación directa de la API externa para confirmar que la estrategia de ID ya no produce duplicados.
-   - El usuario podrá volver a correr “Sincronizar TODOS los menús” y el resultado esperado será sin el error `ON CONFLICT DO UPDATE command cannot affect row a second time`.
+No se toca diseño, UI, rutas ni esquema de base.
