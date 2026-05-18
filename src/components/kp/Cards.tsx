@@ -1,6 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
+
+// Formato estable SSR/CSR (evita hydration mismatch por locale del runtime).
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+export function formatFecha(iso: string): string {
+  const [y, m] = iso.split("-");
+  const idx = Math.max(0, Math.min(11, parseInt(m, 10) - 1));
+  return `${MESES[idx]} ${y}`;
+}
 import type { Sede, Historia } from "@/types/kp";
 
 export function LocationCard({ sede }: { sede: Sede }) {
