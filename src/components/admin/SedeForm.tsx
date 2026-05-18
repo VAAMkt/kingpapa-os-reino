@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
@@ -8,10 +9,12 @@ import { cn } from "@/lib/utils";
 import {
   CIUDADES_SUGERIDAS,
   createSede,
+  getUsedRpLocalIds,
   slugifySede,
   updateSede,
   type SedeRow,
 } from "@/lib/sedes";
+import { listRpLocales } from "@/lib/rp.functions";
 import { toast } from "sonner";
 
 const SedeSchema = z.object({
