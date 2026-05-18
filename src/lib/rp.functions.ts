@@ -336,60 +336,28 @@ export const syncAllMenus = createServerFn({ method: "POST" })
 
     let totalCats = 0;
     let totalProds = 0;
-    let totalCatsSchema = 0;
-    let totalProdsSchema = 0;
     const errores: string[] = [];
 
-    for (let i = 0; i < targets.length; i++) {
-      const sede = targets[i];
-      try {
-        // El catálogo es por LOCAL, lo traemos para cada sede.
-        const menu = await rpGetCatalogo(sede.rp_local_id!);
-        const { categorias, productos } = extractMenu(menu);
-        totalCatsSchema = categorias.length;
-        totalProdsSchema = productos.length;
-
-        const catIdByRpId = new Map<number, string>();
-        for (const c of categorias) {
-          const { data: up, error } = await supabase
-            .from("rp_categorias")
-            .upsert(
-              { sede_id: sede.id, rp_id: c.rp_id, nombre: c.nombre, orden: c.orden, activo: true },
-              { onConflict: "sede_id,rp_id" },
-            )
-            .select("id, rp_id")
-            .single();
-          if (error) throw new Error(`cat ${c.nombre}: ${error.message}`);
-          catIdByRpId.set(c.rp_id, up.id);
-          totalCats += 1;
+    // Concurrencia limitada: procesar sedes en lotes paralelos.
+    const CONCURRENCY = 4;
+    for (let i = 0; i < targets.length; i += CONCURRENCY) {
+      const batch = targets.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map((sede) =>
+          syncSedeMenu(supabase, { id: sede.id, rp_local_id: sede.rp_local_id })
+            .then((r) => ({ sede, ...r })),
+        ),
+      );
+      for (let j = 0; j < results.length; j++) {
+        const r = results[j];
+        if (r.status === "fulfilled") {
+          totalCats += r.value.categorias;
+          totalProds += r.value.productos;
+        } else {
+          const sede = batch[j];
+          errores.push(`${sede.nombre}: ${(r.reason as Error).message}`);
         }
-        for (const p of productos) {
-          const categoria_id = p.rp_categoria_id != null
-            ? catIdByRpId.get(p.rp_categoria_id) ?? null
-            : null;
-          const { error } = await supabase.from("rp_productos").upsert(
-            {
-              sede_id: sede.id,
-              rp_id: p.rp_id,
-              categoria_id,
-              nombre: p.nombre,
-              descripcion: p.descripcion,
-              precio: p.precio,
-              imagen_url: p.imagen_url,
-              disponible: p.disponible,
-              modificadores: p.modificadores as never,
-              almacen_id: p.almacen_id,
-            },
-            { onConflict: "sede_id,rp_id" },
-          );
-          if (error) throw new Error(`prod ${p.nombre}: ${error.message}`);
-          totalProds += 1;
-        }
-      } catch (e) {
-        errores.push(`${sede.nombre}: ${(e as Error).message}`);
       }
-      // pausa entre sedes para no saturar la API
-      if (i < targets.length - 1) await new Promise((r) => setTimeout(r, 150));
     }
 
     await supabase.from("rp_sync_log").insert({
