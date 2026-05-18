@@ -10,7 +10,7 @@ function MiReinoInicio() {
   return (
     <div className="grid md:grid-cols-2 gap-4">
       <BrutalCard tone="cheese" className="p-5">
-        <BrutalBadge tone="lime">Próximo pedido</BrutalCard>
+        <BrutalBadge tone="lime">Próximo pedido</BrutalBadge>
         <h2 className="font-display text-2xl uppercase mt-2">Repite el último</h2>
         <p className="text-sm mt-1">Aún no tienes pedidos. Empieza por el menú.</p>
         <BrutalLink href="/menu" variant="primary" className="mt-4">Ver menú</BrutalLink>
