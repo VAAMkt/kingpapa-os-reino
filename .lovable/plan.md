@@ -1,105 +1,79 @@
+## Flujo Gangster: Location First + Carrito Drawer
 
-## Objetivo
+### Misión 1 — Normalizador (verificación rápida)
 
-Que la sincronización de Restaurant.pe deje un menú **limpio, ordenado y con fotos** desde el segundo cero, y que `/admin/menu` permita reordenar con flechas/drag-and-drop en lugar de digitar números.
+`src/lib/restaurantpe-normalize.ts` **ya aplica los fallbacks** que pides:
+- Precio: lee `productogeneral_precio` → `lista_presentacion[0].producto_precio` → legacy, y descarta productos con precio 0.
+- Imagen: lee `producto_urlimagen` de la presentación, luego `productogeneral_urlimagen`, y resuelve la URL absoluta con `https://api.restaurant.pe/archivos/` vía `resolveRpImage`.
 
----
+**Acción única:** correr "Sincronizar TODOS los menús" en `/admin/sincronizacion` para reescribir las filas viejas que se guardaron antes del fix. No hay cambios de código en esta misión.
 
-## Paso 1 — Normalizador más estricto (`src/lib/restaurantpe-normalize.ts`)
+### Misión 2 — Location Gate (el peaje)
 
-**Categorías** (`normalizeCategoria`):
-- Ya no asumimos "activo" cuando faltan flags. Exigimos:
-  `activo = categoria_estado === "1" && categoria_delivery === "1"`.
-- Si alguna sede no manda esos campos, sus categorías quedan inactivas (visibles en admin como "Activa = OFF" para que el editor las prenda manualmente). Esto es lo que el usuario pidió: limpieza extrema.
+**Estado global de sede activa** (`src/lib/active-sede.ts`):
+- Hook `useActiveSede()` con `useSyncExternalStore` + `localStorage` (`kp.activeSede = { sedeId, slug, source: 'gps' | 'address', label, ts }`).
+- Helpers `setActiveSede`, `clearActiveSede`, `pickNearestSede(lat, lng, sedes)` usando Haversine contra `sedes.lat/lng` + `cobertura_radio_km`. Devuelve `{ sede, distanciaKm, enCobertura }` o `null` (más cercana fuera de cobertura → pickup).
 
-**Productos** (`normalizeProduct`):
-- Mantener filtro de `producto_delivery === "1"` en `lista_presentacion`.
-- **Extracción de precio mejorada** (combos vs simples):
-  ```
-  precio = productogeneral_precio
-        ?? presentacionActiva.producto_precio
-        ?? productogeneral_preciofijo
-        ?? 0
-  ```
-  Si `precio === 0` → retornar `null` (descartar producto).
-- **Imágenes absolutas**: nuevo helper `resolveRpImage(url)`:
-  - Si `url` está vacía → `null`.
-  - Si empieza con `http://` / `https://` → tal cual.
-  - Si no → `https://api.restaurant.pe/archivos/${url}` (sin doble slash).
-  Aplicar a `producto_urlimagen` y `productogeneral_urlimagen`.
+**Componente `src/components/kp/LocationGate.tsx`**:
+- Usa `Dialog` de shadcn (ya instalado) estilizado con `BrutalCard`. No cerrable hasta elegir.
+- Carga `listPublicSedes`.
+- Botón 1 "Usar mi ubicación" → `navigator.geolocation.getCurrentPosition` → `pickNearestSede` → si `enCobertura` guarda y cierra; si no, muestra tarjeta "Aún no llegamos a tu reino — recoge en {sede}" con CTA `Recoger en sede` o `Cambiar dirección`.
+- Botón 2: input con autocompletado de Google Places (New API), cargando el script con `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` + `loading=async&callback=initKpMaps`. Al seleccionar lugar → tomar `location` → `pickNearestSede`.
+- Persistencia: al éxito, `setActiveSede` y `queryClient.invalidateQueries(["menu"])`.
 
-**Orden nativo**:
-- `normalizeCategoria` y `normalizeProduct` reciben un `index` opcional y devuelven `orden = index` cuando no venga uno explícito del POS. El `.map()` en `extractMenu` pasa el índice.
+**Montaje**: en `src/routes/__root.tsx` dentro del shell, después del header, renderizar `<LocationGate />` que se auto-abre si `useActiveSede() == null` y la ruta es `/` o `/menu`. Header gana un pill "📍 {label} · Cambiar" que reabre el gate.
 
-## Paso 2 — Heredar orden en sync (`src/lib/rp.functions.ts`)
+**Integración con `/menu`**:
+- Reemplazar el `select` de sede por el pill del header + LocationGate.
+- `sedeSlug` viene de `useActiveSede()` (no de search param), eliminando el fallback a `sedes[0]`.
 
-En `syncSedeMenu`:
-- **Categorías**: el upsert ahora sí incluye `orden: c.orden` para filas **nuevas**. Para preservar overrides del admin, hacemos:
-  1. Leer `rp_categorias` existentes (`rp_id, orden`).
-  2. Solo incluir `orden` en el payload para `rp_id` que **no existen** todavía.
-  3. Mismo patrón para `rp_productos`.
-- Así: primera sync hereda orden de RP; sync siguientes respetan el orden manual.
-- Filtros adicionales: descartar productos sin `categoria_id` válido y con `precio === 0` (defensa en profundidad).
+### Misión 3 — Carrito Drawer (el gatillo)
 
-## Paso 3 — UX en `/admin/menu` (`src/routes/admin.menu.tsx`)
+**Estado del carrito** (`src/lib/cart.ts`):
+- `useCart()` con `useSyncExternalStore` + `localStorage` (`kp.cart`).
+- Items: `{ key, productoId, nombre, precio, cantidad, imagen, modificadores?: [] }`.
+- API: `addItem(producto)`, `incItem(key)`, `decItem(key)`, `removeItem(key)`, `clear()`, selectores `subtotal`, `count`.
+- Si el producto trae `modificadores.length > 0`, `addItem` retorna `{ requiereModal: true }`; sino lo agrega y dispara evento `kp:cart-open`.
 
-Reemplazar el input numérico por una experiencia más rápida:
+**Componente `src/components/kp/CartDrawer.tsx`**:
+- `Drawer` de shadcn (vaul) en posición `right` (override con clases — `Drawer direction="right"`).
+- Renderiza header (sede activa), lista de items con +/- y eliminar, subtotal, `BrutalButton` "Ir a pagar" → `navigate('/checkout')` (placeholder route que ya existe o se crea vacía).
+- Escucha `window` event `kp:cart-open` para abrir.
+- Montado en `__root.tsx` junto a `LocationGate`.
 
-1. **Botones ▲ ▼** en cada fila (categorías y productos). Al click:
-   - Calcular el `orden` swap con el vecino y disparar dos mutaciones (mutación batch en un nuevo serverFn `reorderItems`).
-2. **Drag-and-drop con `@dnd-kit/core` + `@dnd-kit/sortable`** sobre la lista de categorías y dentro de cada grupo de productos. Al soltar, recalcular `orden = índice * 10` y enviar batch.
-   - Nuevo serverFn: `reorderAdminCategorias({ updates: [{id, orden}, ...] })` y `reorderAdminProductos(...)`.
-3. **Toggle "Ocultar inactivos"** (estado local). Cuando está ON:
-   - Filtra categorías con `activo === false`.
-   - Filtra productos con `disponible === false`.
-4. **Thumbnails + precio reales** ya están renderizados; sólo asegurar que `imagen_url` ya viene absoluta desde Paso 1 (no se rompe `<img>`).
-5. Mantener el switch de activar/desactivar y el diseño Neubrutalista (BrutalCard, bordes, sombras). No tocamos el sistema de design tokens.
+**Botón flotante** en `__root.tsx` (visible cuando `count > 0`): pill brutal con `🛒 {count} · {cop(subtotal)}` que abre el drawer.
 
-## Paso 4 — Dependencias e instalación
+**`ProductCard` (`src/components/kp/ProductCard.tsx`)**:
+- Cambiar el `onClick` de "Pedir esta corona" para llamar `addItem(producto)`. Si requiere modal → abrir un `ModificadoresDialog` (placeholder simple: por ahora solo agrega sin modificadores y deja `TODO` — los modificadores ya viven en `rp_productos` pero el modal completo queda fuera de este sprint).
+- Mostrar feedback (toast sonner ya disponible) + abrir drawer.
 
-- `bun add @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities`.
-
-## Paso 5 — Verificación
-
-1. Reiniciar /admin/sincronizacion → "Sincronizar TODOS los menús".
-2. Verificar en `/admin/menu`:
-   - Categorías ordenadas igual que el POS.
-   - Productos con thumbnail visible (URL `https://api.restaurant.pe/archivos/...`).
-   - Combos con precio > 0.
-   - Toggle "Ocultar inactivos" funciona.
-   - Drag-and-drop persiste orden tras refrescar.
-3. Verificar `/menu` público sigue mostrando lo mismo (no cambia el contrato).
-
-## Fuera de alcance
-
-- Cambios en el público `/menu` más allá de lo que herede del orden y las imágenes.
-- Editar precios desde admin (sigue siendo source-of-truth POS).
-- Auth, checkout, modificadores, stock.
-
-## Detalles técnicos (sólo para devs)
+### Archivos a crear / editar
 
 ```text
-restaurantpe-normalize.ts
-├── resolveRpImage(url): string|null
-├── normalizeCategoria(raw, index?)
-│   activo = est==="1" && deliv==="1"
-│   orden  = raw.categoria_orden ?? index ?? 0
-└── normalizeProduct(raw, index?)
-    precio = generalPrecio ?? presPrecio ?? generalFijo ?? 0
-    if (precio === 0) return null
-    imagen = resolveRpImage(...)
-    orden  = index ?? 0
-
-rp.functions.ts / syncSedeMenu
-├── leer rp_categorias existentes (rp_id, orden)
-├── upsert cats: incluir `orden` SOLO si rp_id es nuevo
-├── leer rp_productos existentes
-└── upsert prods: incluir `orden` SOLO si rp_id es nuevo
-
-admin.menu.tsx
-├── @dnd-kit Sortable para cats y prods-por-cat
-├── botones ▲▼ como fallback accesible
-├── toggle "Ocultar inactivos" (useState)
-└── nuevos serverFn: reorderAdminCategorias, reorderAdminProductos
-    (validan con z.array({id,orden}).max(500), update batch)
+src/lib/active-sede.ts          NEW  store + haversine + pickNearestSede
+src/lib/cart.ts                 NEW  store carrito + selectores
+src/lib/google-maps-loader.ts   NEW  loader idempotente de Maps JS API
+src/components/kp/LocationGate.tsx   NEW
+src/components/kp/CartDrawer.tsx     NEW
+src/components/kp/CartPill.tsx       NEW  pill flotante
+src/components/kp/ActiveSedePill.tsx NEW  pill en header
+src/routes/__root.tsx           EDIT montar LocationGate, CartDrawer, CartPill, ActiveSedePill
+src/routes/menu.tsx             EDIT consumir useActiveSede, quitar select
+src/components/kp/ProductCard.tsx    EDIT addItem + toast
+src/lib/menu.ts                 EDIT exponer `modificadores` y `imagen` raw al ProductCard (Producto necesita campo opcional)
+src/types/kp.ts                 EDIT añadir `modificadores?: NormalizedModifierGroup[]` opcional a Producto
 ```
+
+No se requieren migraciones (la tabla `sedes` ya tiene `lat`, `lng`, `cobertura_radio_km`). No se tocan server functions ni RLS.
+
+### Notas técnicas
+
+- **Maps key**: se usa la `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` (referrer-restricted). El proyecto ya tiene el connector Google Maps. Sin geocoding server-side por ahora — `Place` devuelve `location` directamente.
+- **SSR**: ambos stores leen `localStorage` solo dentro de `useSyncExternalStore` subscribe/getSnapshot con guardas `typeof window !== 'undefined'` (devuelven `null` en SSR). El Gate y el Drawer no se renderizan en SSR (return null si `!mounted`).
+- **Sin pasarela**: el botón "Ir a pagar" navega a `/checkout` — si no existe se crea una página stub con resumen y "Próximamente pasarela / WhatsApp".
+- **Diseño**: 100% tokens brutales existentes (`BrutalCard`, `BrutalButton`, `BrutalChip`). Sin colores hardcodeados.
+
+### Fuera de alcance (siguiente sprint)
+- Modal de modificadores completo (adiciones, salsas) — actualmente solo se agrega el producto base.
+- Checkout real con pasarela y `registrarDelivery` a Restaurant.pe.
+- Editor de polígonos de cobertura por sede (hoy usamos radio circular `cobertura_radio_km`).

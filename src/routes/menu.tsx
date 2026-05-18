@@ -9,6 +9,8 @@ import { ProductCard } from "@/components/kp/ProductCard";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { listPublicSedes } from "@/lib/sedes";
 import { rpProductoToProducto, buildCategorias, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
+import { useActiveSede } from "@/lib/active-sede";
+import { ActiveSedePill } from "@/components/kp/ActiveSedePill";
 
 export const Route = createFileRoute("/menu")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -34,7 +36,8 @@ function MenuPage() {
 
   const sedesQ = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
   const sedes = sedesQ.data ?? [];
-  const sedeSlug = sedeParam ?? sedes[0]?.slug;
+  const activeSede = useActiveSede();
+  const sedeSlug = sedeParam ?? activeSede?.slug ?? sedes[0]?.slug;
 
   const fetchMenu = useServerFn(getMenuForSede);
   const menuQ = useQuery({
@@ -88,25 +91,23 @@ function MenuPage() {
         <OrderRouter />
       </section>
 
-      {/* SELECTOR SEDE */}
-      {sedes.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 md:px-6">
-          <label className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <span className="font-display uppercase text-sm">Sede:</span>
-            <select
-              value={sedeSlug ?? ""}
-              onChange={(e) => navigate({ search: { sede: e.target.value } })}
-              className="border-2 border-kp-ink bg-kp-cheese shadow-brutal-sm px-3 py-2 font-display uppercase text-sm"
-            >
-              {sedes.map((s) => (
-                <option key={s.id} value={s.slug}>
-                  {s.nombre} · {s.ciudad}
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
-      )}
+      {/* SEDE ACTIVA */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6 flex items-center gap-3 flex-wrap">
+        <ActiveSedePill />
+        {sedes.length > 1 && (
+          <select
+            value={sedeSlug ?? ""}
+            onChange={(e) => navigate({ search: { sede: e.target.value } })}
+            className="border-2 border-kp-ink bg-kp-cheese shadow-brutal-sm px-3 py-2 font-display uppercase text-xs"
+          >
+            {sedes.map((s) => (
+              <option key={s.id} value={s.slug}>
+                {s.nombre} · {s.ciudad}
+              </option>
+            ))}
+          </select>
+        )}
+      </section>
 
       {/* FILTROS */}
       {categoriasUI.length > 1 && (
