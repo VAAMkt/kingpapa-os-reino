@@ -103,6 +103,7 @@ export type NormalizedProducto = {
 };
 
 export function normalizeProduct(raw: RpProducto): NormalizedProducto {
+  const r = raw as Record<string, unknown>;
   const rpId = raw.producto_id ?? raw.productogeneral_id;
   const nombre =
     (raw.producto_descripcion as string | undefined) ??
@@ -110,14 +111,29 @@ export function normalizeProduct(raw: RpProducto): NormalizedProducto {
     "";
   const precio = raw.producto_precio ?? raw.productogeneral_preciofijo ?? 0;
   const mods = raw.modificadores ?? raw.listaModificadores;
+  const descripcionLarga =
+    (raw.producto_descripcion_larga as string | undefined) ??
+    (r["productogeneral_descripcionweb"] as string | undefined) ??
+    null;
+  const imagen =
+    (raw.producto_imagen as string | undefined) ??
+    (r["productogeneral_urlimagen"] as string | undefined) ??
+    null;
+  const estado = r["productogeneral_estado"];
+  const disponible =
+    raw.producto_agotado != null
+      ? !toBool01(raw.producto_agotado)
+      : estado != null
+        ? toBool01(estado)
+        : true;
   return {
     rp_id: toInt(rpId),
     rp_categoria_id: raw.categoria_id != null ? toInt(raw.categoria_id) : null,
     nombre: String(nombre),
-    descripcion: (raw.producto_descripcion_larga as string | undefined) ?? null,
+    descripcion: descripcionLarga,
     precio: toNum(precio),
-    imagen_url: (raw.producto_imagen as string | undefined) ?? null,
-    disponible: !toBool01(raw.producto_agotado),
+    imagen_url: imagen && String(imagen).trim() !== "" ? String(imagen) : null,
+    disponible,
     modificadores: normalizeModifiers(mods),
     almacen_id: raw.almacen_id != null ? toInt(raw.almacen_id) : null,
   };

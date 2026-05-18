@@ -87,10 +87,35 @@ export async function rpGetCatalogo(localId: string | number): Promise<RpMenuDat
     throw new Error("rpGetCatalogo requiere localId (rp_local_id de la sede)");
   }
   const dominioId = getDominioId();
-  return rpFetch<RpMenuData>(
-    `/delivery/obtenerCartaPorLocal/${dominioId}/${localId}?quipupos=0`,
-    { base: "read" },
-  );
+  // Para el catálogo necesitamos el envelope completo: `data` trae los
+  // productos como array directo, pero `listaCategorias` vive en la raíz
+  // del JSON (al mismo nivel que `data`). Si usáramos rpFetch perderíamos
+  // las categorías. Hacemos el fetch manualmente y devolvemos el envelope.
+  const url = `${READ_BASE}/delivery/obtenerCartaPorLocal/${dominioId}/${localId}?quipupos=0`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Authorization: authHeader(),
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) {
+      throw new Error(
+        `Restaurant.pe ${res.status} ${res.statusText} en obtenerCartaPorLocal/${dominioId}/${localId}`,
+      );
+    }
+    const json = (await res.json()) as RpMenuData & { tipo?: string | number; mensajes?: string[] };
+    if (String(json.tipo) !== "1") {
+      const msg = json.mensajes?.join("; ") || `Error tipo=${json.tipo}`;
+      throw new Error(`Restaurant.pe: ${msg}`);
+    }
+    return json;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function rpGetStock(input: {
