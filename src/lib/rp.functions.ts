@@ -91,7 +91,10 @@ async function syncSedeMenu(
     return { categorias: 0, productos: 0 };
   }
 
-  // 1) Upsert categorias_master por rp_id. Solo seteamos `orden` para filas nuevas.
+  // 1) Upsert categorias_master por rp_id.
+  //    - Filas NUEVAS: nombre + orden viene del POS.
+  //    - Filas EXISTENTES: NO pisamos nombre (el admin puede haberlo renombrado),
+  //      solo refrescamos updated_at para que conste la sync.
   const catIdByRpId = new Map<number, string>();
   if (categorias.length > 0) {
     const rpIds = categorias.map((c) => c.rp_id);
@@ -101,11 +104,13 @@ async function syncSedeMenu(
       .in("rp_id", rpIds);
     const existing = new Set((existingCats ?? []).map((r: { rp_id: number }) => r.rp_id));
     const rows = categorias.map((c) => {
-      const base: Record<string, unknown> = {
-        rp_id: c.rp_id,
-        nombre: c.nombre,
-      };
-      if (!existing.has(c.rp_id)) base.orden = c.orden;
+      const base: Record<string, unknown> = { rp_id: c.rp_id };
+      if (!existing.has(c.rp_id)) {
+        base.nombre = c.nombre;
+        base.orden = c.orden;
+      } else {
+        base.updated_at = new Date().toISOString();
+      }
       return base;
     });
     const { data: upsertedCats, error: catErr } = await supabase
@@ -118,8 +123,10 @@ async function syncSedeMenu(
     }
   }
 
-  // 2) Upsert productos_master por rp_id. Solo seteamos `orden`/`disponible`
-  //    para filas nuevas — no pisamos toggles manuales en filas existentes.
+  // 2) Upsert productos_master por rp_id.
+  //    - Filas NUEVAS: TODO viene del POS (nombre, descripcion, precio, imagen, ...).
+  //    - Filas EXISTENTES: NO pisamos nombre/descripcion/orden/disponible (los edita el admin).
+  //      SÍ refrescamos campos que vienen del POS: precio, imagen_url, modificadores, almacen_id, categoria.
   const prodIdByRpId = new Map<number, string>();
   if (productos.length > 0) {
     const rpIds = productos.map((p) => p.rp_id);
@@ -135,8 +142,6 @@ async function syncSedeMenu(
           p.rp_categoria_id != null
             ? catIdByRpId.get(p.rp_categoria_id) ?? null
             : null,
-        nombre: p.nombre,
-        descripcion: p.descripcion,
         precio: p.precio,
         imagen_url: p.imagen_url,
         modificadores: p.modificadores,
@@ -144,6 +149,8 @@ async function syncSedeMenu(
         almacen_id: p.almacen_id,
       };
       if (!existing.has(p.rp_id)) {
+        base.nombre = p.nombre;
+        base.descripcion = p.descripcion;
         base.orden = p.orden;
         base.disponible = p.disponible;
       }
