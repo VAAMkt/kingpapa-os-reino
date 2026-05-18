@@ -91,18 +91,29 @@ async function syncSedeMenu(
     return { categorias: 0, productos: 0 };
   }
 
-  // 1) Upsert categorías SIN sobrescribir `orden` ni `activo` (los gestiona el admin).
-  //    Para filas nuevas, `orden` default 0 y `activo` default true.
+  // 1) Upsert categorías. Heredamos `orden` del POS SOLO para filas nuevas,
+  //    para no pisar el reorden manual del admin.
   const catIdByRpId = new Map<number, string>();
   if (categorias.length > 0) {
+    const { data: existingCats } = await supabase
+      .from("rp_categorias")
+      .select("rp_id")
+      .eq("sede_id", sede.id);
+    const existingCatIds = new Set(
+      (existingCats ?? []).map((r) => r.rp_id as number),
+    );
     const { data: upsertedCats, error: catErr } = await supabase
       .from("rp_categorias")
       .upsert(
-        categorias.map((c) => ({
-          sede_id: sede.id,
-          rp_id: c.rp_id,
-          nombre: c.nombre,
-        })),
+        categorias.map((c) => {
+          const base: Record<string, unknown> = {
+            sede_id: sede.id,
+            rp_id: c.rp_id,
+            nombre: c.nombre,
+          };
+          if (!existingCatIds.has(c.rp_id)) base.orden = c.orden;
+          return base;
+        }),
         { onConflict: "sede_id,rp_id" },
       )
       .select("id, rp_id");
@@ -112,23 +123,34 @@ async function syncSedeMenu(
     }
   }
 
-  // 2) Upsert productos. NO sobrescribir `orden` ni `disponible` manualmente
-  //    fijados por el admin: `disponible` se refleja desde el POS (agotado), y
-  //    `orden` se omite para preservar el manual.
+  // 2) Upsert productos. Heredamos `orden` del POS SOLO para filas nuevas.
   if (productos.length > 0) {
-    const rows = productos.map((p) => ({
-      sede_id: sede.id,
-      rp_id: p.rp_id,
-      categoria_id:
-        p.rp_categoria_id != null ? catIdByRpId.get(p.rp_categoria_id) ?? null : null,
-      nombre: p.nombre,
-      descripcion: p.descripcion,
-      precio: p.precio,
-      imagen_url: p.imagen_url,
-      disponible: p.disponible,
-      modificadores: p.modificadores as never,
-      almacen_id: p.almacen_id,
-    }));
+    const { data: existingProds } = await supabase
+      .from("rp_productos")
+      .select("rp_id")
+      .eq("sede_id", sede.id);
+    const existingProdIds = new Set(
+      (existingProds ?? []).map((r) => r.rp_id as number),
+    );
+    const rows = productos.map((p) => {
+      const base: Record<string, unknown> = {
+        sede_id: sede.id,
+        rp_id: p.rp_id,
+        categoria_id:
+          p.rp_categoria_id != null
+            ? catIdByRpId.get(p.rp_categoria_id) ?? null
+            : null,
+        nombre: p.nombre,
+        descripcion: p.descripcion,
+        precio: p.precio,
+        imagen_url: p.imagen_url,
+        disponible: p.disponible,
+        modificadores: p.modificadores,
+        almacen_id: p.almacen_id,
+      };
+      if (!existingProdIds.has(p.rp_id)) base.orden = p.orden;
+      return base;
+    });
     const { error: prodErr } = await supabase
       .from("rp_productos")
       .upsert(rows, { onConflict: "sede_id,rp_id" });
