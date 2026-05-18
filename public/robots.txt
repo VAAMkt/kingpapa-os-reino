@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /mi-reino
+Disallow: /no-autorizado
+Disallow: /reset-password
+
+Sitemap: https://kingpapacali.com/sitemap.xml
