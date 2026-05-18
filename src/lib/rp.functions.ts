@@ -301,8 +301,9 @@ export const getMenuForSede = createServerFn({ method: "GET" })
       .select(
         `disponible, precio_override, stock_cache,
          productos_master!inner (
-           id, rp_id, categoria_id, nombre, descripcion, precio,
-           imagen_url, disponible, almacen_id, orden
+           id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio,
+           imagen_url, disponible, almacen_id, orden,
+           destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom
          )`,
       )
       .eq("sede_id", sede.id)
@@ -318,12 +319,19 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         rp_id: number;
         categoria_id: string | null;
         nombre: string;
+        nombre_override: string | null;
         descripcion: string | null;
+        descripcion_override: string | null;
         precio: number | string;
         imagen_url: string | null;
         disponible: boolean;
         almacen_id: number | null;
         orden: number;
+        destacado: boolean;
+        es_nuevo: boolean;
+        es_mas_vendido: boolean;
+        es_recomendado: boolean;
+        etiqueta_custom: string | null;
       };
     };
 
@@ -335,13 +343,18 @@ export const getMenuForSede = createServerFn({ method: "GET" })
           id: pm.id,
           rp_id: pm.rp_id,
           categoria_id: pm.categoria_id,
-          nombre: pm.nombre,
-          descripcion: pm.descripcion,
+          nombre: pm.nombre_override ?? pm.nombre,
+          descripcion: pm.descripcion_override ?? pm.descripcion,
           precio: r.precio_override ?? pm.precio,
           imagen_url: pm.imagen_url,
           disponible: true,
           almacen_id: pm.almacen_id,
           orden: pm.orden,
+          destacado: pm.destacado,
+          es_nuevo: pm.es_nuevo,
+          es_mas_vendido: pm.es_mas_vendido,
+          es_recomendado: pm.es_recomendado,
+          etiqueta_custom: pm.etiqueta_custom,
         };
       })
       .sort((a, b) => a.orden - b.orden);
@@ -354,12 +367,23 @@ export const getMenuForSede = createServerFn({ method: "GET" })
     if (catIds.length > 0) {
       const { data: cats, error: catErr } = await supabaseAdmin
         .from("categorias_master")
-        .select("id, rp_id, nombre, orden")
+        .select("id, rp_id, nombre, nombre_override, orden")
         .in("id", catIds)
         .eq("activo", true)
         .order("orden");
       if (catErr) throw new Error(catErr.message);
-      categorias = (cats ?? []) as typeof categorias;
+      categorias = ((cats ?? []) as Array<{
+        id: string;
+        rp_id: number;
+        nombre: string;
+        nombre_override: string | null;
+        orden: number;
+      }>).map((c) => ({
+        id: c.id,
+        rp_id: c.rp_id,
+        nombre: c.nombre_override ?? c.nombre,
+        orden: c.orden,
+      }));
     }
 
     return {
