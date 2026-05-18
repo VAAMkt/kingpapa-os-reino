@@ -53,16 +53,17 @@ function extractMenu(menu: unknown) {
     }
     categoriasRaw = Array.from(map.values());
   }
-  const categorias = categoriasRaw
-    .map((c) => normalizeCategoria(c as Parameters<typeof normalizeCategoria>[0]))
-    .filter((c) => c.activo);
+  const categoriasAll = categoriasRaw.map((c, i) =>
+    normalizeCategoria(c as Parameters<typeof normalizeCategoria>[0], i),
+  );
+  const categorias = categoriasAll.filter((c) => c.activo);
   const activeCatIds = new Set(categorias.map((c) => c.rp_id));
   const productos = productosRaw
-    .map((p) => normalizeProduct(p as Parameters<typeof normalizeProduct>[0]))
+    .map((p, i) =>
+      normalizeProduct(p as Parameters<typeof normalizeProduct>[0], i),
+    )
     .filter((p): p is NonNullable<typeof p> => p !== null)
-    .filter(
-      (p) => p.rp_categoria_id == null || activeCatIds.has(p.rp_categoria_id),
-    );
+    .filter((p) => p.rp_categoria_id != null && activeCatIds.has(p.rp_categoria_id));
   return { categorias, productos };
 }
 
