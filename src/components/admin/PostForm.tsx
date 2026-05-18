@@ -190,7 +190,9 @@ export function PostForm({ initial }: { initial?: PostRow }) {
         </div>
 
         <div className={fieldCls}>
-          <label className={labelCls}>Extracto</label>
+          <label className={labelCls}>
+            Extracto <span className="text-[10px] text-kp-ink/60">(se usa como meta description SEO)</span>
+          </label>
           <textarea
             rows={3}
             value={form.extracto}
@@ -198,7 +200,31 @@ export function PostForm({ initial }: { initial?: PostRow }) {
             className={textareaCls}
             maxLength={500}
           />
+          <div className="flex justify-between text-[10px] font-mono">
+            <span
+              className={
+                (form.extracto?.length ?? 0) < 120 || (form.extracto?.length ?? 0) > 158
+                  ? "text-kp-red"
+                  : "text-kp-lime"
+              }
+            >
+              {form.extracto?.length ?? 0} / 158 chars ideales para Google
+            </span>
+            <span className="text-kp-ink/50">{(form.titulo?.length ?? 0)} / 60 título</span>
+          </div>
           {errors.extracto && <p className="text-xs text-kp-red">{errors.extracto}</p>}
+        </div>
+
+        {/* Vista previa Google */}
+        <div className="border-2 border-kp-ink/20 bg-white p-3 rounded-sm">
+          <div className="text-[10px] uppercase font-display text-kp-ink/50 mb-1">Vista previa en Google</div>
+          <div className="text-[#1a0dab] text-base leading-tight truncate">
+            {(form.titulo || "Título de la historia").slice(0, 60)} — KINGPAPA
+          </div>
+          <div className="text-[#006621] text-xs">kingpapacali.com › historias › {form.slug || "slug"}</div>
+          <div className="text-[#4d5156] text-xs mt-1 line-clamp-2">
+            {form.extracto || "El extracto aparecerá aquí como descripción en los resultados de búsqueda."}
+          </div>
         </div>
       </BrutalCard>
 
