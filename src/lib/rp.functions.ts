@@ -1,6 +1,10 @@
 // Server functions para sincronización y consulta del catálogo Restaurant.pe.
 // REGLA tss-serverfn-split: este archivo SOLO contiene declaraciones de
 // createServerFn + sus imports. Helpers van en *.server.ts.
+//
+// FASE 3 — Catálogo Maestro Global:
+//   - categorias_master / productos_master: una sola fila por rp_id (marca).
+//   - sede_producto_overrides: visibilidad/stock por (sede, producto).
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -17,15 +21,7 @@ import {
   normalizeProduct,
 } from "@/lib/restaurantpe-normalize";
 
-// Para mutaciones usamos `context.supabase` (cliente del usuario autenticado)
-// para que las RLS validen el rol editor/super_admin.
-// Para lecturas públicas usamos `supabaseAdmin` (sin sesión disponible).
-
-// Extrae categorías y productos del envelope real devuelto por
-// `obtenerCartaPorLocal`. El envelope trae los productos en `data` (array)
-// y las categorías en `listaCategorias` (raíz). Si `listaCategorias` viene
-// vacío pero los productos traen `categoria_id` + `categoria_descripcion`,
-// derivamos las categorías desde los productos como fallback.
+// Extrae categorías y productos del envelope de obtenerCartaPorLocal.
 function extractMenu(menu: unknown) {
   const env = (menu ?? {}) as Record<string, unknown>;
   const productosRaw = Array.isArray(env.data)
@@ -67,6 +63,10 @@ function extractMenu(menu: unknown) {
   return { categorias, productos };
 }
 
+// Sincroniza el menú de UNA sede contra las tablas maestras + overrides.
+// - Upsert global por rp_id en categorias_master/productos_master (no pisa orden/activo manuales).
+// - Upsert per-sede en sede_producto_overrides (no pisa disponible manual de filas existentes).
+// - Marca como no disponibles los overrides cuyos productos ya no vienen en el catálogo.
 async function syncSedeMenu(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   sede: { id: string; rp_local_id: number | null },
@@ -91,50 +91,45 @@ async function syncSedeMenu(
     return { categorias: 0, productos: 0 };
   }
 
-  // 1) Upsert categorías. Heredamos `orden` del POS SOLO para filas nuevas,
-  //    para no pisar el reorden manual del admin.
+  // 1) Upsert categorias_master por rp_id. Solo seteamos `orden` para filas nuevas.
   const catIdByRpId = new Map<number, string>();
   if (categorias.length > 0) {
+    const rpIds = categorias.map((c) => c.rp_id);
     const { data: existingCats } = await supabase
-      .from("rp_categorias")
+      .from("categorias_master")
       .select("rp_id")
-      .eq("sede_id", sede.id);
-    const existingCatIds = new Set(
-      (existingCats ?? []).map((r) => r.rp_id as number),
-    );
+      .in("rp_id", rpIds);
+    const existing = new Set((existingCats ?? []).map((r: { rp_id: number }) => r.rp_id));
+    const rows = categorias.map((c) => {
+      const base: Record<string, unknown> = {
+        rp_id: c.rp_id,
+        nombre: c.nombre,
+      };
+      if (!existing.has(c.rp_id)) base.orden = c.orden;
+      return base;
+    });
     const { data: upsertedCats, error: catErr } = await supabase
-      .from("rp_categorias")
-      .upsert(
-        categorias.map((c) => {
-          const base: Record<string, unknown> = {
-            sede_id: sede.id,
-            rp_id: c.rp_id,
-            nombre: c.nombre,
-          };
-          if (!existingCatIds.has(c.rp_id)) base.orden = c.orden;
-          return base;
-        }) as never,
-        { onConflict: "sede_id,rp_id" },
-      )
+      .from("categorias_master")
+      .upsert(rows as never, { onConflict: "rp_id" })
       .select("id, rp_id");
     if (catErr) throw new Error(`categorías: ${catErr.message}`);
-    for (const row of upsertedCats ?? []) {
-      catIdByRpId.set(row.rp_id as number, row.id as string);
+    for (const row of (upsertedCats ?? []) as { id: string; rp_id: number }[]) {
+      catIdByRpId.set(row.rp_id, row.id);
     }
   }
 
-  // 2) Upsert productos. Heredamos `orden` del POS SOLO para filas nuevas.
+  // 2) Upsert productos_master por rp_id. Solo seteamos `orden`/`disponible`
+  //    para filas nuevas — no pisamos toggles manuales en filas existentes.
+  const prodIdByRpId = new Map<number, string>();
   if (productos.length > 0) {
+    const rpIds = productos.map((p) => p.rp_id);
     const { data: existingProds } = await supabase
-      .from("rp_productos")
+      .from("productos_master")
       .select("rp_id")
-      .eq("sede_id", sede.id);
-    const existingProdIds = new Set(
-      (existingProds ?? []).map((r) => r.rp_id as number),
-    );
+      .in("rp_id", rpIds);
+    const existing = new Set((existingProds ?? []).map((r: { rp_id: number }) => r.rp_id));
     const rows = productos.map((p) => {
       const base: Record<string, unknown> = {
-        sede_id: sede.id,
         rp_id: p.rp_id,
         categoria_id:
           p.rp_categoria_id != null
@@ -144,28 +139,57 @@ async function syncSedeMenu(
         descripcion: p.descripcion,
         precio: p.precio,
         imagen_url: p.imagen_url,
-        disponible: p.disponible,
         modificadores: p.modificadores,
         modificadores_raw: p.modificadores_raw,
         almacen_id: p.almacen_id,
       };
-      if (!existingProdIds.has(p.rp_id)) base.orden = p.orden;
+      if (!existing.has(p.rp_id)) {
+        base.orden = p.orden;
+        base.disponible = p.disponible;
+      }
       return base;
     });
-    const { error: prodErr } = await supabase
-      .from("rp_productos")
-      .upsert(rows as never, { onConflict: "sede_id,rp_id" });
+    const { data: upsertedProds, error: prodErr } = await supabase
+      .from("productos_master")
+      .upsert(rows as never, { onConflict: "rp_id" })
+      .select("id, rp_id");
     if (prodErr) throw new Error(`productos: ${prodErr.message}`);
+    for (const row of (upsertedProds ?? []) as { id: string; rp_id: number }[]) {
+      prodIdByRpId.set(row.rp_id, row.id);
+    }
   }
 
-  // 3) Marcar como no disponibles los que ya no vienen en el catálogo.
-  const incomingIds = productos.map((p) => p.rp_id);
-  if (incomingIds.length > 0) {
-    await supabase
-      .from("rp_productos")
-      .update({ disponible: false })
+  // 3) Upsert overrides: una fila por (sede, producto) que vino en el catálogo.
+  //    Solo seteamos `disponible=true` para filas NUEVAS — respetamos el toggle manual.
+  if (prodIdByRpId.size > 0) {
+    const productIds = Array.from(prodIdByRpId.values());
+    const { data: existingOvr } = await supabase
+      .from("sede_producto_overrides")
+      .select("producto_id")
       .eq("sede_id", sede.id)
-      .not("rp_id", "in", `(${incomingIds.join(",")})`);
+      .in("producto_id", productIds);
+    const existingProdIds = new Set(
+      (existingOvr ?? []).map((r: { producto_id: string }) => r.producto_id),
+    );
+    const ovrRows = productIds.map((pid) => {
+      const base: Record<string, unknown> = {
+        sede_id: sede.id,
+        producto_id: pid,
+      };
+      if (!existingProdIds.has(pid)) base.disponible = true;
+      return base;
+    });
+    const { error: ovrErr } = await supabase
+      .from("sede_producto_overrides")
+      .upsert(ovrRows as never, { onConflict: "sede_id,producto_id" });
+    if (ovrErr) throw new Error(`overrides: ${ovrErr.message}`);
+
+    // 4) Productos que YA NO vienen en el catálogo de esta sede -> override.disponible=false
+    await supabase
+      .from("sede_producto_overrides")
+      .update({ disponible: false } as never)
+      .eq("sede_id", sede.id)
+      .not("producto_id", "in", `(${productIds.map((id) => `"${id}"`).join(",")})`);
   }
 
   return { categorias: categorias.length, productos: productos.length };
@@ -245,13 +269,11 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
       mensaje: `Sincronizadas ${categorias} categorías y ${productos} productos.`,
     });
 
-    return {
-      ok: true,
-      categorias,
-      productos,
-    };
+    return { ok: true, categorias, productos };
   });
 
+// Devuelve menú para una sede: JOIN productos_master ⨝ sede_producto_overrides.
+// Mantiene el mismo shape `{ sede, categorias, productos }` que la UI ya consume.
 export const getMenuForSede = createServerFn({ method: "GET" })
   .inputValidator((input) =>
     z.object({ sedeSlug: z.string().min(1).max(80) }).parse(input),
@@ -266,26 +288,77 @@ export const getMenuForSede = createServerFn({ method: "GET" })
     if (sedeErr) throw new Error(sedeErr.message);
     if (!sede) return { sede: null, categorias: [], productos: [] };
 
-    const [{ data: categorias }, { data: productos }] = await Promise.all([
-      supabaseAdmin
-        .from("rp_categorias")
+    // Overrides disponibles para esta sede + producto maestro activo.
+    const { data: ovr, error: ovrErr } = await supabaseAdmin
+      .from("sede_producto_overrides")
+      .select(
+        `disponible, precio_override, stock_cache,
+         productos_master!inner (
+           id, rp_id, categoria_id, nombre, descripcion, precio,
+           imagen_url, disponible, almacen_id, orden
+         )`,
+      )
+      .eq("sede_id", sede.id)
+      .eq("disponible", true);
+    if (ovrErr) throw new Error(ovrErr.message);
+
+    type OvrRow = {
+      disponible: boolean;
+      precio_override: number | null;
+      stock_cache: number | null;
+      productos_master: {
+        id: string;
+        rp_id: number;
+        categoria_id: string | null;
+        nombre: string;
+        descripcion: string | null;
+        precio: number | string;
+        imagen_url: string | null;
+        disponible: boolean;
+        almacen_id: number | null;
+        orden: number;
+      };
+    };
+
+    const productos = ((ovr ?? []) as unknown as OvrRow[])
+      .filter((r) => r.productos_master?.disponible)
+      .map((r) => {
+        const pm = r.productos_master;
+        return {
+          id: pm.id,
+          rp_id: pm.rp_id,
+          categoria_id: pm.categoria_id,
+          nombre: pm.nombre,
+          descripcion: pm.descripcion,
+          precio: r.precio_override ?? pm.precio,
+          imagen_url: pm.imagen_url,
+          disponible: true,
+          almacen_id: pm.almacen_id,
+          orden: pm.orden,
+        };
+      })
+      .sort((a, b) => a.orden - b.orden);
+
+    // Categorías que efectivamente tienen productos visibles en esta sede.
+    const catIds = Array.from(
+      new Set(productos.map((p) => p.categoria_id).filter((x): x is string => !!x)),
+    );
+    let categorias: Array<{ id: string; rp_id: number; nombre: string; orden: number }> = [];
+    if (catIds.length > 0) {
+      const { data: cats, error: catErr } = await supabaseAdmin
+        .from("categorias_master")
         .select("id, rp_id, nombre, orden")
-        .eq("sede_id", sede.id)
+        .in("id", catIds)
         .eq("activo", true)
-        .order("orden"),
-      supabaseAdmin
-        .from("rp_productos")
-        .select(
-          "id, rp_id, categoria_id, nombre, descripcion, precio, imagen_url, disponible, modificadores, almacen_id",
-        )
-        .eq("sede_id", sede.id)
-        .order("orden"),
-    ]);
+        .order("orden");
+      if (catErr) throw new Error(catErr.message);
+      categorias = (cats ?? []) as typeof categorias;
+    }
 
     return {
       sede: { id: sede.id, slug: sede.slug, nombre: sede.nombre, ciudad: sede.ciudad },
-      categorias: categorias ?? [],
-      productos: productos ?? [],
+      categorias,
+      productos,
     };
   });
 
@@ -307,12 +380,16 @@ export const checkStockLive = createServerFn({ method: "POST" })
     if (!sede?.rp_local_id) throw new Error("Sede sin rp_local_id");
 
     const { data: productos } = await supabaseAdmin
-      .from("rp_productos")
+      .from("productos_master")
       .select("id, rp_id, almacen_id, nombre")
       .in("id", data.productIds);
 
     const results: Array<{ id: string; rp_id: number; stock: number | null; ok: boolean }> = [];
-    for (const p of productos ?? []) {
+    for (const p of (productos ?? []) as Array<{
+      id: string;
+      rp_id: number;
+      almacen_id: number | null;
+    }>) {
       if (!p.almacen_id) {
         results.push({ id: p.id, rp_id: p.rp_id, stock: null, ok: true });
         continue;
@@ -369,7 +446,7 @@ export const syncAllMenus = createServerFn({ method: "POST" })
       .not("rp_local_id", "is", null);
     if (sedesErr) throw new Error(sedesErr.message);
 
-    const targets = (sedes ?? []).filter((s) => s.rp_local_id != null);
+    const targets = (sedes ?? []).filter((s: { rp_local_id: number | null }) => s.rp_local_id != null);
     if (targets.length === 0) {
       return { ok: true, sedes: 0, categorias: 0, productos: 0, errores: [] as string[] };
     }
@@ -378,12 +455,13 @@ export const syncAllMenus = createServerFn({ method: "POST" })
     let totalProds = 0;
     const errores: string[] = [];
 
-    // Concurrencia limitada: procesar sedes en lotes paralelos.
-    const CONCURRENCY = 4;
+    // Las sedes comparten tablas master ahora — bajamos a CONCURRENCY=2
+    // para evitar contención en upserts simultáneos por rp_id.
+    const CONCURRENCY = 2;
     for (let i = 0; i < targets.length; i += CONCURRENCY) {
       const batch = targets.slice(i, i + CONCURRENCY);
       const results = await Promise.allSettled(
-        batch.map((sede) =>
+        batch.map((sede: { id: string; nombre: string; rp_local_id: number | null }) =>
           syncSedeMenu(supabase, { id: sede.id, rp_local_id: sede.rp_local_id })
             .then((r) => ({ sede, ...r })),
         ),
@@ -419,25 +497,22 @@ export const syncAllMenus = createServerFn({ method: "POST" })
     };
   });
 
+// ========== ADMIN MENU (catálogo global, sin sede) ==========
+
 export const listAdminMenu = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ sedeId: z.string().uuid() }).parse(input),
-  )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ context }) => {
     const { supabase } = context;
     const [{ data: categorias, error: catErr }, { data: productos, error: prodErr }] =
       await Promise.all([
         supabase
-          .from("rp_categorias")
+          .from("categorias_master")
           .select("id, rp_id, nombre, orden, activo")
-          .eq("sede_id", data.sedeId)
           .order("orden")
           .order("nombre"),
         supabase
-          .from("rp_productos")
+          .from("productos_master")
           .select("id, rp_id, categoria_id, nombre, precio, imagen_url, disponible, orden")
-          .eq("sede_id", data.sedeId)
           .order("orden")
           .order("nombre"),
       ]);
@@ -458,13 +533,13 @@ export const updateAdminCategoria = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const patch: { orden?: number; activo?: boolean } = {};
+    const patch: Record<string, unknown> = {};
     if (data.orden !== undefined) patch.orden = data.orden;
     if (data.activo !== undefined) patch.activo = data.activo;
     if (Object.keys(patch).length === 0) return { ok: true };
     const { error } = await context.supabase
-      .from("rp_categorias")
-      .update(patch)
+      .from("categorias_master")
+      .update(patch as never)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -482,13 +557,13 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const patch: { orden?: number; disponible?: boolean } = {};
+    const patch: Record<string, unknown> = {};
     if (data.orden !== undefined) patch.orden = data.orden;
     if (data.disponible !== undefined) patch.disponible = data.disponible;
     if (Object.keys(patch).length === 0) return { ok: true };
     const { error } = await context.supabase
-      .from("rp_productos")
-      .update(patch)
+      .from("productos_master")
+      .update(patch as never)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -511,10 +586,9 @@ export const reorderAdminCategorias = createServerFn({ method: "POST" })
   .inputValidator((input) => reorderInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    // No tenemos rpc batch — actualizamos en paralelo.
     const results = await Promise.all(
       data.updates.map((u) =>
-        supabase.from("rp_categorias").update({ orden: u.orden }).eq("id", u.id),
+        supabase.from("categorias_master").update({ orden: u.orden } as never).eq("id", u.id),
       ),
     );
     const err = results.find((r) => r.error)?.error;
@@ -529,10 +603,37 @@ export const reorderAdminProductos = createServerFn({ method: "POST" })
     const { supabase } = context;
     const results = await Promise.all(
       data.updates.map((u) =>
-        supabase.from("rp_productos").update({ orden: u.orden }).eq("id", u.id),
+        supabase.from("productos_master").update({ orden: u.orden } as never).eq("id", u.id),
       ),
     );
     const err = results.find((r) => r.error)?.error;
     if (err) throw new Error(err.message);
     return { ok: true, count: data.updates.length };
+  });
+
+// Toggle per-sede de un producto (override.disponible).
+export const toggleSedeProductoOverride = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        sedeId: z.string().uuid(),
+        productoId: z.string().uuid(),
+        disponible: z.boolean(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("sede_producto_overrides")
+      .upsert(
+        {
+          sede_id: data.sedeId,
+          producto_id: data.productoId,
+          disponible: data.disponible,
+        } as never,
+        { onConflict: "sede_id,producto_id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
