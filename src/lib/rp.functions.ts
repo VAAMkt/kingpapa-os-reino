@@ -394,3 +394,78 @@ export const syncAllMenus = createServerFn({ method: "POST" })
       errores,
     };
   });
+
+export const listAdminMenu = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ sedeId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const [{ data: categorias, error: catErr }, { data: productos, error: prodErr }] =
+      await Promise.all([
+        supabase
+          .from("rp_categorias")
+          .select("id, rp_id, nombre, orden, activo")
+          .eq("sede_id", data.sedeId)
+          .order("orden")
+          .order("nombre"),
+        supabase
+          .from("rp_productos")
+          .select("id, rp_id, categoria_id, nombre, precio, imagen_url, disponible, orden")
+          .eq("sede_id", data.sedeId)
+          .order("orden")
+          .order("nombre"),
+      ]);
+    if (catErr) throw new Error(catErr.message);
+    if (prodErr) throw new Error(prodErr.message);
+    return { categorias: categorias ?? [], productos: productos ?? [] };
+  });
+
+export const updateAdminCategoria = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        orden: z.number().int().min(0).max(9999).optional(),
+        activo: z.boolean().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: Record<string, unknown> = {};
+    if (data.orden !== undefined) patch.orden = data.orden;
+    if (data.activo !== undefined) patch.activo = data.activo;
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await context.supabase
+      .from("rp_categorias")
+      .update(patch)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const updateAdminProducto = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        orden: z.number().int().min(0).max(9999).optional(),
+        disponible: z.boolean().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: Record<string, unknown> = {};
+    if (data.orden !== undefined) patch.orden = data.orden;
+    if (data.disponible !== undefined) patch.disponible = data.disponible;
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await context.supabase
+      .from("rp_productos")
+      .update(patch)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
