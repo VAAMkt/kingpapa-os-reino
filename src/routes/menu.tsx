@@ -6,6 +6,7 @@ import { BrutalCard, BrutalBadge, BrutalChip } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { OrderRouter } from "@/components/kp/OrderRouter";
 import { ProductCard } from "@/components/kp/ProductCard";
+import { OrderIntentDialog } from "@/components/kp/OrderIntentDialog";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { listPublicSedes } from "@/lib/sedes";
 import { rpProductoToProducto, buildCategorias, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
