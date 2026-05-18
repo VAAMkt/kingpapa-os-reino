@@ -31,14 +31,17 @@ export function useAuth() {
     let mounted = true;
 
     const loadRoles = async (userId: string) => {
-      const { data } = await supabase
+      setState((prev) => ({ ...prev, loading: true }));
+
+      const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId);
+
       if (!mounted) return;
       setState((prev) => ({
         ...prev,
-        roles: (data ?? []).map((r) => r.role as AppRole),
+        roles: error ? [] : (data ?? []).map((r) => r.role as AppRole),
         loading: false,
       }));
     };
@@ -50,8 +53,8 @@ export function useAuth() {
         ...prev,
         user: session?.user ?? null,
         session,
-        roles: session ? prev.roles : [],
-        loading: !session ? false : prev.loading,
+        roles: session ? [] : [],
+        loading: session ? true : false,
       }));
       if (session?.user) {
         // Defer async fuera del callback
@@ -66,7 +69,8 @@ export function useAuth() {
         ...prev,
         user: session?.user ?? null,
         session,
-        loading: !session,
+        roles: session ? [] : [],
+        loading: session ? true : false,
       }));
       if (session?.user) loadRoles(session.user.id);
     });
