@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { BrutalCard, BrutalBadge, BrutalChip } from "@/components/ui-kp/Brutal";
@@ -9,8 +9,7 @@ import { ProductCard } from "@/components/kp/ProductCard";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { listPublicSedes } from "@/lib/sedes";
 import { rpProductoToProducto, buildCategorias, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
-import { useActiveSede } from "@/lib/active-sede";
-import { ActiveSedePill } from "@/components/kp/ActiveSedePill";
+import { useActiveSede, setExploringSede } from "@/lib/active-sede";
 
 export const Route = createFileRoute("/menu")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -37,6 +36,15 @@ function MenuPage() {
   const sedesQ = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
   const sedes = sedesQ.data ?? [];
   const activeSede = useActiveSede();
+
+  // CRAVING FIRST: si no hay sede activa, auto-seleccionamos "vitrina" para
+  // que el menú renderice sin pedir ubicación. El gate solo se abre al pedir.
+  useEffect(() => {
+    if (!activeSede && sedes.length > 0) {
+      setExploringSede(sedes[0]);
+    }
+  }, [activeSede, sedes]);
+
   const sedeSlug = sedeParam ?? activeSede?.slug ?? sedes[0]?.slug;
 
   const fetchMenu = useServerFn(getMenuForSede);
