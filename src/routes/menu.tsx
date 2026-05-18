@@ -75,6 +75,13 @@ function MenuPage() {
     return productos.filter((p) => p.categorias.includes(filtro));
   }, [filtro, productos]);
 
+  // "Coronas del rey": destacados + más vendidos del catálogo entero (no filtrados).
+  const coronas = useMemo(
+    () => productos.filter((p) => p.destacado || p.esMasVendido).slice(0, 4),
+    [productos],
+  );
+
+
   return (
     <>
       {/* HERO */}
