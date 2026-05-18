@@ -245,3 +245,17 @@ export const listSyncLog = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return data ?? [];
   });
+
+export const listRpLocales = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const data = await rpGetDominioInfo();
+    const locales = (data.locales ?? []).map(normalizeBranch);
+    return locales.map((l) => ({
+      rp_local_id: l.rp_local_id,
+      nombre: l.nombre,
+      direccion: l.direccion,
+      lat: l.lat,
+      lng: l.lng,
+    }));
+  });
