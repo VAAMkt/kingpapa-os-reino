@@ -1,6 +1,8 @@
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import type { Producto } from "@/types/kp";
+import { addItem } from "@/lib/cart";
+import { toast } from "sonner";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 

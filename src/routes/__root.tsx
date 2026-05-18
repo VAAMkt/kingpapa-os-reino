@@ -13,6 +13,9 @@ import appCss from "../styles.css?url";
 import { TopAppBar, Footer } from "@/components/kp/Layout";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { LocationGate } from "@/components/kp/LocationGate";
+import { CartDrawer } from "@/components/kp/CartDrawer";
+import { CartPill } from "@/components/kp/CartPill";
 
 function NotFoundComponent() {
   return (
@@ -120,6 +123,9 @@ function RootComponent() {
         </main>
         <Footer />
         <Toaster />
+        <LocationGate />
+        <CartDrawer />
+        <CartPill />
       </div>
     </QueryClientProvider>
   );
