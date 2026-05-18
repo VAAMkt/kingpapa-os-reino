@@ -266,6 +266,63 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
       </BrutalCard>
 
       <BrutalCard tone="cheese" className="p-5 space-y-3">
+        <h3 className="font-display uppercase text-lg">Restaurant.pe & ubicación</h3>
+        <div className="grid md:grid-cols-4 gap-3">
+          <div className={fieldCls}>
+            <label className={labelCls}>local_id Restaurant.pe</label>
+            <BrutalInput
+              type="number"
+              value={form.rp_local_id ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, rp_local_id: e.target.value ? Number(e.target.value) : null })
+              }
+              placeholder="1"
+            />
+            {errors.rp_local_id && <p className="text-xs text-kp-red">{errors.rp_local_id}</p>}
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Latitud</label>
+            <BrutalInput
+              type="number"
+              step="any"
+              value={form.lat ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, lat: e.target.value ? Number(e.target.value) : null })
+              }
+              placeholder="3.4516"
+            />
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Longitud</label>
+            <BrutalInput
+              type="number"
+              step="any"
+              value={form.lng ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, lng: e.target.value ? Number(e.target.value) : null })
+              }
+              placeholder="-76.5320"
+            />
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Cobertura (km)</label>
+            <BrutalInput
+              type="number"
+              step="0.5"
+              value={form.cobertura_radio_km}
+              onChange={(e) =>
+                setForm({ ...form, cobertura_radio_km: Number(e.target.value) })
+              }
+            />
+          </div>
+        </div>
+        <p className="text-xs text-kp-ink/70">
+          local_id es el ID numérico de la sede en Restaurant.pe. Necesario para sincronizar menú
+          y crear pedidos. Lat/Lng se usan para sugerir sede por ubicación del usuario.
+        </p>
+      </BrutalCard>
+
+      <BrutalCard tone="cheese" className="p-5 space-y-3">
         <h3 className="font-display uppercase text-lg">Servicios y estado</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {([
