@@ -122,12 +122,19 @@ export function normalizeProduct(raw: RpProducto): NormalizedProducto {
     (r["productogeneral_urlimagen"] as string | undefined) ??
     null;
   const estado = r["productogeneral_estado"];
+  // La API a veces devuelve `productogeneral_estado` como string ("Activo"/
+  // "Inactivo") y a veces como "1"/"0". Aceptamos ambos formatos.
+  const estadoActivo = (() => {
+    if (estado == null) return null;
+    const s = String(estado).trim().toLowerCase();
+    if (s === "1" || s === "true" || s === "activo") return true;
+    if (s === "0" || s === "false" || s === "inactivo") return false;
+    return null;
+  })();
   const disponible =
     raw.producto_agotado != null
       ? !toBool01(raw.producto_agotado)
-      : estado != null
-        ? toBool01(estado)
-        : true;
+      : estadoActivo ?? true;
   return {
     rp_id: toInt(rpId),
     rp_categoria_id: raw.categoria_id != null ? toInt(raw.categoria_id) : null,
