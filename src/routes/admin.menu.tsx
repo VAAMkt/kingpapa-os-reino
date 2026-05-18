@@ -24,7 +24,6 @@ import { GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { listAllSedes } from "@/lib/sedes";
 import {
   listAdminMenu,
   updateAdminCategoria,
@@ -34,7 +33,7 @@ import {
 } from "@/lib/rp.functions";
 
 export const Route = createFileRoute("/admin/menu")({
-  head: () => ({ meta: [{ title: "Menú — Admin" }] }),
+  head: () => ({ meta: [{ title: "Menú maestro — Admin" }] }),
   component: AdminMenuPage,
 });
 
@@ -58,18 +57,12 @@ type Prod = {
 
 function AdminMenuPage() {
   const queryClient = useQueryClient();
-  const sedesQ = useQuery({ queryKey: ["sedes", "all"], queryFn: listAllSedes });
-  const [sedeId, setSedeId] = useState<string>("");
   const [hideInactive, setHideInactive] = useState(false);
-
-  const effectiveSedeId =
-    sedeId || sedesQ.data?.find((s) => s.rp_local_id)?.id || "";
 
   const fetchMenu = useServerFn(listAdminMenu);
   const menuQ = useQuery({
-    queryKey: ["admin-menu", effectiveSedeId],
-    queryFn: () => fetchMenu({ data: { sedeId: effectiveSedeId } }),
-    enabled: !!effectiveSedeId,
+    queryKey: ["admin-menu-master"],
+    queryFn: () => fetchMenu(),
   });
 
   const updateCat = useServerFn(updateAdminCategoria);
@@ -78,20 +71,18 @@ function AdminMenuPage() {
   const reorderProds = useServerFn(reorderAdminProductos);
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["admin-menu", effectiveSedeId] });
+    queryClient.invalidateQueries({ queryKey: ["admin-menu-master"] });
     queryClient.invalidateQueries({ queryKey: ["menu"] });
   };
 
   const catMut = useMutation({
-    mutationFn: (v: { id: string; activo: boolean }) =>
-      updateCat({ data: v }),
+    mutationFn: (v: { id: string; activo: boolean }) => updateCat({ data: v }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
 
   const prodMut = useMutation({
-    mutationFn: (v: { id: string; disponible: boolean }) =>
-      updateProd({ data: v }),
+    mutationFn: (v: { id: string; disponible: boolean }) => updateProd({ data: v }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
@@ -142,9 +133,7 @@ function AdminMenuPage() {
     const newIdx = visibleCategorias.findIndex((c) => c.id === over.id);
     if (oldIdx < 0 || newIdx < 0) return;
     const next = arrayMove(visibleCategorias, oldIdx, newIdx);
-    reorderCatsMut.mutate(
-      next.map((c, i) => ({ id: c.id, orden: (i + 1) * 10 })),
-    );
+    reorderCatsMut.mutate(next.map((c, i) => ({ id: c.id, orden: (i + 1) * 10 })));
   };
 
   const handleProdsDragEnd = (catId: string) => (e: DragEndEvent) => {
@@ -155,18 +144,14 @@ function AdminMenuPage() {
     const newIdx = list.findIndex((p) => p.id === over.id);
     if (oldIdx < 0 || newIdx < 0) return;
     const next = arrayMove(list, oldIdx, newIdx);
-    reorderProdsMut.mutate(
-      next.map((p, i) => ({ id: p.id, orden: (i + 1) * 10 })),
-    );
+    reorderProdsMut.mutate(next.map((p, i) => ({ id: p.id, orden: (i + 1) * 10 })));
   };
 
   const moveCat = (idx: number, dir: -1 | 1) => {
     const target = idx + dir;
     if (target < 0 || target >= visibleCategorias.length) return;
     const next = arrayMove(visibleCategorias, idx, target);
-    reorderCatsMut.mutate(
-      next.map((c, i) => ({ id: c.id, orden: (i + 1) * 10 })),
-    );
+    reorderCatsMut.mutate(next.map((c, i) => ({ id: c.id, orden: (i + 1) * 10 })));
   };
 
   const moveProd = (catId: string, idx: number, dir: -1 | 1) => {
@@ -174,62 +159,40 @@ function AdminMenuPage() {
     const target = idx + dir;
     if (target < 0 || target >= list.length) return;
     const next = arrayMove(list, idx, target);
-    reorderProdsMut.mutate(
-      next.map((p, i) => ({ id: p.id, orden: (i + 1) * 10 })),
-    );
+    reorderProdsMut.mutate(next.map((p, i) => ({ id: p.id, orden: (i + 1) * 10 })));
   };
 
   return (
     <div className="space-y-6">
       <header>
-        <BrutalBadge tone="yellow">Menú</BrutalBadge>
+        <BrutalBadge tone="yellow">Menú maestro</BrutalBadge>
         <h1 className="font-display text-3xl uppercase mt-2 leading-none">
-          Gestor del menú
+          Catálogo global de la marca
         </h1>
         <p className="text-sm text-kp-ink/70 mt-1">
-          Arrastra para reordenar, usa las flechas o activa/desactiva con un click.
+          Una sola lista para las {/* */}14 sedes. Reordena, oculta o renombra acá y
+          se refleja en todo el reino al instante. Para apagar un producto solo en
+          una sede (agotado), usa el panel de cada sede.
         </p>
       </header>
 
-      <BrutalCard tone="cheese" className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-        <label className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
-          <span className="font-display uppercase text-sm">Sede:</span>
-          <select
-            value={effectiveSedeId}
-            onChange={(e) => setSedeId(e.target.value)}
-            className="border-2 border-kp-ink bg-kp-cheese shadow-brutal-sm px-3 py-2 font-display uppercase text-sm"
-          >
-            {sedesQ.data?.map((s) => (
-              <option key={s.id} value={s.id} disabled={!s.rp_local_id}>
-                {s.nombre} · {s.ciudad}
-                {!s.rp_local_id ? " (sin rp_local_id)" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+      <BrutalCard tone="cheese" className="p-4 flex items-center gap-4">
         <label className="flex items-center gap-2 font-display uppercase text-sm">
-          <Switch
-            checked={hideInactive}
-            onCheckedChange={setHideInactive}
-          />
+          <Switch checked={hideInactive} onCheckedChange={setHideInactive} />
           Ocultar inactivos
         </label>
+        <span className="text-xs text-kp-ink/60 ml-auto">
+          {categorias.length} categorías · {productos.length} productos
+        </span>
       </BrutalCard>
 
-      {menuQ.isLoading && <p className="text-sm">Cargando menú…</p>}
+      {menuQ.isLoading && <p className="text-sm">Cargando catálogo…</p>}
 
       {menuQ.data && (
         <BrutalCard tone="cheese" className="p-4 space-y-3">
           <h2 className="font-display uppercase text-lg">Categorías</h2>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleCatsDragEnd}
-          >
-            <SortableContext
-              items={visibleCategorias.map((c) => c.id)}
-              strategy={verticalListSortingStrategy}
-            >
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCatsDragEnd}>
+            <SortableContext items={visibleCategorias.map((c) => c.id)} strategy={verticalListSortingStrategy}>
               <div className="grid gap-2">
                 {visibleCategorias.map((c, idx) => (
                   <SortableCatRow
@@ -257,15 +220,8 @@ function AdminMenuPage() {
                 {c.nombre}{" "}
                 <span className="text-kp-ink/50 text-xs">({list.length})</span>
               </h3>
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleProdsDragEnd(c.id)}
-              >
-                <SortableContext
-                  items={list.map((p) => p.id)}
-                  strategy={verticalListSortingStrategy}
-                >
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleProdsDragEnd(c.id)}>
+                <SortableContext items={list.map((p) => p.id)} strategy={verticalListSortingStrategy}>
                   <div className="grid gap-2">
                     {list.map((p, idx) => (
                       <SortableProdRow
@@ -274,9 +230,7 @@ function AdminMenuPage() {
                         idx={idx}
                         total={list.length}
                         onMove={(d) => moveProd(c.id, idx, d)}
-                        onToggle={(v) =>
-                          prodMut.mutate({ id: p.id, disponible: v })
-                        }
+                        onToggle={(v) => prodMut.mutate({ id: p.id, disponible: v })}
                       />
                     ))}
                   </div>
@@ -288,7 +242,7 @@ function AdminMenuPage() {
 
       {menuQ.data && categorias.length === 0 && (
         <p className="text-sm">
-          Esta sede aún no tiene menú sincronizado. Ve a Sincronización.
+          El catálogo maestro está vacío. Ve a Sincronización para importarlo desde Restaurant.pe.
         </p>
       )}
     </div>
@@ -332,29 +286,13 @@ function SortableCatRow({
       </button>
       <span className="font-display uppercase text-sm truncate">
         {cat.nombre}
-        {!cat.activo && (
-          <span className="ml-2 text-xs text-kp-ink/50">(oculta)</span>
-        )}
+        {!cat.activo && <span className="ml-2 text-xs text-kp-ink/50">(oculta)</span>}
       </span>
       <div className="flex gap-1">
-        <Button
-          size="icon"
-          variant="outline"
-          className="h-8 w-8"
-          disabled={idx === 0}
-          onClick={() => onMove(-1)}
-          aria-label="Subir"
-        >
+        <Button size="icon" variant="outline" className="h-8 w-8" disabled={idx === 0} onClick={() => onMove(-1)} aria-label="Subir">
           <ArrowUp className="size-4" />
         </Button>
-        <Button
-          size="icon"
-          variant="outline"
-          className="h-8 w-8"
-          disabled={idx === total - 1}
-          onClick={() => onMove(1)}
-          aria-label="Bajar"
-        >
+        <Button size="icon" variant="outline" className="h-8 w-8" disabled={idx === total - 1} onClick={() => onMove(1)} aria-label="Bajar">
           <ArrowDown className="size-4" />
         </Button>
       </div>
@@ -413,33 +351,15 @@ function SortableProdRow({
       <div className="min-w-0">
         <p className="font-display uppercase text-sm truncate">
           {prod.nombre}
-          {!prod.disponible && (
-            <span className="ml-2 text-xs text-kp-ink/50">(oculto)</span>
-          )}
+          {!prod.disponible && <span className="ml-2 text-xs text-kp-ink/50">(oculto)</span>}
         </p>
-        <p className="text-xs text-kp-ink/60">
-          ${prod.precio.toLocaleString("es-CO")}
-        </p>
+        <p className="text-xs text-kp-ink/60">${Number(prod.precio).toLocaleString("es-CO")}</p>
       </div>
       <div className="flex gap-1">
-        <Button
-          size="icon"
-          variant="outline"
-          className="h-8 w-8"
-          disabled={idx === 0}
-          onClick={() => onMove(-1)}
-          aria-label="Subir"
-        >
+        <Button size="icon" variant="outline" className="h-8 w-8" disabled={idx === 0} onClick={() => onMove(-1)} aria-label="Subir">
           <ArrowUp className="size-4" />
         </Button>
-        <Button
-          size="icon"
-          variant="outline"
-          className="h-8 w-8"
-          disabled={idx === total - 1}
-          onClick={() => onMove(1)}
-          aria-label="Bajar"
-        >
+        <Button size="icon" variant="outline" className="h-8 w-8" disabled={idx === total - 1} onClick={() => onMove(1)} aria-label="Bajar">
           <ArrowDown className="size-4" />
         </Button>
       </div>

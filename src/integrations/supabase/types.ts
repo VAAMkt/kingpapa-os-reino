@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      categorias_master: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+          orden: number
+          rp_id: number
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          orden?: number
+          rp_id: number
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          orden?: number
+          rp_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           autor_id: string | null
@@ -65,6 +95,65 @@ export type Database = {
         }
         Relationships: []
       }
+      productos_master: {
+        Row: {
+          almacen_id: number | null
+          categoria_id: string | null
+          created_at: string
+          descripcion: string | null
+          disponible: boolean
+          id: string
+          imagen_url: string | null
+          modificadores: Json
+          modificadores_raw: Json
+          nombre: string
+          orden: number
+          precio: number
+          rp_id: number
+          updated_at: string
+        }
+        Insert: {
+          almacen_id?: number | null
+          categoria_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          disponible?: boolean
+          id?: string
+          imagen_url?: string | null
+          modificadores?: Json
+          modificadores_raw?: Json
+          nombre: string
+          orden?: number
+          precio?: number
+          rp_id: number
+          updated_at?: string
+        }
+        Update: {
+          almacen_id?: number | null
+          categoria_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          disponible?: boolean
+          id?: string
+          imagen_url?: string | null
+          modificadores?: Json
+          modificadores_raw?: Json
+          nombre?: string
+          orden?: number
+          precio?: number
+          rp_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "productos_master_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           arquetipo: string | null
@@ -94,119 +183,6 @@ export type Database = {
           whatsapp?: string | null
         }
         Relationships: []
-      }
-      rp_categorias: {
-        Row: {
-          activo: boolean
-          created_at: string
-          id: string
-          nombre: string
-          orden: number
-          rp_id: number
-          sede_id: string
-          updated_at: string
-        }
-        Insert: {
-          activo?: boolean
-          created_at?: string
-          id?: string
-          nombre: string
-          orden?: number
-          rp_id: number
-          sede_id: string
-          updated_at?: string
-        }
-        Update: {
-          activo?: boolean
-          created_at?: string
-          id?: string
-          nombre?: string
-          orden?: number
-          rp_id?: number
-          sede_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rp_categorias_sede_id_fkey"
-            columns: ["sede_id"]
-            isOneToOne: false
-            referencedRelation: "sedes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rp_productos: {
-        Row: {
-          almacen_id: number | null
-          categoria_id: string | null
-          created_at: string
-          descripcion: string | null
-          disponible: boolean
-          id: string
-          imagen_url: string | null
-          modificadores: Json
-          modificadores_raw: Json
-          nombre: string
-          orden: number
-          precio: number
-          rp_id: number
-          sede_id: string
-          stock_cache: number | null
-          updated_at: string
-        }
-        Insert: {
-          almacen_id?: number | null
-          categoria_id?: string | null
-          created_at?: string
-          descripcion?: string | null
-          disponible?: boolean
-          id?: string
-          imagen_url?: string | null
-          modificadores?: Json
-          modificadores_raw?: Json
-          nombre: string
-          orden?: number
-          precio?: number
-          rp_id: number
-          sede_id: string
-          stock_cache?: number | null
-          updated_at?: string
-        }
-        Update: {
-          almacen_id?: number | null
-          categoria_id?: string | null
-          created_at?: string
-          descripcion?: string | null
-          disponible?: boolean
-          id?: string
-          imagen_url?: string | null
-          modificadores?: Json
-          modificadores_raw?: Json
-          nombre?: string
-          orden?: number
-          precio?: number
-          rp_id?: number
-          sede_id?: string
-          stock_cache?: number | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rp_productos_categoria_id_fkey"
-            columns: ["categoria_id"]
-            isOneToOne: false
-            referencedRelation: "rp_categorias"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rp_productos_sede_id_fkey"
-            columns: ["sede_id"]
-            isOneToOne: false
-            referencedRelation: "sedes"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       rp_sync_log: {
         Row: {
@@ -239,6 +215,54 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "rp_sync_log_sede_id_fkey"
+            columns: ["sede_id"]
+            isOneToOne: false
+            referencedRelation: "sedes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sede_producto_overrides: {
+        Row: {
+          created_at: string
+          disponible: boolean
+          id: string
+          precio_override: number | null
+          producto_id: string
+          sede_id: string
+          stock_cache: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          disponible?: boolean
+          id?: string
+          precio_override?: number | null
+          producto_id: string
+          sede_id: string
+          stock_cache?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          disponible?: boolean
+          id?: string
+          precio_override?: number | null
+          producto_id?: string
+          sede_id?: string
+          stock_cache?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sede_producto_overrides_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: false
+            referencedRelation: "productos_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sede_producto_overrides_sede_id_fkey"
             columns: ["sede_id"]
             isOneToOne: false
             referencedRelation: "sedes"
