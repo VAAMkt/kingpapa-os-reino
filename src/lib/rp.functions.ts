@@ -65,7 +65,7 @@ function extractMenu(menu: unknown) {
 // Sincroniza el menú de UNA sede usando upserts en lote (3 llamadas a la base
 // en vez de cientos). Devuelve los conteos. Lanza error si algo falla.
 async function syncSedeMenu(
-  supabase: Parameters<typeof normalizeBranch> extends never ? never : import("@supabase/supabase-js").SupabaseClient,
+  supabase: import("@supabase/supabase-js").SupabaseClient,
   sede: { id: string; rp_local_id: number | null },
 ): Promise<{ categorias: number; productos: number }> {
   const menu = await rpGetCatalogo(sede.rp_local_id!);
