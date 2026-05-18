@@ -434,7 +434,7 @@ export const updateAdminCategoria = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = {};
+    const patch: { orden?: number; activo?: boolean } = {};
     if (data.orden !== undefined) patch.orden = data.orden;
     if (data.activo !== undefined) patch.activo = data.activo;
     if (Object.keys(patch).length === 0) return { ok: true };
