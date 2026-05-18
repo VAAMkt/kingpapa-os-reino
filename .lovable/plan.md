@@ -1,19 +1,36 @@
-## Diagnóstico
+## Diagnóstico exacto
 
-El usuario `ing.miguelarroyo@gmail.com` sí existe y ya tiene los roles `cliente` y `super_admin` en la base de datos. El problema está en el frontend: el layout de `/admin` redirige a `/no-autorizado` antes de terminar de cargar los roles, porque el estado `loading` puede quedar en `false` mientras `roles` todavía está vacío.
+El usuario `ing.miguelarroyo@gmail.com` sí existe y sí tiene los roles `super_admin` y `cliente` en la base de datos.
 
-## Plan de corrección
+La falla real no es que falte el rol: el navegador recibe `403` al consultar `user_roles` porque la función de base de datos `public.has_role` no tiene permiso de ejecución para usuarios autenticados.
 
-1. **Ajustar `useAuth`**
-   - Separar la carga de sesión de la carga de roles.
-   - Mantener `loading: true` mientras exista sesión pero los roles aún no hayan terminado de consultarse.
-   - Manejar errores al consultar roles para no dejar el hook en estados inconsistentes.
-   - Limpiar roles correctamente al cerrar sesión.
+Error real capturado en la petición del navegador:
 
-2. **Endurecer el guard de `/admin`**
-   - Evitar que redirija a `/no-autorizado` hasta que la verificación de roles haya terminado.
-   - Mantener la pantalla “Verificando corona…” durante la comprobación.
+```text
+GET /rest/v1/user_roles?select=role&user_id=eq.f3337438-60bb-47fe-8ad1-9d0cd95c2d1a
+Status: 403
+message: permission denied for function has_role
+```
 
-3. **Verificación**
-   - Confirmar que `ing.miguelarroyo@gmail.com` conserva `super_admin`.
-   - Revisar que `/admin` y `/admin/usuarios` ya no redirijan incorrectamente cuando el usuario está autenticado.
+Eso hace que `useAuth` reciba error, deje `roles: []`, y el guard de `/admin` concluya incorrectamente que el usuario no es admin.
+
+## Plan de solución
+
+1. Crear una migración para corregir permisos de la función `public.has_role`:
+   - Permitir que `authenticated` pueda ejecutar `public.has_role(uuid, app_role)`.
+   - Permitir también `anon` para evitar fallos de evaluación en políticas compartidas, sin exponer datos porque la función solo devuelve booleano y las políticas siguen controlando acceso.
+   - Mantener `SECURITY DEFINER` y `search_path = public`.
+
+2. Reforzar `useAuth` para no convertir un error de carga de roles en “sin roles” silenciosamente:
+   - Agregar un estado `roleError`.
+   - Si la consulta de roles falla, conservar `loading: false` pero registrar/propagar el error para poder distinguir “no tiene rol” de “no pude verificar rol”.
+
+3. Ajustar el guard de `/admin`:
+   - Mientras carga, mostrar “Verificando corona…”.
+   - Si falla la verificación de roles, no mandar a `/no-autorizado`; mostrar un mensaje de error de verificación con opción de reintentar.
+   - Solo redirigir a `/no-autorizado` cuando la consulta de roles haya terminado correctamente y el usuario realmente no tenga rol admin.
+
+4. Validación:
+   - Confirmar en base de datos que `has_role('f3337438-60bb-47fe-8ad1-9d0cd95c2d1a', 'super_admin')` devuelve `true`.
+   - Confirmar que la petición real a `user_roles` ya no responde `403`.
+   - Confirmar que `/admin` y `/admin/usuarios` cargan con `ing.miguelarroyo@gmail.com`.
