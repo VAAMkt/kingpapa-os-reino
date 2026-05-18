@@ -14,28 +14,6 @@ import { toast } from "sonner";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
-function Chili({ n }: { n: number }) {
-  return (
-    <span aria-label={`Picante ${n}/3`} className="text-xs">
-      {"🌶️".repeat(Math.max(n, 0))}
-      <span className="opacity-30">{"🌶️".repeat(Math.max(3 - n, 0))}</span>
-    </span>
-  );
-}
-
-function HambreBar({ n }: { n: number }) {
-  return (
-    <div className="flex gap-1" aria-label={`Hambre ${n}/5`}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span
-          key={i}
-          className={`h-2 w-3 border border-kp-ink ${i <= n ? "bg-kp-red" : "bg-kp-cheese"}`}
-        />
-      ))}
-    </div>
-  );
-}
-
 // Listener global único: cualquier gate confirmado dispara la intención pendiente.
 let listenerInstalled = false;
 function ensureListener() {
@@ -46,18 +24,18 @@ function ensureListener() {
   });
 }
 
-export function ProductCard({ producto, compact = false }: { producto: Producto; compact?: boolean }) {
+export function ProductCard({
+  producto,
+  compact = false,
+  destacado = false,
+}: {
+  producto: Producto;
+  compact?: boolean;
+  /** Variante "hero" — card más grande, prioritaria en el grid (col-span-2). */
+  destacado?: boolean;
+}) {
   const sede = useActiveSede();
   useEffect(() => { ensureListener(); }, []);
-
-  const ocasionLabel: Record<string, string> = {
-    parche: "parche",
-    "after-rumba": "after rumba",
-    "almuerzo-obrero": "almuerzo obrero",
-    familia: "familia",
-    "antojo-mortal": "antojo mortal",
-    solo: "solo",
-  };
 
   function onPedir() {
     const tieneUbicacionReal = !!sede && sede.source !== "exploring";
@@ -82,9 +60,14 @@ export function ProductCard({ producto, compact = false }: { producto: Producto;
     toast.success(`${producto.nombre} al carrito`);
   }
 
+  const isHero = destacado || producto.destacado;
+
   return (
-    <BrutalCard tone="cheese" className="overflow-hidden flex flex-col">
-      <div className="relative aspect-square bg-kp-ink">
+    <BrutalCard
+      tone={isHero ? "yellow" : "cheese"}
+      className="overflow-hidden flex flex-col h-full"
+    >
+      <div className={`relative ${isHero ? "aspect-[16/10]" : "aspect-square"} bg-kp-ink`}>
         <img
           src={producto.imagen}
           alt={producto.nombre}
@@ -94,31 +77,36 @@ export function ProductCard({ producto, compact = false }: { producto: Producto;
         <div className="absolute top-3 left-3 flex flex-col gap-1 items-start">
           {producto.esNuevo && <BrutalBadge tone="lime">Nuevo</BrutalBadge>}
           {producto.esMasVendido && <BrutalBadge tone="red">Más vendido</BrutalBadge>}
+          {producto.esRecomendado && <BrutalBadge tone="purple">🔥 Recomendado</BrutalBadge>}
+          {producto.etiquetaCustom && (
+            <BrutalBadge tone="yellow">{producto.etiquetaCustom}</BrutalBadge>
+          )}
           {producto.paraCompartir && <BrutalBadge tone="purple">Compartir</BrutalBadge>}
         </div>
+        {isHero && (
+          <div className="absolute top-3 right-3">
+            <BrutalBadge tone="red">★ Corona del rey</BrutalBadge>
+          </div>
+        )}
       </div>
 
       <div className="p-4 flex flex-col gap-2 flex-1">
-        <h3 className="font-display text-2xl uppercase leading-none">{producto.nombre}</h3>
-        {!compact && (
+        <h3
+          className={`font-display uppercase leading-none ${
+            isHero ? "text-3xl md:text-4xl" : "text-2xl"
+          }`}
+        >
+          {producto.nombre}
+        </h3>
+        {!compact && producto.descripcion && (
           <p className="text-sm text-kp-ink/80 line-clamp-3">{producto.descripcion}</p>
         )}
 
-        <div className="flex items-center justify-between text-xs mt-1">
-          <span className="font-display uppercase">{producto.pesoAprox}</span>
-          <Chili n={producto.nivelPicante} />
-        </div>
-        <HambreBar n={producto.nivelHambre} />
-
-        {!compact && (
-          <p className="text-xs uppercase font-display tracking-wider text-kp-ink/70 mt-1">
-            Perfecta pa’: {producto.ocasiones.map((o) => ocasionLabel[o] || o).join(", ")}
-          </p>
-        )}
-
         <div className="mt-auto pt-3 flex items-center justify-between gap-2">
-          <span className="font-display text-2xl">{cop(producto.precioDesde)}</span>
-          <BrutalButton size="sm" variant="primary" onClick={onPedir}>
+          <span className={`font-display ${isHero ? "text-3xl md:text-4xl" : "text-2xl"}`}>
+            {cop(producto.precioDesde)}
+          </span>
+          <BrutalButton size={isHero ? "md" : "sm"} variant="primary" onClick={onPedir}>
             Pedir esta corona
           </BrutalButton>
         </div>
