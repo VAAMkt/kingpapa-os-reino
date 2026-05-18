@@ -38,7 +38,7 @@ function FranquiciasPage() {
             <BrutalLink href="#aplicar" variant="primary" size="lg">
               Quiero ser pionero del Reino
             </BrutalLink>
-            <BrutalLink href="#inversion" variant="outline" size="lg">
+            <BrutalLink href="#inversion" variant="ghost" size="lg">
               Ver inversión
             </BrutalLink>
           </div>
@@ -317,7 +317,7 @@ function FranquiciasPage() {
             <BrutalLink href="#aplicar" variant="primary" size="lg">
               Aplicar a franquicia
             </BrutalLink>
-            <BrutalLink href="https://www.tiktok.com/@kingpapaco" variant="outline" size="lg">
+            <BrutalLink href="https://www.tiktok.com/@kingpapaco" variant="ghost" size="lg">
               Ver la comunidad en TikTok
             </BrutalLink>
           </div>
