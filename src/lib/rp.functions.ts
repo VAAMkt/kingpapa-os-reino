@@ -82,7 +82,7 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
     if (!sede.rp_local_id)
       throw new Error(`Sede "${sede.nombre}" no tiene rp_local_id asignado`);
 
-    const menu = await rpGetCatalogo();
+    const menu = await rpGetCatalogo(sede.rp_local_id);
     const categorias = (menu.categorias ?? []).map(normalizeCategoria);
     const productos = (menu.productos ?? []).map(normalizeProduct);
 
@@ -276,17 +276,22 @@ export const syncAllMenus = createServerFn({ method: "POST" })
       return { ok: true, sedes: 0, categorias: 0, productos: 0, errores: [] as string[] };
     }
 
-    // El catálogo es por dominio; lo traemos una sola vez.
-    const menu = await rpGetCatalogo();
-    const categorias = (menu.categorias ?? []).map(normalizeCategoria);
-    const productos = (menu.productos ?? []).map(normalizeProduct);
-
     let totalCats = 0;
     let totalProds = 0;
+    let totalCatsSchema = 0;
+    let totalProdsSchema = 0;
     const errores: string[] = [];
 
-    for (const sede of targets) {
+    for (let i = 0; i < targets.length; i++) {
+      const sede = targets[i];
       try {
+        // El catálogo es por LOCAL, lo traemos para cada sede.
+        const menu = await rpGetCatalogo(sede.rp_local_id!);
+        const categorias = (menu.categorias ?? []).map(normalizeCategoria);
+        const productos = (menu.productos ?? []).map(normalizeProduct);
+        totalCatsSchema = categorias.length;
+        totalProdsSchema = productos.length;
+
         const catIdByRpId = new Map<number, string>();
         for (const c of categorias) {
           const { data: up, error } = await supabase
@@ -326,23 +331,27 @@ export const syncAllMenus = createServerFn({ method: "POST" })
       } catch (e) {
         errores.push(`${sede.nombre}: ${(e as Error).message}`);
       }
+      // pausa entre sedes para no saturar la API
+      if (i < targets.length - 1) await new Promise((r) => setTimeout(r, 150));
     }
 
     await supabase.from("rp_sync_log").insert({
       tipo: "menu_all",
-      payload: { sedes: targets.length, categorias: categorias.length, productos: productos.length } as never,
+      payload: { sedes: targets.length, categorias: totalCats, productos: totalProds } as never,
       ok: errores.length === 0,
       mensaje:
         errores.length === 0
-          ? `OK: ${targets.length} sedes, ${categorias.length} cats, ${productos.length} productos cada una.`
+          ? `OK: ${targets.length} sedes, ${totalCats} categorías y ${totalProds} productos upserteados.`
           : `Con errores en ${errores.length}/${targets.length}: ${errores.slice(0, 3).join(" | ")}`,
     });
 
     return {
       ok: errores.length === 0,
       sedes: targets.length,
-      categorias: categorias.length,
-      productos: productos.length,
+      categorias: totalCats,
+      productos: totalProds,
+      ultimaSchemaCats: totalCatsSchema,
+      ultimaSchemaProds: totalProdsSchema,
       errores,
     };
   });

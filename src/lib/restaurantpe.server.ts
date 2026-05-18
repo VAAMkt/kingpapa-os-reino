@@ -67,32 +67,21 @@ export async function rpGetDominioInfo(): Promise<RpDominioData> {
 }
 
 /**
- * Path del catálogo/menú en Restaurant.pe.
- * El swagger oficial entregado por el cliente está truncado: NO documenta
- * el endpoint de catálogo. `obtenerCatalogo/{dominio_id}` fue una conjetura
- * y devuelve 404. Reemplazar este path cuando se confirme el nombre real
- * del método (puede ser por dominio o por local_id).
- *
- * Placeholders soportados: {dominio} → id numérico del dominio,
- *                          {local}   → id numérico del local (opcional).
+ * Path del catálogo/menú en Restaurant.pe (API v2).
+ * Es por LOCAL, no por dominio: requiere ambos ids.
  */
-const RP_CATALOGO_PATH = "/delivery/obtenerCatalogo/{dominio}?quipupos=0";
+const RP_CATALOGO_PATH = "/delivery/obtenerCartaPorLocal/{dominio}/{local}?quipupos=0";
 
-export async function rpGetCatalogo(localId?: string | number): Promise<RpMenuData> {
+export async function rpGetCatalogo(localId: string | number): Promise<RpMenuData> {
+  if (localId == null || String(localId).trim() === "") {
+    throw new Error("rpGetCatalogo requiere localId (rp_local_id de la sede)");
+  }
   const dominioId = getDominioId();
   const path = RP_CATALOGO_PATH.replace("{dominio}", dominioId).replace(
     "{local}",
-    String(localId ?? ""),
+    String(localId),
   );
-  try {
-    return await rpFetch<RpMenuData>(path);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `No se pudo obtener el catálogo desde Restaurant.pe (${msg}). ` +
-        `Probablemente el path del catálogo es incorrecto: revisa RP_CATALOGO_PATH en src/lib/restaurantpe.server.ts.`,
-    );
-  }
+  return rpFetch<RpMenuData>(path);
 }
 
 export async function rpGetStock(input: {
