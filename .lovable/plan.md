@@ -1,64 +1,105 @@
+
 ## Objetivo
 
-Filtrar la sincronización Restaurant.pe para guardar SOLO el catálogo digital (delivery/quipupos), extraer imágenes y descripciones reales, y darte una pantalla `/admin/menu` para organizar el orden y la visibilidad de categorías/productos.
+Que la sincronización de Restaurant.pe deje un menú **limpio, ordenado y con fotos** desde el segundo cero, y que `/admin/menu` permita reordenar con flechas/drag-and-drop en lugar de digitar números.
 
-## Paso 1 — Filtro de delivery + parámetro quipupos
+---
 
-**`src/lib/restaurantpe.server.ts`**
-- Cambiar la URL de `obtenerCartaPorLocal` de `?quipupos=0` a `?quipupos=1` para que el POS pre-filtre.
+## Paso 1 — Normalizador más estricto (`src/lib/restaurantpe-normalize.ts`)
 
-**`src/lib/restaurantpe-normalize.ts`**
-- Extender `RpCategoria` y `RpProducto` (en `src/types/restaurantpe.ts`) con `categoria_delivery`, `categoria_estado`, `producto_delivery`, `productogeneral_estado`, `lista_presentacion`, `producto_urlimagen`, `producto_precio`.
-- `normalizeCategoria`: marcar `activo = (categoria_delivery === "1") || (categoria_estado === "1")` y propagarlo.
-- `normalizeProduct`:
-  - Si hay `lista_presentacion`, elegir la primera presentación con `producto_delivery === "1"`. Si ninguna lo tiene, devolver `null` (producto se descarta).
-  - Tomar `precio` de esa presentación (`producto_precio`); fallback a `productogeneral_preciofijo`.
-  - Imagen: prioridad `presentacion.producto_urlimagen` → `productogeneral_urlimagen` → `producto_imagen`. Guardar la ruta tal cual viene (relativa o absoluta), sin concatenar dominio (decisión CEO).
-  - Descripción larga: `productogeneral_descripcionweb` → `productogeneral_descripcion` → `producto_descripcion_larga`.
+**Categorías** (`normalizeCategoria`):
+- Ya no asumimos "activo" cuando faltan flags. Exigimos:
+  `activo = categoria_estado === "1" && categoria_delivery === "1"`.
+- Si alguna sede no manda esos campos, sus categorías quedan inactivas (visibles en admin como "Activa = OFF" para que el editor las prenda manualmente). Esto es lo que el usuario pidió: limpieza extrema.
 
-**`src/lib/rp.functions.ts` (`extractMenu` / `syncSedeMenu`)**
-- Filtrar categorías por `activo === true` antes de upsert.
-- Filtrar productos `null` (sin presentación delivery).
-- Filtrar productos cuya `rp_categoria_id` no esté en las categorías activas.
+**Productos** (`normalizeProduct`):
+- Mantener filtro de `producto_delivery === "1"` en `lista_presentacion`.
+- **Extracción de precio mejorada** (combos vs simples):
+  ```
+  precio = productogeneral_precio
+        ?? presentacionActiva.producto_precio
+        ?? productogeneral_preciofijo
+        ?? 0
+  ```
+  Si `precio === 0` → retornar `null` (descartar producto).
+- **Imágenes absolutas**: nuevo helper `resolveRpImage(url)`:
+  - Si `url` está vacía → `null`.
+  - Si empieza con `http://` / `https://` → tal cual.
+  - Si no → `https://api.restaurant.pe/archivos/${url}` (sin doble slash).
+  Aplicar a `producto_urlimagen` y `productogeneral_urlimagen`.
 
-## Paso 2 — Campo `orden` editable
+**Orden nativo**:
+- `normalizeCategoria` y `normalizeProduct` reciben un `index` opcional y devuelven `orden = index` cuando no venga uno explícito del POS. El `.map()` en `extractMenu` pasa el índice.
 
-Las tablas `rp_categorias` y `rp_productos` ya tienen columna `orden int default 0`. No hace falta migración de esquema.
+## Paso 2 — Heredar orden en sync (`src/lib/rp.functions.ts`)
 
-**`src/lib/rp.functions.ts`**
-- En el upsert, NO sobrescribir `orden` si la fila ya existe (para no pisar el orden manual del admin). Solución: omitir `orden` del objeto upserteado y, en una segunda query, hacer `update orden = X` solo donde `orden = 0`. Alternativa más simple: usar `ignoreDuplicates: false` pero quitar `orden` del payload — al ser PostgREST upsert, sí sobrescribe; mejor hacer dos pasos:
-  1. Upsert sin `orden`.
-  2. `update rp_categorias set orden = $rpOrden where sede_id=? and rp_id=? and orden = 0`.
-- Para productos: en el primer insert dejar `orden = 0`; el admin lo sube.
+En `syncSedeMenu`:
+- **Categorías**: el upsert ahora sí incluye `orden: c.orden` para filas **nuevas**. Para preservar overrides del admin, hacemos:
+  1. Leer `rp_categorias` existentes (`rp_id, orden`).
+  2. Solo incluir `orden` en el payload para `rp_id` que **no existen** todavía.
+  3. Mismo patrón para `rp_productos`.
+- Así: primera sync hereda orden de RP; sync siguientes respetan el orden manual.
+- Filtros adicionales: descartar productos sin `categoria_id` válido y con `precio === 0` (defensa en profundidad).
 
-## Paso 3 — Pantalla `/admin/menu`
+## Paso 3 — UX en `/admin/menu` (`src/routes/admin.menu.tsx`)
 
-**Nuevo server fn en `src/lib/rp.functions.ts`:**
-- `listAdminMenu({ sedeId })`: devuelve categorías (con `activo`, `orden`) y productos (`disponible`, `orden`, categoría, precio, imagen).
-- `updateCategoria({ id, orden?, activo? })` y `updateProducto({ id, orden?, disponible? })`. Ambos protegidos con `requireSupabaseAuth` (RLS ya restringe a editor/super_admin).
+Reemplazar el input numérico por una experiencia más rápida:
 
-**Nueva ruta `src/routes/admin.menu.tsx`:**
-- Selector de sede (reusa `listAllSedes`).
-- Tabla de categorías: nombre, input numérico `orden`, switch `activo`, botón guardar (mutation por fila o debounce).
-- Tabla de productos agrupados por categoría (ordenados por `orden`): thumbnail con `imagen_url`, nombre, precio, input `orden`, switch `disponible`.
-- Optimistic update con React Query + `toast`.
-- Estilo brutalist con `BrutalCard`, `BrutalButton`, componentes shadcn `Input`/`Switch`/`Table` ya presentes.
+1. **Botones ▲ ▼** en cada fila (categorías y productos). Al click:
+   - Calcular el `orden` swap con el vecino y disparar dos mutaciones (mutación batch en un nuevo serverFn `reorderItems`).
+2. **Drag-and-drop con `@dnd-kit/core` + `@dnd-kit/sortable`** sobre la lista de categorías y dentro de cada grupo de productos. Al soltar, recalcular `orden = índice * 10` y enviar batch.
+   - Nuevo serverFn: `reorderAdminCategorias({ updates: [{id, orden}, ...] })` y `reorderAdminProductos(...)`.
+3. **Toggle "Ocultar inactivos"** (estado local). Cuando está ON:
+   - Filtra categorías con `activo === false`.
+   - Filtra productos con `disponible === false`.
+4. **Thumbnails + precio reales** ya están renderizados; sólo asegurar que `imagen_url` ya viene absoluta desde Paso 1 (no se rompe `<img>`).
+5. Mantener el switch de activar/desactivar y el diseño Neubrutalista (BrutalCard, bordes, sombras). No tocamos el sistema de design tokens.
 
-**Link en el admin** (`src/routes/admin.index.tsx` o el sidebar): añadir entrada "Menú" → `/admin/menu`.
+## Paso 4 — Dependencias e instalación
 
-## Paso 4 — Resync y verificación
+- `bun add @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities`.
 
-1. Migración no requerida (orden ya existe).
-2. Tras desplegar, ir a `/admin/sincronizacion` → "Sincronizar TODOS los menús".
-3. Verificar con SQL que `rp_categorias.activo` y `rp_productos.imagen_url` traen valores reales, y que `count(*) where disponible=true` se redujo respecto al sync anterior (filtro delivery aplicado).
-4. Abrir `/admin/menu`, cambiar orden de "Combos" a 1, verificar que `/menu` público respeta el orden.
+## Paso 5 — Verificación
 
-## Nota sobre imágenes rotas
-
-Como advertiste, las rutas pueden venir relativas. El plan guarda el string tal cual. Si en `/admin/menu` las imágenes salen rotas, en una iteración siguiente añadimos un helper `resolveRpImage(url)` que concatene `https://api.restaurant.pe/archivos/` cuando la ruta no empiece por `http`. No lo aplicamos ahora para no romper imágenes que ya vengan absolutas.
+1. Reiniciar /admin/sincronizacion → "Sincronizar TODOS los menús".
+2. Verificar en `/admin/menu`:
+   - Categorías ordenadas igual que el POS.
+   - Productos con thumbnail visible (URL `https://api.restaurant.pe/archivos/...`).
+   - Combos con precio > 0.
+   - Toggle "Ocultar inactivos" funciona.
+   - Drag-and-drop persiste orden tras refrescar.
+3. Verificar `/menu` público sigue mostrando lo mismo (no cambia el contrato).
 
 ## Fuera de alcance
 
-- No se toca el diseño visual del `/menu` público.
-- No se toca auth, sedes, ni el flujo de checkout.
-- No se modifica el esquema (orden ya existe; activo ya existe en categorías; disponible ya existe en productos).
+- Cambios en el público `/menu` más allá de lo que herede del orden y las imágenes.
+- Editar precios desde admin (sigue siendo source-of-truth POS).
+- Auth, checkout, modificadores, stock.
+
+## Detalles técnicos (sólo para devs)
+
+```text
+restaurantpe-normalize.ts
+├── resolveRpImage(url): string|null
+├── normalizeCategoria(raw, index?)
+│   activo = est==="1" && deliv==="1"
+│   orden  = raw.categoria_orden ?? index ?? 0
+└── normalizeProduct(raw, index?)
+    precio = generalPrecio ?? presPrecio ?? generalFijo ?? 0
+    if (precio === 0) return null
+    imagen = resolveRpImage(...)
+    orden  = index ?? 0
+
+rp.functions.ts / syncSedeMenu
+├── leer rp_categorias existentes (rp_id, orden)
+├── upsert cats: incluir `orden` SOLO si rp_id es nuevo
+├── leer rp_productos existentes
+└── upsert prods: incluir `orden` SOLO si rp_id es nuevo
+
+admin.menu.tsx
+├── @dnd-kit Sortable para cats y prods-por-cat
+├── botones ▲▼ como fallback accesible
+├── toggle "Ocultar inactivos" (useState)
+└── nuevos serverFn: reorderAdminCategorias, reorderAdminProductos
+    (validan con z.array({id,orden}).max(500), update batch)
+```

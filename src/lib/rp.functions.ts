@@ -53,16 +53,17 @@ function extractMenu(menu: unknown) {
     }
     categoriasRaw = Array.from(map.values());
   }
-  const categorias = categoriasRaw
-    .map((c) => normalizeCategoria(c as Parameters<typeof normalizeCategoria>[0]))
-    .filter((c) => c.activo);
+  const categoriasAll = categoriasRaw.map((c, i) =>
+    normalizeCategoria(c as Parameters<typeof normalizeCategoria>[0], i),
+  );
+  const categorias = categoriasAll.filter((c) => c.activo);
   const activeCatIds = new Set(categorias.map((c) => c.rp_id));
   const productos = productosRaw
-    .map((p) => normalizeProduct(p as Parameters<typeof normalizeProduct>[0]))
+    .map((p, i) =>
+      normalizeProduct(p as Parameters<typeof normalizeProduct>[0], i),
+    )
     .filter((p): p is NonNullable<typeof p> => p !== null)
-    .filter(
-      (p) => p.rp_categoria_id == null || activeCatIds.has(p.rp_categoria_id),
-    );
+    .filter((p) => p.rp_categoria_id != null && activeCatIds.has(p.rp_categoria_id));
   return { categorias, productos };
 }
 
@@ -90,18 +91,29 @@ async function syncSedeMenu(
     return { categorias: 0, productos: 0 };
   }
 
-  // 1) Upsert categorías SIN sobrescribir `orden` ni `activo` (los gestiona el admin).
-  //    Para filas nuevas, `orden` default 0 y `activo` default true.
+  // 1) Upsert categorías. Heredamos `orden` del POS SOLO para filas nuevas,
+  //    para no pisar el reorden manual del admin.
   const catIdByRpId = new Map<number, string>();
   if (categorias.length > 0) {
+    const { data: existingCats } = await supabase
+      .from("rp_categorias")
+      .select("rp_id")
+      .eq("sede_id", sede.id);
+    const existingCatIds = new Set(
+      (existingCats ?? []).map((r) => r.rp_id as number),
+    );
     const { data: upsertedCats, error: catErr } = await supabase
       .from("rp_categorias")
       .upsert(
-        categorias.map((c) => ({
-          sede_id: sede.id,
-          rp_id: c.rp_id,
-          nombre: c.nombre,
-        })),
+        categorias.map((c) => {
+          const base: Record<string, unknown> = {
+            sede_id: sede.id,
+            rp_id: c.rp_id,
+            nombre: c.nombre,
+          };
+          if (!existingCatIds.has(c.rp_id)) base.orden = c.orden;
+          return base;
+        }) as never,
         { onConflict: "sede_id,rp_id" },
       )
       .select("id, rp_id");
@@ -111,26 +123,37 @@ async function syncSedeMenu(
     }
   }
 
-  // 2) Upsert productos. NO sobrescribir `orden` ni `disponible` manualmente
-  //    fijados por el admin: `disponible` se refleja desde el POS (agotado), y
-  //    `orden` se omite para preservar el manual.
+  // 2) Upsert productos. Heredamos `orden` del POS SOLO para filas nuevas.
   if (productos.length > 0) {
-    const rows = productos.map((p) => ({
-      sede_id: sede.id,
-      rp_id: p.rp_id,
-      categoria_id:
-        p.rp_categoria_id != null ? catIdByRpId.get(p.rp_categoria_id) ?? null : null,
-      nombre: p.nombre,
-      descripcion: p.descripcion,
-      precio: p.precio,
-      imagen_url: p.imagen_url,
-      disponible: p.disponible,
-      modificadores: p.modificadores as never,
-      almacen_id: p.almacen_id,
-    }));
+    const { data: existingProds } = await supabase
+      .from("rp_productos")
+      .select("rp_id")
+      .eq("sede_id", sede.id);
+    const existingProdIds = new Set(
+      (existingProds ?? []).map((r) => r.rp_id as number),
+    );
+    const rows = productos.map((p) => {
+      const base: Record<string, unknown> = {
+        sede_id: sede.id,
+        rp_id: p.rp_id,
+        categoria_id:
+          p.rp_categoria_id != null
+            ? catIdByRpId.get(p.rp_categoria_id) ?? null
+            : null,
+        nombre: p.nombre,
+        descripcion: p.descripcion,
+        precio: p.precio,
+        imagen_url: p.imagen_url,
+        disponible: p.disponible,
+        modificadores: p.modificadores,
+        almacen_id: p.almacen_id,
+      };
+      if (!existingProdIds.has(p.rp_id)) base.orden = p.orden;
+      return base;
+    });
     const { error: prodErr } = await supabase
       .from("rp_productos")
-      .upsert(rows, { onConflict: "sede_id,rp_id" });
+      .upsert(rows as never, { onConflict: "sede_id,rp_id" });
     if (prodErr) throw new Error(`productos: ${prodErr.message}`);
   }
 
@@ -468,4 +491,47 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+const reorderInput = z.object({
+  updates: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        orden: z.number().int().min(0).max(99999),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
+export const reorderAdminCategorias = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => reorderInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    // No tenemos rpc batch — actualizamos en paralelo.
+    const results = await Promise.all(
+      data.updates.map((u) =>
+        supabase.from("rp_categorias").update({ orden: u.orden }).eq("id", u.id),
+      ),
+    );
+    const err = results.find((r) => r.error)?.error;
+    if (err) throw new Error(err.message);
+    return { ok: true, count: data.updates.length };
+  });
+
+export const reorderAdminProductos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => reorderInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const results = await Promise.all(
+      data.updates.map((u) =>
+        supabase.from("rp_productos").update({ orden: u.orden }).eq("id", u.id),
+      ),
+    );
+    const err = results.find((r) => r.error)?.error;
+    if (err) throw new Error(err.message);
+    return { ok: true, count: data.updates.length };
   });

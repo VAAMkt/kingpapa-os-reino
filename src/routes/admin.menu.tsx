@@ -3,14 +3,34 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { listAllSedes } from "@/lib/sedes";
 import {
   listAdminMenu,
   updateAdminCategoria,
   updateAdminProducto,
+  reorderAdminCategorias,
+  reorderAdminProductos,
 } from "@/lib/rp.functions";
 
 export const Route = createFileRoute("/admin/menu")({
@@ -40,6 +60,7 @@ function AdminMenuPage() {
   const queryClient = useQueryClient();
   const sedesQ = useQuery({ queryKey: ["sedes", "all"], queryFn: listAllSedes });
   const [sedeId, setSedeId] = useState<string>("");
+  const [hideInactive, setHideInactive] = useState(false);
 
   const effectiveSedeId =
     sedeId || sedesQ.data?.find((s) => s.rp_local_id)?.id || "";
@@ -53,40 +74,110 @@ function AdminMenuPage() {
 
   const updateCat = useServerFn(updateAdminCategoria);
   const updateProd = useServerFn(updateAdminProducto);
+  const reorderCats = useServerFn(reorderAdminCategorias);
+  const reorderProds = useServerFn(reorderAdminProductos);
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin-menu", effectiveSedeId] });
+    queryClient.invalidateQueries({ queryKey: ["menu"] });
+  };
 
   const catMut = useMutation({
-    mutationFn: (v: { id: string; orden?: number; activo?: boolean }) =>
+    mutationFn: (v: { id: string; activo: boolean }) =>
       updateCat({ data: v }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-menu", effectiveSedeId] });
-      queryClient.invalidateQueries({ queryKey: ["menu"] });
-    },
+    onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
 
   const prodMut = useMutation({
-    mutationFn: (v: { id: string; orden?: number; disponible?: boolean }) =>
+    mutationFn: (v: { id: string; disponible: boolean }) =>
       updateProd({ data: v }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-menu", effectiveSedeId] });
-      queryClient.invalidateQueries({ queryKey: ["menu"] });
-    },
+    onSuccess: invalidate,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reorderCatsMut = useMutation({
+    mutationFn: (updates: { id: string; orden: number }[]) =>
+      reorderCats({ data: { updates } }),
+    onSuccess: invalidate,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reorderProdsMut = useMutation({
+    mutationFn: (updates: { id: string; orden: number }[]) =>
+      reorderProds({ data: { updates } }),
+    onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
 
   const categorias = (menuQ.data?.categorias ?? []) as Cat[];
   const productos = (menuQ.data?.productos ?? []) as Prod[];
 
+  const visibleCategorias = useMemo(
+    () => (hideInactive ? categorias.filter((c) => c.activo) : categorias),
+    [categorias, hideInactive],
+  );
+
   const prodsByCat = useMemo(() => {
     const m = new Map<string, Prod[]>();
     for (const p of productos) {
+      if (hideInactive && !p.disponible) continue;
       const k = p.categoria_id ?? "_sin";
       const arr = m.get(k) ?? [];
       arr.push(p);
       m.set(k, arr);
     }
     return m;
-  }, [productos]);
+  }, [productos, hideInactive]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleCatsDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIdx = visibleCategorias.findIndex((c) => c.id === active.id);
+    const newIdx = visibleCategorias.findIndex((c) => c.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const next = arrayMove(visibleCategorias, oldIdx, newIdx);
+    reorderCatsMut.mutate(
+      next.map((c, i) => ({ id: c.id, orden: (i + 1) * 10 })),
+    );
+  };
+
+  const handleProdsDragEnd = (catId: string) => (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const list = prodsByCat.get(catId) ?? [];
+    const oldIdx = list.findIndex((p) => p.id === active.id);
+    const newIdx = list.findIndex((p) => p.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const next = arrayMove(list, oldIdx, newIdx);
+    reorderProdsMut.mutate(
+      next.map((p, i) => ({ id: p.id, orden: (i + 1) * 10 })),
+    );
+  };
+
+  const moveCat = (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= visibleCategorias.length) return;
+    const next = arrayMove(visibleCategorias, idx, target);
+    reorderCatsMut.mutate(
+      next.map((c, i) => ({ id: c.id, orden: (i + 1) * 10 })),
+    );
+  };
+
+  const moveProd = (catId: string, idx: number, dir: -1 | 1) => {
+    const list = prodsByCat.get(catId) ?? [];
+    const target = idx + dir;
+    if (target < 0 || target >= list.length) return;
+    const next = arrayMove(list, idx, target);
+    reorderProdsMut.mutate(
+      next.map((p, i) => ({ id: p.id, orden: (i + 1) * 10 })),
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -96,12 +187,12 @@ function AdminMenuPage() {
           Gestor del menú
         </h1>
         <p className="text-sm text-kp-ink/70 mt-1">
-          Reordena categorías y productos. Activa/desactiva lo que ve el cliente.
+          Arrastra para reordenar, usa las flechas o activa/desactiva con un click.
         </p>
       </header>
 
-      <BrutalCard tone="cheese" className="p-4">
-        <label className="flex flex-col sm:flex-row sm:items-center gap-2">
+      <BrutalCard tone="cheese" className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+        <label className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
           <span className="font-display uppercase text-sm">Sede:</span>
           <select
             value={effectiveSedeId}
@@ -116,6 +207,13 @@ function AdminMenuPage() {
             ))}
           </select>
         </label>
+        <label className="flex items-center gap-2 font-display uppercase text-sm">
+          <Switch
+            checked={hideInactive}
+            onCheckedChange={setHideInactive}
+          />
+          Ocultar inactivos
+        </label>
       </BrutalCard>
 
       {menuQ.isLoading && <p className="text-sm">Cargando menú…</p>}
@@ -123,43 +221,34 @@ function AdminMenuPage() {
       {menuQ.data && (
         <BrutalCard tone="cheese" className="p-4 space-y-3">
           <h2 className="font-display uppercase text-lg">Categorías</h2>
-          <div className="grid gap-2">
-            <div className="grid grid-cols-[1fr_80px_80px] gap-2 text-xs font-display uppercase text-kp-ink/60 px-2">
-              <span>Nombre</span>
-              <span>Orden</span>
-              <span>Activa</span>
-            </div>
-            {categorias.map((c) => (
-              <div
-                key={c.id}
-                className="grid grid-cols-[1fr_80px_80px] gap-2 items-center border-2 border-kp-ink bg-kp-cheese p-2 shadow-brutal-sm"
-              >
-                <span className="font-display uppercase text-sm truncate">
-                  {c.nombre}
-                </span>
-                <Input
-                  type="number"
-                  defaultValue={c.orden}
-                  className="h-9"
-                  onBlur={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    if (!Number.isNaN(v) && v !== c.orden) {
-                      catMut.mutate({ id: c.id, orden: v });
-                    }
-                  }}
-                />
-                <Switch
-                  checked={c.activo}
-                  onCheckedChange={(v) => catMut.mutate({ id: c.id, activo: v })}
-                />
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleCatsDragEnd}
+          >
+            <SortableContext
+              items={visibleCategorias.map((c) => c.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="grid gap-2">
+                {visibleCategorias.map((c, idx) => (
+                  <SortableCatRow
+                    key={c.id}
+                    cat={c}
+                    idx={idx}
+                    total={visibleCategorias.length}
+                    onMove={(d) => moveCat(idx, d)}
+                    onToggle={(v) => catMut.mutate({ id: c.id, activo: v })}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         </BrutalCard>
       )}
 
       {menuQ.data &&
-        categorias.map((c) => {
+        visibleCategorias.map((c) => {
           const list = prodsByCat.get(c.id) ?? [];
           if (list.length === 0) return null;
           return (
@@ -168,57 +257,31 @@ function AdminMenuPage() {
                 {c.nombre}{" "}
                 <span className="text-kp-ink/50 text-xs">({list.length})</span>
               </h3>
-              <div className="grid gap-2">
-                {list.map((p) => (
-                  <div
-                    key={p.id}
-                    className="grid grid-cols-[48px_1fr_90px_80px_80px] gap-2 items-center border-2 border-kp-ink bg-kp-cheese p-2 shadow-brutal-sm"
-                  >
-                    <div className="w-12 h-12 border-2 border-kp-ink bg-kp-yellow overflow-hidden">
-                      {p.imagen_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.imagen_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display =
-                              "none";
-                          }}
-                        />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-display uppercase text-sm truncate">
-                        {p.nombre}
-                      </p>
-                      <p className="text-xs text-kp-ink/60">
-                        ${p.precio.toLocaleString("es-CO")}
-                      </p>
-                    </div>
-                    <span className="text-xs text-kp-ink/60 truncate">
-                      rp_id {p.rp_id}
-                    </span>
-                    <Input
-                      type="number"
-                      defaultValue={p.orden}
-                      className="h-9"
-                      onBlur={(e) => {
-                        const v = parseInt(e.target.value, 10);
-                        if (!Number.isNaN(v) && v !== p.orden) {
-                          prodMut.mutate({ id: p.id, orden: v });
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleProdsDragEnd(c.id)}
+              >
+                <SortableContext
+                  items={list.map((p) => p.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="grid gap-2">
+                    {list.map((p, idx) => (
+                      <SortableProdRow
+                        key={p.id}
+                        prod={p}
+                        idx={idx}
+                        total={list.length}
+                        onMove={(d) => moveProd(c.id, idx, d)}
+                        onToggle={(v) =>
+                          prodMut.mutate({ id: p.id, disponible: v })
                         }
-                      }}
-                    />
-                    <Switch
-                      checked={p.disponible}
-                      onCheckedChange={(v) =>
-                        prodMut.mutate({ id: p.id, disponible: v })
-                      }
-                    />
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
             </BrutalCard>
           );
         })}
@@ -228,6 +291,159 @@ function AdminMenuPage() {
           Esta sede aún no tiene menú sincronizado. Ve a Sincronización.
         </p>
       )}
+    </div>
+  );
+}
+
+function SortableCatRow({
+  cat,
+  idx,
+  total,
+  onMove,
+  onToggle,
+}: {
+  cat: Cat;
+  idx: number;
+  total: number;
+  onMove: (dir: -1 | 1) => void;
+  onToggle: (v: boolean) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: cat.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="grid grid-cols-[32px_1fr_auto_auto] gap-2 items-center border-2 border-kp-ink bg-kp-cheese p-2 shadow-brutal-sm"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing p-1 text-kp-ink/60 hover:text-kp-ink"
+        aria-label="Arrastrar para reordenar"
+      >
+        <GripVertical className="size-4" />
+      </button>
+      <span className="font-display uppercase text-sm truncate">
+        {cat.nombre}
+        {!cat.activo && (
+          <span className="ml-2 text-xs text-kp-ink/50">(oculta)</span>
+        )}
+      </span>
+      <div className="flex gap-1">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8"
+          disabled={idx === 0}
+          onClick={() => onMove(-1)}
+          aria-label="Subir"
+        >
+          <ArrowUp className="size-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8"
+          disabled={idx === total - 1}
+          onClick={() => onMove(1)}
+          aria-label="Bajar"
+        >
+          <ArrowDown className="size-4" />
+        </Button>
+      </div>
+      <Switch checked={cat.activo} onCheckedChange={onToggle} />
+    </div>
+  );
+}
+
+function SortableProdRow({
+  prod,
+  idx,
+  total,
+  onMove,
+  onToggle,
+}: {
+  prod: Prod;
+  idx: number;
+  total: number;
+  onMove: (dir: -1 | 1) => void;
+  onToggle: (v: boolean) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: prod.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="grid grid-cols-[24px_48px_1fr_auto_auto] gap-2 items-center border-2 border-kp-ink bg-kp-cheese p-2 shadow-brutal-sm"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-kp-ink/60 hover:text-kp-ink"
+        aria-label="Arrastrar para reordenar"
+      >
+        <GripVertical className="size-4" />
+      </button>
+      <div className="w-12 h-12 border-2 border-kp-ink bg-kp-yellow overflow-hidden">
+        {prod.imagen_url ? (
+          <img
+            src={prod.imagen_url}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
+        ) : null}
+      </div>
+      <div className="min-w-0">
+        <p className="font-display uppercase text-sm truncate">
+          {prod.nombre}
+          {!prod.disponible && (
+            <span className="ml-2 text-xs text-kp-ink/50">(oculto)</span>
+          )}
+        </p>
+        <p className="text-xs text-kp-ink/60">
+          ${prod.precio.toLocaleString("es-CO")}
+        </p>
+      </div>
+      <div className="flex gap-1">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8"
+          disabled={idx === 0}
+          onClick={() => onMove(-1)}
+          aria-label="Subir"
+        >
+          <ArrowUp className="size-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8"
+          disabled={idx === total - 1}
+          onClick={() => onMove(1)}
+          aria-label="Bajar"
+        >
+          <ArrowDown className="size-4" />
+        </Button>
+      </div>
+      <Switch checked={prod.disponible} onCheckedChange={onToggle} />
     </div>
   );
 }
