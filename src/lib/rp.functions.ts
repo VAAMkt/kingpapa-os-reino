@@ -53,17 +53,19 @@ function extractMenu(menu: unknown) {
     }
     categoriasRaw = Array.from(map.values());
   }
-  const categorias = categoriasRaw.map((c) =>
-    normalizeCategoria(c as Parameters<typeof normalizeCategoria>[0]),
-  );
-  const productos = productosRaw.map((p) =>
-    normalizeProduct(p as Parameters<typeof normalizeProduct>[0]),
-  );
+  const categorias = categoriasRaw
+    .map((c) => normalizeCategoria(c as Parameters<typeof normalizeCategoria>[0]))
+    .filter((c) => c.activo);
+  const activeCatIds = new Set(categorias.map((c) => c.rp_id));
+  const productos = productosRaw
+    .map((p) => normalizeProduct(p as Parameters<typeof normalizeProduct>[0]))
+    .filter((p): p is NonNullable<typeof p> => p !== null)
+    .filter(
+      (p) => p.rp_categoria_id == null || activeCatIds.has(p.rp_categoria_id),
+    );
   return { categorias, productos };
 }
 
-// Sincroniza el menú de UNA sede usando upserts en lote (3 llamadas a la base
-// en vez de cientos). Devuelve los conteos. Lanza error si algo falla.
 async function syncSedeMenu(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   sede: { id: string; rp_local_id: number | null },
@@ -71,9 +73,6 @@ async function syncSedeMenu(
   const menu = await rpGetCatalogo(sede.rp_local_id!);
   const { categorias: catsRaw, productos: prodsRaw } = extractMenu(menu);
 
-  // Deduplicar por rp_id: el upsert con onConflict no permite la misma clave
-  // dos veces en un batch (Postgres: "ON CONFLICT DO UPDATE command cannot
-  // affect row a second time"). Nos quedamos con la primera ocurrencia.
   const dedupeByRpId = <T extends { rp_id: number }>(arr: T[]): T[] => {
     const seen = new Set<number>();
     const out: T[] = [];
@@ -91,7 +90,8 @@ async function syncSedeMenu(
     return { categorias: 0, productos: 0 };
   }
 
-  // 1) Bulk upsert categorías y recibir el mapeo rp_id -> id en una sola llamada.
+  // 1) Upsert categorías SIN sobrescribir `orden` ni `activo` (los gestiona el admin).
+  //    Para filas nuevas, `orden` default 0 y `activo` default true.
   const catIdByRpId = new Map<number, string>();
   if (categorias.length > 0) {
     const { data: upsertedCats, error: catErr } = await supabase
@@ -101,8 +101,6 @@ async function syncSedeMenu(
           sede_id: sede.id,
           rp_id: c.rp_id,
           nombre: c.nombre,
-          orden: c.orden,
-          activo: true,
         })),
         { onConflict: "sede_id,rp_id" },
       )
@@ -113,7 +111,9 @@ async function syncSedeMenu(
     }
   }
 
-  // 2) Bulk upsert productos en una sola llamada.
+  // 2) Upsert productos. NO sobrescribir `orden` ni `disponible` manualmente
+  //    fijados por el admin: `disponible` se refleja desde el POS (agotado), y
+  //    `orden` se omite para preservar el manual.
   if (productos.length > 0) {
     const rows = productos.map((p) => ({
       sede_id: sede.id,
@@ -134,7 +134,7 @@ async function syncSedeMenu(
     if (prodErr) throw new Error(`productos: ${prodErr.message}`);
   }
 
-  // 3) Marcar como no disponibles los que ya no vienen en el catálogo (1 query).
+  // 3) Marcar como no disponibles los que ya no vienen en el catálogo.
   const incomingIds = productos.map((p) => p.rp_id);
   if (incomingIds.length > 0) {
     await supabase
