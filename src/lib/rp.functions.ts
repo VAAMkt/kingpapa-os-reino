@@ -375,8 +375,6 @@ export const syncAllMenus = createServerFn({ method: "POST" })
       sedes: targets.length,
       categorias: totalCats,
       productos: totalProds,
-      ultimaSchemaCats: totalCatsSchema,
-      ultimaSchemaProds: totalProdsSchema,
       errores,
     };
   });
