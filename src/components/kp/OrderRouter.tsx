@@ -1,28 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalChip } from "@/components/ui-kp/Brutal";
 import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
-import { sedes, ciudades } from "@/data/sedes";
-import type { Ciudad } from "@/types/kp";
+import { listPublicSedes } from "@/lib/sedes";
 
 /**
  * OrderRouter
- * Captura: ciudad, sede, canal de pedido.
- * Dispara: deeplink a Rappi/DiDi, WhatsApp, flujo propio (mock).
- * TODO: reemplazar URLs por deeplinks reales por sede.
- * TODO: enviar evento a analítica { canal, sede, ts }.
+ * Captura ciudad/sede/canal y dispara deeplink (Rappi/DiDi/WhatsApp).
  */
 export function OrderRouter({ compact = false }: { compact?: boolean }) {
-  const [ciudad, setCiudad] = useState<Ciudad>("Cali");
+  const { data: sedes = [] } = useQuery({
+    queryKey: ["sedes", "public"],
+    queryFn: listPublicSedes,
+    staleTime: 60_000,
+  });
+
+  const ciudades = Array.from(new Set(sedes.map((s) => s.ciudad))).sort();
+  const [ciudad, setCiudad] = useState<string>("Cali");
   const sedesCiudad = sedes.filter((s) => s.ciudad === ciudad);
-  const [sedeId, setSedeId] = useState<string>(sedesCiudad[0]?.id || "");
+  const [sedeId, setSedeId] = useState<string>("");
+
+  useEffect(() => {
+    if (sedesCiudad.length && !sedesCiudad.some((s) => s.id === sedeId)) {
+      setSedeId(sedesCiudad[0].id);
+    }
+  }, [sedesCiudad, sedeId]);
+
   const sede = sedes.find((s) => s.id === sedeId) || sedesCiudad[0];
 
-  const waNumber = sede?.whatsapp || "573000000000";
+  const waNumber = sede?.whatsapp || "573172455336";
   const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(
-    `Quiero pedir en ${sede?.nombre}. Soy súbdito del Reino.`,
+    `Quiero pedir en ${sede?.nombre ?? "KINGPAPA"}. Soy súbdito del Reino.`,
   )}`;
 
-  // TODO: deeplinks reales
   const rappiUrl = "https://www.rappi.com.co/restaurantes/kingpapa";
   const didiUrl = "https://web.didi-food.com/co";
 
@@ -36,23 +46,13 @@ export function OrderRouter({ compact = false }: { compact?: boolean }) {
 
       <div className="flex flex-wrap gap-2 mb-4">
         {ciudades.map((c) => (
-          <BrutalChip
-            key={c}
-            active={ciudad === c}
-            onClick={() => {
-              setCiudad(c);
-              const first = sedes.find((s) => s.ciudad === c);
-              if (first) setSedeId(first.id);
-            }}
-          >
+          <BrutalChip key={c} active={ciudad === c} onClick={() => setCiudad(c)}>
             {c}
           </BrutalChip>
         ))}
       </div>
 
-      <label className="block text-xs font-display uppercase tracking-wider mb-2">
-        Sede
-      </label>
+      <label className="block text-xs font-display uppercase tracking-wider mb-2">Sede</label>
       <select
         value={sedeId}
         onChange={(e) => setSedeId(e.target.value)}
@@ -78,10 +78,10 @@ export function OrderRouter({ compact = false }: { compact?: boolean }) {
       </div>
 
       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-        <BrutalButton variant="ghost" size="md" block onClick={() => {/* TODO: flujo propio */}}>
+        <BrutalButton variant="ghost" size="md" block>
           Pedir directo al Reino
         </BrutalButton>
-        <BrutalButton variant="ghost" size="md" block onClick={() => {/* TODO: pickup */}}>
+        <BrutalButton variant="ghost" size="md" block>
           Recoger en sede
         </BrutalButton>
       </div>

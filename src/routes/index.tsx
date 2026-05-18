@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalBadge, SectionHeading } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { OrderRouter } from "@/components/kp/OrderRouter";
@@ -9,7 +10,7 @@ import { EventCard, LocationCard } from "@/components/kp/Cards";
 import { Testimonios } from "@/components/kp/Testimonios";
 import { productos } from "@/data/productos";
 import { historias } from "@/data/historias";
-import { sedes } from "@/data/sedes";
+import { listPublicSedes } from "@/lib/sedes";
 import heroImg from "@/assets/hero-salchipapa.jpg";
 
 export const Route = createFileRoute("/")({
@@ -29,7 +30,8 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const estrellas = productos.slice(0, 4);
   const retos = historias.filter((h) => h.categoria === "Retos" || h.categoria === "Festivales").slice(0, 3);
-  const sedesResumen = sedes.slice(0, 4);
+  const { data: sedesData = [] } = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
+  const sedesResumen = sedesData.slice(0, 4);
 
   return (
     <>

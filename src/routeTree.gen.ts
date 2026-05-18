@@ -30,8 +30,12 @@ import { Route as MiReinoFavoritosRouteImport } from './routes/mi-reino.favorito
 import { Route as MiReinoDatosRouteImport } from './routes/mi-reino.datos'
 import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
+import { Route as AdminSedesRouteImport } from './routes/admin.sedes'
 import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
+import { Route as AdminSedesIndexRouteImport } from './routes/admin.sedes.index'
 import { Route as AdminContenidosIndexRouteImport } from './routes/admin.contenidos.index'
+import { Route as AdminSedesNuevoRouteImport } from './routes/admin.sedes.nuevo'
+import { Route as AdminSedesIdRouteImport } from './routes/admin.sedes.$id'
 import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
 import { Route as AdminContenidosIdRouteImport } from './routes/admin.contenidos.$id'
 
@@ -140,15 +144,35 @@ const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSedesRoute = AdminSedesRouteImport.update({
+  id: '/sedes',
+  path: '/sedes',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminContenidosRoute = AdminContenidosRouteImport.update({
   id: '/contenidos',
   path: '/contenidos',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSedesIndexRoute = AdminSedesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminSedesRoute,
+} as any)
 const AdminContenidosIndexRoute = AdminContenidosIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminContenidosRoute,
+} as any)
+const AdminSedesNuevoRoute = AdminSedesNuevoRouteImport.update({
+  id: '/nuevo',
+  path: '/nuevo',
+  getParentRoute: () => AdminSedesRoute,
+} as any)
+const AdminSedesIdRoute = AdminSedesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminSedesRoute,
 } as any)
 const AdminContenidosNuevoRoute = AdminContenidosNuevoRouteImport.update({
   id: '/nuevo',
@@ -176,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/sedes': typeof SedesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
+  '/admin/sedes': typeof AdminSedesRouteWithChildren
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -186,7 +211,10 @@ export interface FileRoutesByFullPath {
   '/mi-reino/': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
+  '/admin/sedes/$id': typeof AdminSedesIdRoute
+  '/admin/sedes/nuevo': typeof AdminSedesNuevoRoute
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
+  '/admin/sedes/': typeof AdminSedesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -210,7 +238,10 @@ export interface FileRoutesByTo {
   '/mi-reino': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
+  '/admin/sedes/$id': typeof AdminSedesIdRoute
+  '/admin/sedes/nuevo': typeof AdminSedesNuevoRoute
   '/admin/contenidos': typeof AdminContenidosIndexRoute
+  '/admin/sedes': typeof AdminSedesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -228,6 +259,7 @@ export interface FileRoutesById {
   '/sedes': typeof SedesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
+  '/admin/sedes': typeof AdminSedesRouteWithChildren
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -238,7 +270,10 @@ export interface FileRoutesById {
   '/mi-reino/': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
+  '/admin/sedes/$id': typeof AdminSedesIdRoute
+  '/admin/sedes/nuevo': typeof AdminSedesNuevoRoute
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
+  '/admin/sedes/': typeof AdminSedesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -257,6 +292,7 @@ export interface FileRouteTypes {
     | '/sedes'
     | '/sitemap.xml'
     | '/admin/contenidos'
+    | '/admin/sedes'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -267,7 +303,10 @@ export interface FileRouteTypes {
     | '/mi-reino/'
     | '/admin/contenidos/$id'
     | '/admin/contenidos/nuevo'
+    | '/admin/sedes/$id'
+    | '/admin/sedes/nuevo'
     | '/admin/contenidos/'
+    | '/admin/sedes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -291,7 +330,10 @@ export interface FileRouteTypes {
     | '/mi-reino'
     | '/admin/contenidos/$id'
     | '/admin/contenidos/nuevo'
+    | '/admin/sedes/$id'
+    | '/admin/sedes/nuevo'
     | '/admin/contenidos'
+    | '/admin/sedes'
   id:
     | '__root__'
     | '/'
@@ -308,6 +350,7 @@ export interface FileRouteTypes {
     | '/sedes'
     | '/sitemap.xml'
     | '/admin/contenidos'
+    | '/admin/sedes'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -318,7 +361,10 @@ export interface FileRouteTypes {
     | '/mi-reino/'
     | '/admin/contenidos/$id'
     | '/admin/contenidos/nuevo'
+    | '/admin/sedes/$id'
+    | '/admin/sedes/nuevo'
     | '/admin/contenidos/'
+    | '/admin/sedes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -486,6 +532,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsuariosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/sedes': {
+      id: '/admin/sedes'
+      path: '/sedes'
+      fullPath: '/admin/sedes'
+      preLoaderRoute: typeof AdminSedesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/contenidos': {
       id: '/admin/contenidos'
       path: '/contenidos'
@@ -493,12 +546,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminContenidosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/sedes/': {
+      id: '/admin/sedes/'
+      path: '/'
+      fullPath: '/admin/sedes/'
+      preLoaderRoute: typeof AdminSedesIndexRouteImport
+      parentRoute: typeof AdminSedesRoute
+    }
     '/admin/contenidos/': {
       id: '/admin/contenidos/'
       path: '/'
       fullPath: '/admin/contenidos/'
       preLoaderRoute: typeof AdminContenidosIndexRouteImport
       parentRoute: typeof AdminContenidosRoute
+    }
+    '/admin/sedes/nuevo': {
+      id: '/admin/sedes/nuevo'
+      path: '/nuevo'
+      fullPath: '/admin/sedes/nuevo'
+      preLoaderRoute: typeof AdminSedesNuevoRouteImport
+      parentRoute: typeof AdminSedesRoute
+    }
+    '/admin/sedes/$id': {
+      id: '/admin/sedes/$id'
+      path: '/$id'
+      fullPath: '/admin/sedes/$id'
+      preLoaderRoute: typeof AdminSedesIdRouteImport
+      parentRoute: typeof AdminSedesRoute
     }
     '/admin/contenidos/nuevo': {
       id: '/admin/contenidos/nuevo'
@@ -533,14 +607,32 @@ const AdminContenidosRouteWithChildren = AdminContenidosRoute._addFileChildren(
   AdminContenidosRouteChildren,
 )
 
+interface AdminSedesRouteChildren {
+  AdminSedesIdRoute: typeof AdminSedesIdRoute
+  AdminSedesNuevoRoute: typeof AdminSedesNuevoRoute
+  AdminSedesIndexRoute: typeof AdminSedesIndexRoute
+}
+
+const AdminSedesRouteChildren: AdminSedesRouteChildren = {
+  AdminSedesIdRoute: AdminSedesIdRoute,
+  AdminSedesNuevoRoute: AdminSedesNuevoRoute,
+  AdminSedesIndexRoute: AdminSedesIndexRoute,
+}
+
+const AdminSedesRouteWithChildren = AdminSedesRoute._addFileChildren(
+  AdminSedesRouteChildren,
+)
+
 interface AdminRouteChildren {
   AdminContenidosRoute: typeof AdminContenidosRouteWithChildren
+  AdminSedesRoute: typeof AdminSedesRouteWithChildren
   AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminContenidosRoute: AdminContenidosRouteWithChildren,
+  AdminSedesRoute: AdminSedesRouteWithChildren,
   AdminUsuariosRoute: AdminUsuariosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

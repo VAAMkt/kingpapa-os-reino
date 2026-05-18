@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
+import type { SedeRow } from "@/lib/sedes";
 
 // Formato estable SSR/CSR (evita hydration mismatch por locale del runtime).
 const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
@@ -9,14 +10,18 @@ export function formatFecha(iso: string): string {
   const idx = Math.max(0, Math.min(11, parseInt(m, 10) - 1));
   return `${MESES[idx]} ${y}`;
 }
-import type { Sede, Historia } from "@/types/kp";
+import type { Historia } from "@/types/kp";
 
-export function LocationCard({ sede }: { sede: Sede }) {
+export function LocationCard({ sede }: { sede: SedeRow }) {
   const services = [
     sede.delivery && "Delivery",
     sede.pickup && "Pick-up",
-    sede.qrMesa && "QR mesa",
+    sede.qr_mesa && "QR mesa",
   ].filter(Boolean) as string[];
+
+  const mapsHref =
+    sede.maps_url ||
+    `https://www.google.com/maps/search/${encodeURIComponent(sede.direccion + " " + sede.ciudad)}`;
 
   return (
     <BrutalCard tone="cheese" className="p-4 flex flex-col gap-2">
@@ -24,10 +29,13 @@ export function LocationCard({ sede }: { sede: Sede }) {
         <div>
           <h3 className="font-display text-2xl uppercase leading-none">{sede.nombre}</h3>
           <p className="text-sm mt-1">{sede.direccion}</p>
-          <p className="text-xs text-kp-ink/70">{sede.ciudad}{sede.barrio ? ` · ${sede.barrio}` : ""}</p>
+          <p className="text-xs text-kp-ink/70">
+            {sede.ciudad}
+            {sede.barrio ? ` · ${sede.barrio}` : sede.mall ? ` · ${sede.mall}` : ""}
+          </p>
         </div>
-        <BrutalBadge tone={sede.abiertaAhora ? "lime" : "black"}>
-          {sede.abiertaAhora ? "Abierto" : "Cerrado"}
+        <BrutalBadge tone={sede.abierta_ahora ? "lime" : "black"}>
+          {sede.abierta_ahora ? "Abierto" : "Cerrado"}
         </BrutalBadge>
       </div>
       <p className="text-xs font-display uppercase">{sede.horario}</p>
@@ -39,20 +47,14 @@ export function LocationCard({ sede }: { sede: Sede }) {
         ))}
       </div>
       <div className="grid grid-cols-2 gap-2 mt-2">
-        <BrutalLink
-          href={sede.whatsapp ? `https://wa.me/${sede.whatsapp}` : "#"}
-          external={!!sede.whatsapp}
-          size="sm"
-          variant="primary"
+        <Link
+          to="/menu"
+          search={{ sede: sede.slug }}
+          className="inline-flex items-center justify-center gap-2 font-display tracking-wide uppercase border-2 border-kp-ink shadow-brutal-sm bg-kp-yellow text-kp-ink px-3 py-2 text-xs transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none hover:-translate-y-[1px]"
         >
           Pedir aquí
-        </BrutalLink>
-        <BrutalLink
-          href={sede.mapsUrl || `https://www.google.com/maps/search/${encodeURIComponent(sede.direccion + " " + sede.ciudad)}`}
-          external
-          size="sm"
-          variant="ghost"
-        >
+        </Link>
+        <BrutalLink href={mapsHref} external size="sm" variant="ghost">
           Cómo llegar
         </BrutalLink>
       </div>

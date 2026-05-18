@@ -95,6 +95,69 @@ export type Database = {
         }
         Relationships: []
       }
+      sedes: {
+        Row: {
+          abierta_ahora: boolean
+          barrio: string | null
+          ciudad: string
+          created_at: string
+          delivery: boolean
+          direccion: string
+          horario: string
+          id: string
+          mall: string | null
+          maps_url: string | null
+          nombre: string
+          orden: number
+          pickup: boolean
+          publicado: boolean
+          qr_mesa: boolean
+          slug: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          abierta_ahora?: boolean
+          barrio?: string | null
+          ciudad: string
+          created_at?: string
+          delivery?: boolean
+          direccion: string
+          horario?: string
+          id?: string
+          mall?: string | null
+          maps_url?: string | null
+          nombre: string
+          orden?: number
+          pickup?: boolean
+          publicado?: boolean
+          qr_mesa?: boolean
+          slug: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          abierta_ahora?: boolean
+          barrio?: string | null
+          ciudad?: string
+          created_at?: string
+          delivery?: boolean
+          direccion?: string
+          horario?: string
+          id?: string
+          mall?: string | null
+          maps_url?: string | null
+          nombre?: string
+          orden?: number
+          pickup?: boolean
+          publicado?: boolean
+          qr_mesa?: boolean
+          slug?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
