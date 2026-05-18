@@ -2,6 +2,8 @@ import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import type { Producto } from "@/types/kp";
 import { addItem } from "@/lib/cart";
+import { useActiveSede } from "@/lib/active-sede";
+import { openLocationGate } from "@/components/kp/LocationGate";
 import { toast } from "sonner";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
@@ -29,6 +31,7 @@ function HambreBar({ n }: { n: number }) {
 }
 
 export function ProductCard({ producto, compact = false }: { producto: Producto; compact?: boolean }) {
+  const sede = useActiveSede();
   const ocasionLabel: Record<string, string> = {
     parche: "parche",
     "after-rumba": "after rumba",
@@ -78,6 +81,11 @@ export function ProductCard({ producto, compact = false }: { producto: Producto;
             size="sm"
             variant="primary"
             onClick={() => {
+              if (!sede || sede.source === "exploring") {
+                openLocationGate();
+                toast.message("Confírmanos tu ubicación primero");
+                return;
+              }
               addItem({
                 productoId: producto.id,
                 nombre: producto.nombre,
