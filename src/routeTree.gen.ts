@@ -28,6 +28,9 @@ import { Route as MiReinoPedidosRouteImport } from './routes/mi-reino.pedidos'
 import { Route as MiReinoFavoritosRouteImport } from './routes/mi-reino.favoritos'
 import { Route as MiReinoDatosRouteImport } from './routes/mi-reino.datos'
 import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
+import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
+import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
+import { Route as AdminContenidosIdRouteImport } from './routes/admin.contenidos.$id'
 
 const SedesRoute = SedesRouteImport.update({
   id: '/sedes',
@@ -124,6 +127,21 @@ const HistoriasSlugRoute = HistoriasSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => HistoriasRoute,
 } as any)
+const AdminContenidosRoute = AdminContenidosRouteImport.update({
+  id: '/contenidos',
+  path: '/contenidos',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminContenidosNuevoRoute = AdminContenidosNuevoRouteImport.update({
+  id: '/nuevo',
+  path: '/nuevo',
+  getParentRoute: () => AdminContenidosRoute,
+} as any)
+const AdminContenidosIdRoute = AdminContenidosIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminContenidosRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
+  '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
@@ -145,6 +164,8 @@ export interface FileRoutesByFullPath {
   '/mi-reino/puntos': typeof MiReinoPuntosRoute
   '/admin/': typeof AdminIndexRoute
   '/mi-reino/': typeof MiReinoIndexRoute
+  '/admin/contenidos/$id': typeof AdminContenidosIdRoute
+  '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -157,6 +178,7 @@ export interface FileRoutesByTo {
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
+  '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
@@ -164,6 +186,8 @@ export interface FileRoutesByTo {
   '/mi-reino/puntos': typeof MiReinoPuntosRoute
   '/admin': typeof AdminIndexRoute
   '/mi-reino': typeof MiReinoIndexRoute
+  '/admin/contenidos/$id': typeof AdminContenidosIdRoute
+  '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -179,6 +203,7 @@ export interface FileRoutesById {
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
+  '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
@@ -186,6 +211,8 @@ export interface FileRoutesById {
   '/mi-reino/puntos': typeof MiReinoPuntosRoute
   '/admin/': typeof AdminIndexRoute
   '/mi-reino/': typeof MiReinoIndexRoute
+  '/admin/contenidos/$id': typeof AdminContenidosIdRoute
+  '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -202,6 +229,7 @@ export interface FileRouteTypes {
     | '/registro'
     | '/reset-password'
     | '/sedes'
+    | '/admin/contenidos'
     | '/historias/$slug'
     | '/mi-reino/datos'
     | '/mi-reino/favoritos'
@@ -209,6 +237,8 @@ export interface FileRouteTypes {
     | '/mi-reino/puntos'
     | '/admin/'
     | '/mi-reino/'
+    | '/admin/contenidos/$id'
+    | '/admin/contenidos/nuevo'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -221,6 +251,7 @@ export interface FileRouteTypes {
     | '/registro'
     | '/reset-password'
     | '/sedes'
+    | '/admin/contenidos'
     | '/historias/$slug'
     | '/mi-reino/datos'
     | '/mi-reino/favoritos'
@@ -228,6 +259,8 @@ export interface FileRouteTypes {
     | '/mi-reino/puntos'
     | '/admin'
     | '/mi-reino'
+    | '/admin/contenidos/$id'
+    | '/admin/contenidos/nuevo'
   id:
     | '__root__'
     | '/'
@@ -242,6 +275,7 @@ export interface FileRouteTypes {
     | '/registro'
     | '/reset-password'
     | '/sedes'
+    | '/admin/contenidos'
     | '/historias/$slug'
     | '/mi-reino/datos'
     | '/mi-reino/favoritos'
@@ -249,6 +283,8 @@ export interface FileRouteTypes {
     | '/mi-reino/puntos'
     | '/admin/'
     | '/mi-reino/'
+    | '/admin/contenidos/$id'
+    | '/admin/contenidos/nuevo'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -401,14 +437,51 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoriasSlugRouteImport
       parentRoute: typeof HistoriasRoute
     }
+    '/admin/contenidos': {
+      id: '/admin/contenidos'
+      path: '/contenidos'
+      fullPath: '/admin/contenidos'
+      preLoaderRoute: typeof AdminContenidosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/contenidos/nuevo': {
+      id: '/admin/contenidos/nuevo'
+      path: '/nuevo'
+      fullPath: '/admin/contenidos/nuevo'
+      preLoaderRoute: typeof AdminContenidosNuevoRouteImport
+      parentRoute: typeof AdminContenidosRoute
+    }
+    '/admin/contenidos/$id': {
+      id: '/admin/contenidos/$id'
+      path: '/$id'
+      fullPath: '/admin/contenidos/$id'
+      preLoaderRoute: typeof AdminContenidosIdRouteImport
+      parentRoute: typeof AdminContenidosRoute
+    }
   }
 }
 
+interface AdminContenidosRouteChildren {
+  AdminContenidosIdRoute: typeof AdminContenidosIdRoute
+  AdminContenidosNuevoRoute: typeof AdminContenidosNuevoRoute
+}
+
+const AdminContenidosRouteChildren: AdminContenidosRouteChildren = {
+  AdminContenidosIdRoute: AdminContenidosIdRoute,
+  AdminContenidosNuevoRoute: AdminContenidosNuevoRoute,
+}
+
+const AdminContenidosRouteWithChildren = AdminContenidosRoute._addFileChildren(
+  AdminContenidosRouteChildren,
+)
+
 interface AdminRouteChildren {
+  AdminContenidosRoute: typeof AdminContenidosRouteWithChildren
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminContenidosRoute: AdminContenidosRouteWithChildren,
   AdminIndexRoute: AdminIndexRoute,
 }
 
