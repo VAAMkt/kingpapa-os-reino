@@ -11,6 +11,11 @@ export type RpProductoRow = {
   precio: number | string;
   imagen_url: string | null;
   disponible: boolean;
+  destacado?: boolean;
+  es_nuevo?: boolean;
+  es_mas_vendido?: boolean;
+  es_recomendado?: boolean;
+  etiqueta_custom?: string | null;
 };
 
 export type RpCategoriaRow = {
@@ -49,6 +54,11 @@ export function rpProductoToProducto(
     ocasiones: [],
     categorias: [catSlug],
     paraCompartir: false,
+    esNuevo: row.es_nuevo ?? false,
+    esMasVendido: row.es_mas_vendido ?? false,
+    esRecomendado: row.es_recomendado ?? false,
+    destacado: row.destacado ?? false,
+    etiquetaCustom: row.etiqueta_custom ?? null,
   };
 }
 
@@ -59,3 +69,4 @@ export function buildCategorias(cats: RpCategoriaRow[]): Categoria[] {
   }
   return base;
 }
+

@@ -91,7 +91,10 @@ async function syncSedeMenu(
     return { categorias: 0, productos: 0 };
   }
 
-  // 1) Upsert categorias_master por rp_id. Solo seteamos `orden` para filas nuevas.
+  // 1) Upsert categorias_master por rp_id.
+  //    - Filas NUEVAS: nombre + orden viene del POS.
+  //    - Filas EXISTENTES: NO pisamos nombre (el admin puede haberlo renombrado),
+  //      solo refrescamos updated_at para que conste la sync.
   const catIdByRpId = new Map<number, string>();
   if (categorias.length > 0) {
     const rpIds = categorias.map((c) => c.rp_id);
@@ -101,11 +104,13 @@ async function syncSedeMenu(
       .in("rp_id", rpIds);
     const existing = new Set((existingCats ?? []).map((r: { rp_id: number }) => r.rp_id));
     const rows = categorias.map((c) => {
-      const base: Record<string, unknown> = {
-        rp_id: c.rp_id,
-        nombre: c.nombre,
-      };
-      if (!existing.has(c.rp_id)) base.orden = c.orden;
+      const base: Record<string, unknown> = { rp_id: c.rp_id };
+      if (!existing.has(c.rp_id)) {
+        base.nombre = c.nombre;
+        base.orden = c.orden;
+      } else {
+        base.updated_at = new Date().toISOString();
+      }
       return base;
     });
     const { data: upsertedCats, error: catErr } = await supabase
@@ -118,8 +123,10 @@ async function syncSedeMenu(
     }
   }
 
-  // 2) Upsert productos_master por rp_id. Solo seteamos `orden`/`disponible`
-  //    para filas nuevas — no pisamos toggles manuales en filas existentes.
+  // 2) Upsert productos_master por rp_id.
+  //    - Filas NUEVAS: TODO viene del POS (nombre, descripcion, precio, imagen, ...).
+  //    - Filas EXISTENTES: NO pisamos nombre/descripcion/orden/disponible (los edita el admin).
+  //      SÍ refrescamos campos que vienen del POS: precio, imagen_url, modificadores, almacen_id, categoria.
   const prodIdByRpId = new Map<number, string>();
   if (productos.length > 0) {
     const rpIds = productos.map((p) => p.rp_id);
@@ -135,8 +142,6 @@ async function syncSedeMenu(
           p.rp_categoria_id != null
             ? catIdByRpId.get(p.rp_categoria_id) ?? null
             : null,
-        nombre: p.nombre,
-        descripcion: p.descripcion,
         precio: p.precio,
         imagen_url: p.imagen_url,
         modificadores: p.modificadores,
@@ -144,6 +149,8 @@ async function syncSedeMenu(
         almacen_id: p.almacen_id,
       };
       if (!existing.has(p.rp_id)) {
+        base.nombre = p.nombre;
+        base.descripcion = p.descripcion;
         base.orden = p.orden;
         base.disponible = p.disponible;
       }
@@ -294,8 +301,9 @@ export const getMenuForSede = createServerFn({ method: "GET" })
       .select(
         `disponible, precio_override, stock_cache,
          productos_master!inner (
-           id, rp_id, categoria_id, nombre, descripcion, precio,
-           imagen_url, disponible, almacen_id, orden
+           id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio,
+           imagen_url, disponible, almacen_id, orden,
+           destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom
          )`,
       )
       .eq("sede_id", sede.id)
@@ -311,12 +319,19 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         rp_id: number;
         categoria_id: string | null;
         nombre: string;
+        nombre_override: string | null;
         descripcion: string | null;
+        descripcion_override: string | null;
         precio: number | string;
         imagen_url: string | null;
         disponible: boolean;
         almacen_id: number | null;
         orden: number;
+        destacado: boolean;
+        es_nuevo: boolean;
+        es_mas_vendido: boolean;
+        es_recomendado: boolean;
+        etiqueta_custom: string | null;
       };
     };
 
@@ -328,13 +343,18 @@ export const getMenuForSede = createServerFn({ method: "GET" })
           id: pm.id,
           rp_id: pm.rp_id,
           categoria_id: pm.categoria_id,
-          nombre: pm.nombre,
-          descripcion: pm.descripcion,
+          nombre: pm.nombre_override ?? pm.nombre,
+          descripcion: pm.descripcion_override ?? pm.descripcion,
           precio: r.precio_override ?? pm.precio,
           imagen_url: pm.imagen_url,
           disponible: true,
           almacen_id: pm.almacen_id,
           orden: pm.orden,
+          destacado: pm.destacado,
+          es_nuevo: pm.es_nuevo,
+          es_mas_vendido: pm.es_mas_vendido,
+          es_recomendado: pm.es_recomendado,
+          etiqueta_custom: pm.etiqueta_custom,
         };
       })
       .sort((a, b) => a.orden - b.orden);
@@ -347,12 +367,23 @@ export const getMenuForSede = createServerFn({ method: "GET" })
     if (catIds.length > 0) {
       const { data: cats, error: catErr } = await supabaseAdmin
         .from("categorias_master")
-        .select("id, rp_id, nombre, orden")
+        .select("id, rp_id, nombre, nombre_override, orden")
         .in("id", catIds)
         .eq("activo", true)
         .order("orden");
       if (catErr) throw new Error(catErr.message);
-      categorias = (cats ?? []) as typeof categorias;
+      categorias = ((cats ?? []) as Array<{
+        id: string;
+        rp_id: number;
+        nombre: string;
+        nombre_override: string | null;
+        orden: number;
+      }>).map((c) => ({
+        id: c.id,
+        rp_id: c.rp_id,
+        nombre: c.nombre_override ?? c.nombre,
+        orden: c.orden,
+      }));
     }
 
     return {
@@ -507,12 +538,14 @@ export const listAdminMenu = createServerFn({ method: "GET" })
       await Promise.all([
         supabase
           .from("categorias_master")
-          .select("id, rp_id, nombre, orden, activo")
+          .select("id, rp_id, nombre, nombre_override, orden, activo")
           .order("orden")
           .order("nombre"),
         supabase
           .from("productos_master")
-          .select("id, rp_id, categoria_id, nombre, precio, imagen_url, disponible, orden")
+          .select(
+            "id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio, imagen_url, disponible, orden, destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom, clasificacion_me, margen_pct",
+          )
           .order("orden")
           .order("nombre"),
       ]);
@@ -529,6 +562,7 @@ export const updateAdminCategoria = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         orden: z.number().int().min(0).max(9999).optional(),
         activo: z.boolean().optional(),
+        nombre_override: z.string().max(120).nullable().optional(),
       })
       .parse(input),
   )
@@ -536,6 +570,9 @@ export const updateAdminCategoria = createServerFn({ method: "POST" })
     const patch: Record<string, unknown> = {};
     if (data.orden !== undefined) patch.orden = data.orden;
     if (data.activo !== undefined) patch.activo = data.activo;
+    if (data.nombre_override !== undefined) {
+      patch.nombre_override = data.nombre_override?.trim() || null;
+    }
     if (Object.keys(patch).length === 0) return { ok: true };
     const { error } = await context.supabase
       .from("categorias_master")
@@ -553,13 +590,45 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         orden: z.number().int().min(0).max(9999).optional(),
         disponible: z.boolean().optional(),
+        nombre_override: z.string().max(120).nullable().optional(),
+        descripcion_override: z.string().max(500).nullable().optional(),
+        destacado: z.boolean().optional(),
+        es_nuevo: z.boolean().optional(),
+        es_mas_vendido: z.boolean().optional(),
+        es_recomendado: z.boolean().optional(),
+        etiqueta_custom: z.string().max(40).nullable().optional(),
+        clasificacion_me: z
+          .enum(["star", "plowhorse", "puzzle", "dog"])
+          .nullable()
+          .optional(),
+        margen_pct: z.number().min(0).max(100).nullable().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = {};
-    if (data.orden !== undefined) patch.orden = data.orden;
-    if (data.disponible !== undefined) patch.disponible = data.disponible;
+    const keys = [
+      "orden",
+      "disponible",
+      "destacado",
+      "es_nuevo",
+      "es_mas_vendido",
+      "es_recomendado",
+      "clasificacion_me",
+      "margen_pct",
+    ] as const;
+    for (const k of keys) {
+      if (data[k] !== undefined) patch[k] = data[k];
+    }
+    if (data.nombre_override !== undefined) {
+      patch.nombre_override = data.nombre_override?.trim() || null;
+    }
+    if (data.descripcion_override !== undefined) {
+      patch.descripcion_override = data.descripcion_override?.trim() || null;
+    }
+    if (data.etiqueta_custom !== undefined) {
+      patch.etiqueta_custom = data.etiqueta_custom?.trim() || null;
+    }
     if (Object.keys(patch).length === 0) return { ok: true };
     const { error } = await context.supabase
       .from("productos_master")

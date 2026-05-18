@@ -24,8 +24,8 @@ export interface Producto {
   nombre: string;
   descripcion: string;
   imagen: string;
-  pesoAprox: string;       // "750g"
-  precioDesde: number;     // COP
+  pesoAprox: string;
+  precioDesde: number;
   nivelHambre: 1 | 2 | 3 | 4 | 5;
   nivelPicante: 0 | 1 | 2 | 3;
   ocasiones: Ocasion[];
@@ -33,6 +33,9 @@ export interface Producto {
   paraCompartir: boolean;
   esNuevo?: boolean;
   esMasVendido?: boolean;
+  esRecomendado?: boolean;
+  destacado?: boolean;
+  etiquetaCustom?: string | null;
   conArroz?: boolean;
   esBowl?: boolean;
   esEconomico?: boolean;

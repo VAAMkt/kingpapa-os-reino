@@ -161,11 +161,18 @@ export function normalizeProduct(
     : toNum(presentaciones[0]?.["producto_precio"] ?? r["productogeneral_precio"]);
   if (precio <= 0) return null;
 
-  // Imagen: combo usa la del padre; normal usa la de presentación si existe
-  const imgRel =
-    (r["productogeneral_urlimagen"] as string | undefined) ??
-    (presentaciones[0]?.["producto_urlimagen"] as string | undefined) ??
-    (raw.producto_imagen as string | undefined);
+  // Imagen: cada producto debe tener la SUYA, no la del nodo general (esa es genérica).
+  // - Combos: productogeneral_urlimagen (es la del combo armado).
+  // - Normales: SIEMPRE la de la presentación primero (es la real). Solo si la
+  //   presentación no trae imagen caemos al padre/legacy.
+  const imgPresentacion = presentaciones[0]?.["producto_urlimagen"] as
+    | string
+    | undefined;
+  const imgGeneral = r["productogeneral_urlimagen"] as string | undefined;
+  const imgLegacy = raw.producto_imagen as string | undefined;
+  const imgRel = esCombo
+    ? (imgGeneral ?? imgPresentacion ?? imgLegacy)
+    : (imgPresentacion ?? imgLegacy ?? imgGeneral);
   const imagen = resolveRpImage(imgRel);
 
   // Delivery activo: combo siempre true; normal => alguna presentación con producto_delivery==="1"
