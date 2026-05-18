@@ -13,12 +13,16 @@ import { Route as SedesRouteImport } from './routes/sedes'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegistroRouteImport } from './routes/registro'
 import { Route as NoAutorizadoRouteImport } from './routes/no-autorizado'
+import { Route as MiReinoRouteImport } from './routes/mi-reino'
 import { Route as MenuRouteImport } from './routes/menu'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HistoriasRouteImport } from './routes/historias'
 import { Route as FranquiciasRouteImport } from './routes/franquicias'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MiReinoIndexRouteImport } from './routes/mi-reino.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
 
 const SedesRoute = SedesRouteImport.update({
@@ -39,6 +43,11 @@ const RegistroRoute = RegistroRouteImport.update({
 const NoAutorizadoRoute = NoAutorizadoRouteImport.update({
   id: '/no-autorizado',
   path: '/no-autorizado',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MiReinoRoute = MiReinoRouteImport.update({
+  id: '/mi-reino',
+  path: '/mi-reino',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MenuRoute = MenuRouteImport.update({
@@ -66,10 +75,25 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const MiReinoIndexRoute = MiReinoIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MiReinoRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
 } as any)
 const HistoriasSlugRoute = HistoriasSlugRouteImport.update({
   id: '/$slug',
@@ -79,16 +103,20 @@ const HistoriasSlugRoute = HistoriasSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/historias': typeof HistoriasRouteWithChildren
   '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
+  '/mi-reino': typeof MiReinoRouteWithChildren
   '/no-autorizado': typeof NoAutorizadoRoute
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/historias/$slug': typeof HistoriasSlugRoute
+  '/admin/': typeof AdminIndexRoute
+  '/mi-reino/': typeof MiReinoIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,35 +130,45 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/historias/$slug': typeof HistoriasSlugRoute
+  '/admin': typeof AdminIndexRoute
+  '/mi-reino': typeof MiReinoIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/historias': typeof HistoriasRouteWithChildren
   '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
+  '/mi-reino': typeof MiReinoRouteWithChildren
   '/no-autorizado': typeof NoAutorizadoRoute
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/historias/$slug': typeof HistoriasSlugRoute
+  '/admin/': typeof AdminIndexRoute
+  '/mi-reino/': typeof MiReinoIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/dashboard'
     | '/franquicias'
     | '/historias'
     | '/login'
     | '/menu'
+    | '/mi-reino'
     | '/no-autorizado'
     | '/registro'
     | '/reset-password'
     | '/sedes'
     | '/historias/$slug'
+    | '/admin/'
+    | '/mi-reino/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,28 +182,36 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/historias/$slug'
+    | '/admin'
+    | '/mi-reino'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/dashboard'
     | '/franquicias'
     | '/historias'
     | '/login'
     | '/menu'
+    | '/mi-reino'
     | '/no-autorizado'
     | '/registro'
     | '/reset-password'
     | '/sedes'
     | '/historias/$slug'
+    | '/admin/'
+    | '/mi-reino/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   DashboardRoute: typeof DashboardRoute
   FranquiciasRoute: typeof FranquiciasRoute
   HistoriasRoute: typeof HistoriasRouteWithChildren
   LoginRoute: typeof LoginRoute
   MenuRoute: typeof MenuRoute
+  MiReinoRoute: typeof MiReinoRouteWithChildren
   NoAutorizadoRoute: typeof NoAutorizadoRoute
   RegistroRoute: typeof RegistroRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -200,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/no-autorizado'
       fullPath: '/no-autorizado'
       preLoaderRoute: typeof NoAutorizadoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mi-reino': {
+      id: '/mi-reino'
+      path: '/mi-reino'
+      fullPath: '/mi-reino'
+      preLoaderRoute: typeof MiReinoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/menu': {
@@ -237,12 +290,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/mi-reino/': {
+      id: '/mi-reino/'
+      path: '/'
+      fullPath: '/mi-reino/'
+      preLoaderRoute: typeof MiReinoIndexRouteImport
+      parentRoute: typeof MiReinoRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/historias/$slug': {
       id: '/historias/$slug'
@@ -253,6 +327,16 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AdminRouteChildren {
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface HistoriasRouteChildren {
   HistoriasSlugRoute: typeof HistoriasSlugRoute
@@ -266,13 +350,26 @@ const HistoriasRouteWithChildren = HistoriasRoute._addFileChildren(
   HistoriasRouteChildren,
 )
 
+interface MiReinoRouteChildren {
+  MiReinoIndexRoute: typeof MiReinoIndexRoute
+}
+
+const MiReinoRouteChildren: MiReinoRouteChildren = {
+  MiReinoIndexRoute: MiReinoIndexRoute,
+}
+
+const MiReinoRouteWithChildren =
+  MiReinoRoute._addFileChildren(MiReinoRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   DashboardRoute: DashboardRoute,
   FranquiciasRoute: FranquiciasRoute,
   HistoriasRoute: HistoriasRouteWithChildren,
   LoginRoute: LoginRoute,
   MenuRoute: MenuRoute,
+  MiReinoRoute: MiReinoRouteWithChildren,
   NoAutorizadoRoute: NoAutorizadoRoute,
   RegistroRoute: RegistroRoute,
   ResetPasswordRoute: ResetPasswordRoute,
