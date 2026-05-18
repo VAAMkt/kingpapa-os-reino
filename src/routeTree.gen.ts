@@ -20,6 +20,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as HistoriasRouteImport } from './routes/historias'
 import { Route as FranquiciasRouteImport } from './routes/franquicias'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MiReinoIndexRouteImport } from './routes/mi-reino.index'
@@ -94,6 +95,11 @@ const FranquiciasRoute = FranquiciasRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -200,6 +206,7 @@ const AdminContenidosIdRoute = AdminContenidosIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/historias': typeof HistoriasRouteWithChildren
@@ -232,6 +239,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/checkout': typeof CheckoutRoute
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/historias': typeof HistoriasRouteWithChildren
@@ -263,6 +271,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/historias': typeof HistoriasRouteWithChildren
@@ -298,6 +307,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/checkout'
     | '/dashboard'
     | '/franquicias'
     | '/historias'
@@ -330,6 +340,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/checkout'
     | '/dashboard'
     | '/franquicias'
     | '/historias'
@@ -360,6 +371,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/checkout'
     | '/dashboard'
     | '/franquicias'
     | '/historias'
@@ -394,6 +406,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  CheckoutRoute: typeof CheckoutRoute
   DashboardRoute: typeof DashboardRoute
   FranquiciasRoute: typeof FranquiciasRoute
   HistoriasRoute: typeof HistoriasRouteWithChildren
@@ -484,6 +497,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -715,6 +735,7 @@ const MiReinoRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  CheckoutRoute: CheckoutRoute,
   DashboardRoute: DashboardRoute,
   FranquiciasRoute: FranquiciasRoute,
   HistoriasRoute: HistoriasRouteWithChildren,
