@@ -262,7 +262,7 @@ function AdminMenuPage() {
                         idx={idx}
                         total={list.length}
                         onMove={(d) => moveProd(c.id, idx, d)}
-                        onToggle={(v) => prodMut.mutate({ id: p.id, disponible: v })}
+                        onPatch={(patch) => prodMut.mutate({ id: p.id, ...patch })}
                       />
                     ))}
                   </div>
