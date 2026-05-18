@@ -22,46 +22,58 @@ function emit() {
   for (const l of listeners) l();
 }
 
+let cache: ActiveSede | null = null;
+let cacheLoaded = false;
+
 function read(): ActiveSede | null {
   if (typeof window === "undefined") return null;
+  if (cacheLoaded) return cache;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as ActiveSede) : null;
+    cache = raw ? (JSON.parse(raw) as ActiveSede) : null;
   } catch {
-    return null;
+    cache = null;
   }
+  cacheLoaded = true;
+  return cache;
 }
 
 export function setActiveSede(value: ActiveSede) {
   if (typeof window === "undefined") return;
+  cache = value;
+  cacheLoaded = true;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
   emit();
 }
 
 export function clearActiveSede() {
   if (typeof window === "undefined") return;
+  cache = null;
+  cacheLoaded = true;
   window.localStorage.removeItem(STORAGE_KEY);
   emit();
 }
 
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) {
+      cacheLoaded = false;
+      emit();
+    }
+  });
+}
+
 function subscribe(l: Listener) {
   listeners.add(l);
-  if (typeof window !== "undefined") {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) emit();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => {
-      listeners.delete(l);
-      window.removeEventListener("storage", onStorage);
-    };
-  }
-  return () => listeners.delete(l);
+  return () => {
+    listeners.delete(l);
+  };
 }
 
 export function useActiveSede(): ActiveSede | null {
   return useSyncExternalStore(subscribe, read, () => null);
 }
+
 
 // Haversine en km.
 export function haversineKm(
