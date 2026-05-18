@@ -58,6 +58,10 @@ const emptyState: FormState = {
   maps_url: "",
   orden: 0,
   publicado: true,
+  rp_local_id: null,
+  lat: null,
+  lng: null,
+  cobertura_radio_km: 5,
 };
 
 const labelCls = "block font-display uppercase text-xs mb-1";
