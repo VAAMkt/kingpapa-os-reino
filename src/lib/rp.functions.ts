@@ -69,7 +69,23 @@ async function syncSedeMenu(
   sede: { id: string; rp_local_id: number | null },
 ): Promise<{ categorias: number; productos: number }> {
   const menu = await rpGetCatalogo(sede.rp_local_id!);
-  const { categorias, productos } = extractMenu(menu);
+  const { categorias: catsRaw, productos: prodsRaw } = extractMenu(menu);
+
+  // Deduplicar por rp_id: el upsert con onConflict no permite la misma clave
+  // dos veces en un batch (Postgres: "ON CONFLICT DO UPDATE command cannot
+  // affect row a second time"). Nos quedamos con la primera ocurrencia.
+  const dedupeByRpId = <T extends { rp_id: number }>(arr: T[]): T[] => {
+    const seen = new Set<number>();
+    const out: T[] = [];
+    for (const item of arr) {
+      if (!item.rp_id || seen.has(item.rp_id)) continue;
+      seen.add(item.rp_id);
+      out.push(item);
+    }
+    return out;
+  };
+  const categorias = dedupeByRpId(catsRaw);
+  const productos = dedupeByRpId(prodsRaw);
 
   if (categorias.length === 0 && productos.length === 0) {
     return { categorias: 0, productos: 0 };

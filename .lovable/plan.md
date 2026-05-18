@@ -1,41 +1,23 @@
 ## Diagnóstico
 
-El timeout viene de la cantidad de llamadas a la base, no de la API de Restaurant.pe. Para 14 sedes el código actual hace:
+La sincronización ya está leyendo el menú, pero falla en el `upsert` masivo porque Restaurant.pe devuelve productos con IDs colisionados dentro de la misma sede. Ejemplo real de la API: en Granada, el ID `304` aparece dos veces, una como `productogeneral_id=304` y otra como `producto_id=304` con `productogeneral_id=274`. Postgres no permite que un mismo `INSERT ... ON CONFLICT DO UPDATE` intente actualizar la misma fila dos veces en una sola operación.
 
-- 14 fetch HTTP a Restaurant.pe (rápido, ~1s c/u).
-- ~26 upserts secuenciales de categorías por sede × 14 = ~360 round-trips.
-- ~130 upserts secuenciales de productos por sede × 14 = ~1.820 round-trips.
+## Plan de corrección
 
-Más de 2.000 idas y vueltas a Postgres dentro de una sola server function. Excede el límite de ejecución del worker y por eso la respuesta nunca llega.
+1. **Cambiar la normalización del ID del producto**
+   - En `src/lib/restaurantpe-normalize.ts`, priorizar `productogeneral_id` sobre `producto_id` para `rp_id`.
+   - Confirmado contra la API: usando `productogeneral_id` no hay duplicados en las 15 sedes consultadas.
+   - Esto mantiene compatibilidad usando `producto_id` solo como fallback si no existe `productogeneral_id`.
 
-## Plan de cambios
+2. **Blindar el batch antes del upsert**
+   - En `src/lib/rp.functions.ts`, deduplicar categorías por `rp_id` antes del upsert de `rp_categorias`.
+   - Deduplicar productos por `rp_id` antes del upsert de `rp_productos`, para que aunque la API vuelva a mandar datos raros, nunca llegue un batch con claves repetidas.
+   - Usar el array deduplicado también para `incomingIds` y para los conteos devueltos.
 
-1. **Upserts en lote (la cura real)**
-   - En `src/lib/rp.functions.ts`, dentro de `syncAllMenus` y `syncMenuForSede`:
-     - Reemplazar el loop de categorías por **un solo `.upsert(arrayCategorias, { onConflict: "sede_id,rp_id" }).select("id, rp_id")`** que regrese el mapa `rp_id → id` en una sola llamada.
-     - Reemplazar el loop de productos por **un solo `.upsert(arrayProductos, { onConflict: "sede_id,rp_id" })`** por sede.
-   - Resultado: ~3 llamadas a la base por sede en vez de ~156.
+3. **Mantener el diseño y la UI intactos**
+   - No tocar componentes visuales ni clases de UI.
+   - No cambiar rutas externas: lectura sigue por `/readonly/rest` y escritura/stock sigue por `/public/v2/rest`.
 
-2. **Paralelizar sedes con concurrencia controlada**
-   - Procesar las 14 sedes con un pool de concurrencia (p. ej. 4 sedes en simultáneo) usando `Promise.allSettled` por lotes.
-   - Eliminar la pausa de 150 ms entre sedes (ya no satura porque cada sede pesa mucho menos).
-
-3. **Acortar el fetch a Restaurant.pe**
-   - Bajar el timeout por request de 15 s a 10 s para que una sede atascada no bloquee el lote.
-   - Mantener un reintento.
-
-4. **Robustez sin tocar UI**
-   - Si una sede falla, capturarla en `errores[]` y seguir con el resto (ya está, se conserva).
-   - Conservar el barrido de "marcar no disponibles" como UNA sola query por sede (ya lo es).
-   - Conservar el log `rp_sync_log` final.
-
-5. **Validación**
-   - El usuario presiona “Sincronizar TODOS los menús” y debe completar en pocos segundos con conteos reales > 0.
-   - Verificar después con consulta a `rp_categorias` y `rp_productos` que hay filas.
-
-## Archivos a tocar
-
-- `src/lib/rp.functions.ts` (única edición funcional)
-- `src/lib/restaurantpe.server.ts` (solo bajar `TIMEOUT_MS`)
-
-Sin cambios en componentes, rutas ni estilos.
+4. **Validación posterior**
+   - Hacer una verificación directa de la API externa para confirmar que la estrategia de ID ya no produce duplicados.
+   - El usuario podrá volver a correr “Sincronizar TODOS los menús” y el resultado esperado será sin el error `ON CONFLICT DO UPDATE command cannot affect row a second time`.

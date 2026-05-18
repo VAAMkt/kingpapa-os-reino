@@ -104,7 +104,9 @@ export type NormalizedProducto = {
 
 export function normalizeProduct(raw: RpProducto): NormalizedProducto {
   const r = raw as Record<string, unknown>;
-  const rpId = raw.producto_id ?? raw.productogeneral_id;
+  // Priorizar productogeneral_id: la API devuelve `producto_id` reciclado
+  // entre combos y productos base, lo que produce colisiones por sede.
+  const rpId = raw.productogeneral_id ?? raw.producto_id;
   const nombre =
     (raw.producto_descripcion as string | undefined) ??
     (raw.productogeneral_descripcion as string | undefined) ??
