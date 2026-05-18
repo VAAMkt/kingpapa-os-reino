@@ -192,74 +192,23 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
     if (!sede.rp_local_id)
       throw new Error(`Sede "${sede.nombre}" no tiene rp_local_id asignado`);
 
-    const menu = await rpGetCatalogo(sede.rp_local_id);
-    const { categorias, productos } = extractMenu(menu);
-
-    const catIdByRpId = new Map<number, string>();
-    for (const c of categorias) {
-      const { data: up, error } = await supabase
-        .from("rp_categorias")
-        .upsert(
-          {
-            sede_id: sede.id,
-            rp_id: c.rp_id,
-            nombre: c.nombre,
-            orden: c.orden,
-            activo: true,
-          },
-          { onConflict: "sede_id,rp_id" },
-        )
-        .select("id, rp_id")
-        .single();
-      if (error) throw new Error(`Categoría ${c.nombre}: ${error.message}`);
-      catIdByRpId.set(c.rp_id, up.id);
-    }
-
-    let upsertedProducts = 0;
-    for (const p of productos) {
-      const categoria_id = p.rp_categoria_id != null
-        ? catIdByRpId.get(p.rp_categoria_id) ?? null
-        : null;
-      const { error } = await supabase.from("rp_productos").upsert(
-        {
-          sede_id: sede.id,
-          rp_id: p.rp_id,
-          categoria_id,
-          nombre: p.nombre,
-          descripcion: p.descripcion,
-          precio: p.precio,
-          imagen_url: p.imagen_url,
-          disponible: p.disponible,
-          modificadores: p.modificadores as never,
-          almacen_id: p.almacen_id,
-        },
-        { onConflict: "sede_id,rp_id" },
-      );
-      if (error) throw new Error(`Producto ${p.nombre}: ${error.message}`);
-      upsertedProducts += 1;
-    }
-
-    const incomingIds = productos.map((p) => p.rp_id);
-    if (incomingIds.length > 0) {
-      await supabase
-        .from("rp_productos")
-        .update({ disponible: false })
-        .eq("sede_id", sede.id)
-        .not("rp_id", "in", `(${incomingIds.join(",")})`);
-    }
+    const { categorias, productos } = await syncSedeMenu(supabase, {
+      id: sede.id,
+      rp_local_id: sede.rp_local_id,
+    });
 
     await supabase.from("rp_sync_log").insert({
       tipo: "menu",
       sede_id: sede.id,
-      payload: { categorias: categorias.length, productos: productos.length } as never,
+      payload: { categorias, productos } as never,
       ok: true,
-      mensaje: `Sincronizadas ${categorias.length} categorías y ${upsertedProducts} productos.`,
+      mensaje: `Sincronizadas ${categorias} categorías y ${productos} productos.`,
     });
 
     return {
       ok: true,
-      categorias: categorias.length,
-      productos: upsertedProducts,
+      categorias,
+      productos,
     };
   });
 
