@@ -19,6 +19,20 @@ export type Ocasion =
   | "antojo-mortal"
   | "solo";
 
+export interface ModificadorOpcion {
+  id: number;
+  nombre: string;
+  precio: number;
+}
+
+export interface ModificadorGrupo {
+  id: number;
+  nombre: string;
+  min: number;
+  max: number;
+  opciones: ModificadorOpcion[];
+}
+
 export interface Producto {
   id: string;
   nombre: string;
@@ -39,6 +53,7 @@ export interface Producto {
   conArroz?: boolean;
   esBowl?: boolean;
   esEconomico?: boolean;
+  modificadores?: ModificadorGrupo[];
 }
 
 export interface Categoria {
