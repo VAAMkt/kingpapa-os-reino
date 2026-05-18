@@ -50,7 +50,23 @@ function SyncPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return (
+  const allMenusMut = useMutation({
+    mutationFn: () => syncAllMenusFn(),
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success(
+          `Menús sincronizados en ${res.sedes} sedes: ${res.categorias} categorías y ${res.productos} productos cada una.`,
+        );
+      } else {
+        toast.error(
+          `Sincronizado con errores (${res.errores.length}): ${res.errores.slice(0, 2).join(" · ")}`,
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ["menu"] });
+      queryClient.invalidateQueries({ queryKey: ["rp_sync_log"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
     <div className="space-y-6">
       <header>
         <BrutalBadge tone="yellow">Sincronización</BrutalBadge>
