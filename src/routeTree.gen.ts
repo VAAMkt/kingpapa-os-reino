@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SedesRouteImport } from './routes/sedes'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegistroRouteImport } from './routes/registro'
@@ -34,6 +35,11 @@ import { Route as AdminContenidosIndexRouteImport } from './routes/admin.conteni
 import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
 import { Route as AdminContenidosIdRouteImport } from './routes/admin.contenidos.$id'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SedesRoute = SedesRouteImport.update({
   id: '/sedes',
   path: '/sedes',
@@ -168,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
@@ -192,6 +199,7 @@ export interface FileRoutesByTo {
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
@@ -246,6 +255,7 @@ export interface FileRouteTypes {
     | '/registro'
     | '/reset-password'
     | '/sedes'
+    | '/sitemap.xml'
     | '/admin/contenidos'
     | '/admin/usuarios'
     | '/historias/$slug'
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/registro'
     | '/reset-password'
     | '/sedes'
+    | '/sitemap.xml'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -295,6 +306,7 @@ export interface FileRouteTypes {
     | '/registro'
     | '/reset-password'
     | '/sedes'
+    | '/sitemap.xml'
     | '/admin/contenidos'
     | '/admin/usuarios'
     | '/historias/$slug'
@@ -322,10 +334,18 @@ export interface RootRouteChildren {
   RegistroRoute: typeof RegistroRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SedesRoute: typeof SedesRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sedes': {
       id: '/sedes'
       path: '/sedes'
@@ -571,7 +591,18 @@ const rootRouteChildren: RootRouteChildren = {
   RegistroRoute: RegistroRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SedesRoute: SedesRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
