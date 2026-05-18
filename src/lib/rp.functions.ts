@@ -153,7 +153,7 @@ async function syncSedeMenu(
     });
     const { error: prodErr } = await supabase
       .from("rp_productos")
-      .upsert(rows, { onConflict: "sede_id,rp_id" });
+      .upsert(rows as never, { onConflict: "sede_id,rp_id" });
     if (prodErr) throw new Error(`productos: ${prodErr.message}`);
   }
 
