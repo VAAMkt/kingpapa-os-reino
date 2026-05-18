@@ -2,11 +2,11 @@
 export const dashboardMock = {
   pedidosHoy: 1284,
   pedidosPorCanal: [
-    { canal: "Web KP", valor: 412, color: "kp-yellow" },
-    { canal: "WhatsApp", valor: 318, color: "kp-lime" },
-    { canal: "Rappi", valor: 296, color: "kp-orange" },
-    { canal: "DiDi", valor: 162, color: "kp-red" },
-    { canal: "Pickup", valor: 96, color: "kp-purple" },
+    { canal: "Web KP", valor: 412, color: "bg-kp-yellow" },
+    { canal: "WhatsApp", valor: 318, color: "bg-kp-lime" },
+    { canal: "Rappi", valor: 296, color: "bg-kp-orange" },
+    { canal: "DiDi", valor: 162, color: "bg-kp-red" },
+    { canal: "Pickup", valor: 96, color: "bg-kp-purple" },
   ],
   subditosNuevos: 87,
   subditosTotal: 12480,
