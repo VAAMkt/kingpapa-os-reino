@@ -1,86 +1,85 @@
-# Arreglo y mejora del módulo de Contenidos
+# CMS amigable: 3 arreglos para redactores sin conocimiento técnico
 
-## Diagnóstico
+## 1. Por qué falla la subida de imágenes (causa raíz encontrada)
 
-**1. "Editar" y "+ Nueva historia" no hacen nada (causa raíz exacta):**
-`src/routes/admin.contenidos.tsx` es la ruta padre de `admin.contenidos.nuevo` y `admin.contenidos.$id`, pero **renderiza directamente la lista `<ContenidosList />` sin `<Outlet />`**. En TanStack Router, cuando una ruta tiene hijas, el padre **debe** renderizar `<Outlet />` o la hija nunca aparece en pantalla (aunque la URL cambie). Por eso al hacer click en "Editar" o "+ Nueva historia" la URL cambia a `/admin/contenidos/nuevo` o `/admin/contenidos/:id` pero seguís viendo la lista.
+Las políticas RLS del bucket `blog-images` siguen llamando a `public.has_role(...)`, pero en la migración anterior movimos esa función a `app_private.has_role` y revocamos el acceso público. Resultado: aunque el usuario es `super_admin`/`editor`, Postgres no puede ejecutar la función desde el contexto del storage → "new row violates row-level security policy".
 
-**2. Carga muy lenta:**
-- Cada ruta admin monta `useAuth()` de forma independiente, y cada montaje vuelve a llamar `getSession()` + `select` en `user_roles`. Al navegar entre `/admin`, `/admin/contenidos`, `/admin/usuarios` se rehace todo y la pantalla "Verificando corona…" parpadea varios segundos.
-- `listAllPosts()` se vuelve a ejecutar sin cache compartido cuando se vuelve al listado.
-- No hay `staleTime` configurado en las queries → refetch agresivo en cada focus.
+**Fix:** migración que reemplaza las 3 políticas de `storage.objects` para el bucket `blog-images` (INSERT/UPDATE/DELETE) y las apunta a `app_private.has_role`.
 
-**3. El módulo de contenidos hoy es básico para SEO:** no hay metadatos por post, ni open graph, ni JSON-LD Article, ni sitemap, ni canonical, ni control de keywords/descripción específica.
+## 2. Editor de texto enriquecido (adiós al HTML crudo)
 
----
+Reemplazar el `<textarea>` de "Contenido HTML" en `PostForm.tsx` por un editor visual basado en **TipTap** (estándar moderno, ligero, output HTML limpio).
 
-## Cambios propuestos
+Barra de herramientas simple pensada para redactores:
 
-### A. Arreglo crítico de routing (resuelve #2 y #3)
+- **B** Negrita · *I* Cursiva · S̶ Tachado
+- H2 / H3 (sin H1 — ese es el título)
+- Lista con viñetas · Lista numerada · Cita
+- Enlace (con prompt para URL, target _blank automático)
+- Insertar imagen (sube al mismo bucket y la inserta en línea)
+- Limpiar formato · Deshacer / Rehacer
 
-Convertir `admin.contenidos` en **layout puro** y mover la tabla a un `index`:
+Dependencias a instalar: `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-placeholder`.
 
-```
-src/routes/admin.contenidos.tsx        → layout: renderiza <Outlet />
-src/routes/admin.contenidos.index.tsx  → NUEVO: la tabla actual (ContenidosList)
-src/routes/admin.contenidos.nuevo.tsx  → ya existe, ahora sí se monta
-src/routes/admin.contenidos.$id.tsx    → ya existe, ahora sí se monta
-```
+El HTML generado se guarda en `contenido_html` exactamente como hoy, así que el frontend público (`historias.$slug.tsx`) no necesita cambios. Se conservará un botón discreto "Ver HTML" plegable para los que sí saben código.
 
-El layout incluye un mini-header con breadcrumb ("Contenidos / Nueva", "Contenidos / Editar") y botón "← Volver al listado" cuando estamos en hijos.
+**Bonus de migración:** los posts antiguos traen HTML de Divi/WordPress con basura (`[et_pb_section …]`, `data-path-to-node="3"`, `&#8243;`). Añadir un sanitizador al cargar el post en el editor (`sanitizeLegacyHtml`) que:
 
-### B. Performance del admin
+- Elimina shortcodes `[et_pb_*]` y `[/et_pb_*]`
+- Elimina atributos `data-path-to-node`, `data-index-in-node`
+- Decodifica entidades HTML básicas
+- Quita estilos inline y clases de WordPress
 
-- **Cachear roles y sesión**: mover el resultado de `user_roles` a React Query con `queryKey: ["auth-roles", userId]` y `staleTime: 5 min`. `useAuth` consume la query → ninguna re-consulta al navegar entre rutas admin.
-- **`staleTime` en queries del admin**: `["posts","all"]` con `staleTime: 30s` y `gcTime: 5min` → al volver al listado desde "Editar" aparece instantáneo.
-- **Pantalla "Verificando corona…"**: mostrarla solo en la primera carga (cuando `user === null && loading`), no en cada navegación. Si ya hay `user` cacheado, render inmediato.
-- **Prefetch del post al hover**: en la tabla, `onMouseEnter` en "Editar" hace `queryClient.prefetchQuery(["posts","byId",id])`. El click siguiente abre instantáneo.
+## 3. Extracto automático con asistencia de IA
 
-### C. Funcionalidad faltante en el editor (PostForm)
+Cambios en el formulario de extracto:
 
-- **Editor enriquecido**: reemplazar el `<textarea>` HTML crudo por un editor TipTap (negritas, listas, h2/h3, enlaces, blockquote, inserción de imagen desde el bucket). Sigue guardando HTML en `contenido_html`.
-- **Subida múltiple de imágenes inline** al bucket `blog-images` desde el editor, con URL pública directa.
-- **Vista previa** (toggle) que renderiza el HTML con la misma tipografía del frontend público.
-- **Autosave borrador en localStorage** mientras se edita una historia nueva (no se pierde si cierra la pestaña).
-- **Validación visual** de slug único antes de guardar (consulta `select id from posts where slug = ?`).
-- **Duplicar historia** y **"Programar publicación"** (toggle + fecha futura, se respeta en `listPublicPosts` filtrando `fecha <= today`).
+- **Botón "✨ Generar con IA"** — usa Lovable AI Gateway (`google/gemini-2.5-flash`) con prompt en español: "Genera una meta description SEO de 140–155 caracteres para este artículo, tono cercano y vendedor, sin comillas". Implementado como `createServerFn` `generateExcerpt` que recibe título + texto plano del contenido.
+- **Botón "Auto desde el texto"** — fallback sin IA: toma las primeras ~155 caracteres de texto plano del editor, corta en la última palabra completa y añade "…".
+- **Generación silenciosa al guardar** si el campo está vacío: ejecuta el fallback automáticamente antes de enviar a la base de datos. El redactor nunca queda sin extracto.
 
-### D. SEO de las historias (lo más valioso para el negocio)
+Además: contador en vivo ya existe (rojo si <120 o >158, verde si está en rango). Se mantiene.
 
-Cambios en BD (migración):
-- Añadir a `posts`: `meta_titulo text`, `meta_descripcion text`, `og_image_url text`, `keywords text[]`, `tiempo_lectura_min int`, `actualizado_en date`.
-- Índices: `idx_posts_publicado_fecha`, `idx_posts_slug`.
+## 4. Mini-mejoras SEO sin coste extra
 
-Cambios en frontend público (`/historias` y `/historias/$slug`):
-- `head()` por ruta con `<title>` < 60 chars, `meta description` < 160, `og:title`, `og:description`, `og:image` (= `og_image_url ?? imagen_url`), `twitter:card`, `canonical`.
-- **JSON-LD `Article`** inyectado por post (headline, datePublished, dateModified, author, image, mainEntityOfPage).
-- **JSON-LD `BreadcrumbList`** Home → Historias → Categoría → Título.
-- **`/historias`**: `head` con title/description propios; lista con `<article>` semánticos, `<h2>` por tarjeta, `loading="lazy"` y `width/height` explícitos en `<img>`.
-- **`<h1>` único** por página de historia, jerarquía correcta.
-- **`/sitemap.xml`** generado dinámicamente en `src/routes/api/public/sitemap.xml.tsx` con todos los posts publicados + rutas estáticas.
-- **`/robots.txt`** que apunte al sitemap.
-- **Alt automático** en imágenes (default al título si vacío) y warning visual en el form si falta.
-- **Contador de caracteres** en meta_titulo/meta_descripcion con verde/ámbar/rojo según rango óptimo.
+Mientras tocamos `PostForm.tsx`:
 
-### E. Limpieza menor
+- **Botón "✨ Sugerir título SEO"** con IA: variante de hasta 60 caracteres con palabra clave al inicio.
+- **Tiempo de lectura calculado** automáticamente del contenido (palabras / 220) y mostrado debajo del título — se inyecta también en el JSON-LD del artículo en `historias.$slug.tsx`.
+- **Slug**: si el usuario edita el título de un post ya publicado, mostrar warning "cambiar el slug rompe enlaces existentes y SEO" en lugar de re-generarlo automáticamente (ya está protegido por `slugTouched`, solo añadimos el warning visual).
 
-- Botones "Despublicar / Eliminar" pasan a `<BrutalButton variant="ghost" size="sm">` para mejor accesibilidad (hoy son `<button>` sin estilos).
-- Confirmación de borrado con dialog en vez de `window.confirm`.
-- Toast de éxito con link "Ver historia" tras crear.
+## 5. Bug menor de hidratación
+
+`UserMenu` / `TopAppBar` están provocando un mismatch SSR/cliente (visible en runtime-errors: el botón "Abrir menú" se renderiza distinto). Arreglo: envolver la parte que depende de `useAuth()` con un `useState(false)` + `useEffect(() => setMounted(true))` para que SSR siempre renderice el estado "no autenticado" y el cliente actualice tras hidratar. Esto también acelera el primer paint.
 
 ---
 
-## Detalle técnico (resumen)
+## Archivos a tocar
 
-- Migración SQL: `ALTER TABLE posts ADD COLUMN ...` (6 columnas), 2 índices.
-- Nuevos archivos: `src/routes/admin.contenidos.index.tsx`, `src/routes/api/public/sitemap.xml.tsx`, `src/routes/api/public/robots.txt.tsx`, `src/components/admin/RichEditor.tsx`, `src/components/seo/ArticleJsonLd.tsx`.
-- Modificados: `src/routes/admin.contenidos.tsx` (→ layout con Outlet), `src/components/admin/PostForm.tsx` (campos SEO + RichEditor), `src/routes/historias.$slug.tsx` (head + JSON-LD), `src/routes/historias.tsx` (head + semántica), `src/hooks/useAuth.ts` (roles vía React Query), `src/lib/posts.ts` (filtro por fecha de publicación).
-- Dependencia nueva: `@tiptap/react @tiptap/starter-kit @tiptap/extension-link @tiptap/extension-image`.
+**Migración SQL (1):**
 
-## Validación
+- Reemplazar 3 políticas de `storage.objects` para `blog-images` → usar `app_private.has_role`.
 
-1. Click en "Editar" → abre `PostForm` con datos cargados, se puede cambiar imagen/texto y guardar.
-2. Click en "+ Nueva historia" → muestra el formulario vacío y crea correctamente.
-3. Navegar entre `/admin`, `/admin/contenidos`, `/admin/usuarios` no muestra "Verificando corona…" después de la primera carga.
-4. `view-source:/historias/<slug>` muestra title, meta description, og:image y `<script type="application/ld+json">` con Article.
-5. `/sitemap.xml` lista todos los posts publicados.
+**Crear:**
+
+- `src/components/admin/RichEditor.tsx` — wrapper TipTap con toolbar.
+- `src/lib/sanitize-html.ts` — limpia HTML legacy de Divi/WordPress.
+- `src/lib/ai.functions.ts` — `generateExcerpt`, `suggestSeoTitle` (Lovable AI Gateway, requiere `requireSupabaseAuth`).
+
+**Editar:**
+
+- `src/components/admin/PostForm.tsx` — usar `<RichEditor>`, botones IA, auto-extracto al guardar, tiempo de lectura.
+- `src/routes/historias.$slug.tsx` — añadir `wordCount` / `timeRequired` al JSON-LD.
+- `src/components/kp/Layout.tsx` (o `TopAppBar`) — fix hidratación del menú.
+
+**Dependencias:** `bun add @tiptap/react @tiptap/starter-kit @tiptap/extension-link @tiptap/extension-image @tiptap/extension-placeholder`.
+
+---
+
+## Lo que NO cambia
+
+- Esquema de la tabla `posts` (no añadimos columnas nuevas todavía; el extracto y el HTML enriquecido caben en lo existente).
+- Frontend público de historias (sigue renderizando `contenido_html`).
+- Sistema de roles y autenticación.
+
+¿Apruebas para implementar? Si quieres también añadir columnas dedicadas de SEO (`meta_titulo`, `og_image`, `keywords[]`, `tiempo_lectura_min`), montalo en esta ronda. 

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
@@ -13,6 +14,9 @@ import {
   uploadBlogImage,
   type PostRow,
 } from "@/lib/posts";
+import { RichEditor } from "./RichEditor";
+import { autoExcerpt, readingTimeMin, sanitizeLegacyHtml } from "@/lib/sanitize-html";
+import { generateExcerpt, suggestSeoTitle } from "@/lib/ai.functions";
 import { toast } from "sonner";
 
 const PostSchema = z.object({
@@ -45,7 +49,7 @@ const emptyState: FormState = {
 
 const labelCls = "block font-display uppercase text-xs mb-1";
 const fieldCls = "space-y-1";
-const textareaCls = cn(
+const inputBaseCls = cn(
   "w-full px-4 py-3 bg-kp-cheese border-2 border-kp-ink shadow-brutal-sm",
   "font-body text-kp-ink placeholder:text-kp-ink/50",
   "focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-none",
@@ -63,7 +67,7 @@ export function PostForm({ initial }: { initial?: PostRow }) {
           titulo: initial.titulo,
           categoria: initial.categoria,
           extracto: initial.extracto ?? "",
-          contenido_html: initial.contenido_html ?? "",
+          contenido_html: sanitizeLegacyHtml(initial.contenido_html ?? ""),
           imagen_url: initial.imagen_url,
           video_url: initial.video_url ?? "",
           link_original: initial.link_original ?? "",
@@ -74,7 +78,12 @@ export function PostForm({ initial }: { initial?: PostRow }) {
   );
   const [slugTouched, setSlugTouched] = useState(editing);
   const [uploading, setUploading] = useState(false);
+  const [showHtml, setShowHtml] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const generateExcerptFn = useServerFn(generateExcerpt);
+  const suggestSeoTitleFn = useServerFn(suggestSeoTitle);
+  const [aiBusy, setAiBusy] = useState<null | "excerpt" | "title">(null);
 
   useEffect(() => {
     if (!slugTouched) {
@@ -82,11 +91,14 @@ export function PostForm({ initial }: { initial?: PostRow }) {
     }
   }, [form.titulo, slugTouched]);
 
+  const readingMin = useMemo(() => readingTimeMin(form.contenido_html ?? ""), [form.contenido_html]);
+
   const upsert = useMutation({
     mutationFn: async () => {
+      const finalExcerpt = (form.extracto?.trim() || autoExcerpt(form.contenido_html ?? "", 155)).slice(0, 500);
       const cleaned = {
         ...form,
-        extracto: form.extracto ?? "",
+        extracto: finalExcerpt,
         contenido_html: form.contenido_html || null,
         video_url: form.video_url || null,
         link_original: form.link_original || null,
@@ -94,16 +106,12 @@ export function PostForm({ initial }: { initial?: PostRow }) {
       const parsed = PostSchema.safeParse(cleaned);
       if (!parsed.success) {
         const map: Record<string, string> = {};
-        for (const issue of parsed.error.issues) {
-          map[issue.path.join(".")] = issue.message;
-        }
+        for (const issue of parsed.error.issues) map[issue.path.join(".")] = issue.message;
         setErrors(map);
         throw new Error("Revisa los campos marcados");
       }
       setErrors({});
-      if (editing && initial) {
-        return updatePost(initial.id, parsed.data);
-      }
+      if (editing && initial) return updatePost(initial.id, parsed.data);
       return createPost(parsed.data);
     },
     onSuccess: () => {
@@ -127,32 +135,86 @@ export function PostForm({ initial }: { initial?: PostRow }) {
     }
   }
 
+  async function handleGenerateExcerpt() {
+    if (!form.titulo || !(form.contenido_html ?? "").trim()) {
+      toast.error("Necesitas título y contenido primero");
+      return;
+    }
+    setAiBusy("excerpt");
+    try {
+      const { text } = await generateExcerptFn({
+        data: { titulo: form.titulo, contenido: form.contenido_html ?? "" },
+      });
+      setForm((f) => ({ ...f, extracto: text }));
+      toast.success("Extracto generado por IA");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setAiBusy(null);
+    }
+  }
+
+  function handleAutoExcerpt() {
+    const text = autoExcerpt(form.contenido_html ?? "", 155);
+    if (!text) { toast.error("Escribe contenido primero"); return; }
+    setForm((f) => ({ ...f, extracto: text }));
+  }
+
+  async function handleSuggestTitle() {
+    if (!form.titulo) { toast.error("Escribe un título base"); return; }
+    setAiBusy("title");
+    try {
+      const { text } = await suggestSeoTitleFn({
+        data: { titulo: form.titulo, contenido: form.contenido_html ?? "" },
+      });
+      setForm((f) => ({ ...f, titulo: text }));
+      toast.success("Título optimizado");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setAiBusy(null);
+    }
+  }
+
   return (
     <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        upsert.mutate();
-      }}
+      onSubmit={(e) => { e.preventDefault(); upsert.mutate(); }}
       className="space-y-5"
     >
       <BrutalCard tone="cheese" className="p-5 space-y-4">
         <div className={fieldCls}>
-          <label className={labelCls}>Título</label>
+          <div className="flex items-center justify-between gap-2">
+            <label className={labelCls}>Título</label>
+            <button
+              type="button"
+              onClick={handleSuggestTitle}
+              disabled={aiBusy === "title"}
+              className="text-[10px] font-display uppercase underline disabled:opacity-50"
+            >
+              {aiBusy === "title" ? "Pensando…" : "✨ Sugerir título SEO"}
+            </button>
+          </div>
           <BrutalInput
             value={form.titulo}
             onChange={(e) => setForm({ ...form, titulo: e.target.value })}
             required
           />
+          <div className="text-[10px] font-mono text-kp-ink/60">
+            {form.titulo.length} / 60 chars · ⏱ {readingMin} min de lectura
+          </div>
           {errors.titulo && <p className="text-xs text-kp-red">{errors.titulo}</p>}
         </div>
 
         <div className={fieldCls}>
-          <label className={labelCls}>Slug</label>
+          <label className={labelCls}>Slug (URL)</label>
           <BrutalInput
             value={form.slug}
             onChange={(e) => { setSlugTouched(true); setForm({ ...form, slug: e.target.value }); }}
             placeholder="se-genera-automatico"
           />
+          {editing && (
+            <p className="text-[10px] text-kp-red/80">⚠ Cambiar el slug rompe enlaces existentes y SEO.</p>
+          )}
           {errors.slug && <p className="text-xs text-kp-red">{errors.slug}</p>}
         </div>
 
@@ -162,18 +224,14 @@ export function PostForm({ initial }: { initial?: PostRow }) {
             <select
               value={form.categoria}
               onChange={(e) => setForm({ ...form, categoria: e.target.value })}
-              className={cn(textareaCls, "py-3")}
+              className={cn(inputBaseCls, "py-3")}
             >
               {CATEGORIAS_HISTORIA.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div className={fieldCls}>
             <label className={labelCls}>Fecha</label>
-            <BrutalInput
-              type="date"
-              value={form.fecha}
-              onChange={(e) => setForm({ ...form, fecha: e.target.value })}
-            />
+            <BrutalInput type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
           </div>
           <div className={fieldCls}>
             <label className={labelCls}>Estado</label>
@@ -188,31 +246,72 @@ export function PostForm({ initial }: { initial?: PostRow }) {
             </label>
           </div>
         </div>
+      </BrutalCard>
 
-        <div className={fieldCls}>
-          <label className={labelCls}>
-            Extracto <span className="text-[10px] text-kp-ink/60">(se usa como meta description SEO)</span>
-          </label>
+      <BrutalCard tone="cheese" className="p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="font-display uppercase text-lg">Contenido</h3>
+          <p className="text-[10px] text-kp-ink/60">Escribe libre. El sistema genera el HTML por ti.</p>
+        </div>
+        <RichEditor
+          value={form.contenido_html ?? ""}
+          onChange={(html) => setForm((f) => ({ ...f, contenido_html: html }))}
+          placeholder="Cuenta la historia… usa la barra para dar formato."
+        />
+        <button
+          type="button"
+          onClick={() => setShowHtml((v) => !v)}
+          className="text-[10px] font-display uppercase underline text-kp-ink/60"
+        >
+          {showHtml ? "Ocultar HTML" : "Ver HTML (avanzado)"}
+        </button>
+        {showHtml && (
           <textarea
-            rows={3}
-            value={form.extracto}
-            onChange={(e) => setForm({ ...form, extracto: e.target.value })}
-            className={textareaCls}
-            maxLength={500}
+            rows={8}
+            value={form.contenido_html ?? ""}
+            onChange={(e) => setForm({ ...form, contenido_html: e.target.value })}
+            className={cn(inputBaseCls, "font-mono text-[11px]")}
           />
-          <div className="flex justify-between text-[10px] font-mono">
-            <span
-              className={
-                (form.extracto?.length ?? 0) < 120 || (form.extracto?.length ?? 0) > 158
-                  ? "text-kp-red"
-                  : "text-kp-lime"
-              }
+        )}
+      </BrutalCard>
+
+      <BrutalCard tone="cheese" className="p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <label className={labelCls + " mb-0"}>
+            Extracto SEO <span className="text-[10px] normal-case text-kp-ink/60">(meta description en Google)</span>
+          </label>
+          <div className="flex gap-2">
+            <button type="button" onClick={handleAutoExcerpt} className="text-[10px] font-display uppercase underline">
+              Auto desde el texto
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateExcerpt}
+              disabled={aiBusy === "excerpt"}
+              className="text-[10px] font-display uppercase underline disabled:opacity-50"
             >
-              {form.extracto?.length ?? 0} / 158 chars ideales para Google
-            </span>
-            <span className="text-kp-ink/50">{(form.titulo?.length ?? 0)} / 60 título</span>
+              {aiBusy === "excerpt" ? "Pensando…" : "✨ Generar con IA"}
+            </button>
           </div>
-          {errors.extracto && <p className="text-xs text-kp-red">{errors.extracto}</p>}
+        </div>
+        <textarea
+          rows={3}
+          value={form.extracto ?? ""}
+          onChange={(e) => setForm({ ...form, extracto: e.target.value })}
+          className={inputBaseCls}
+          maxLength={500}
+          placeholder="Si lo dejas vacío, lo generamos al guardar."
+        />
+        <div className="flex justify-between text-[10px] font-mono">
+          <span
+            className={
+              (form.extracto?.length ?? 0) < 120 || (form.extracto?.length ?? 0) > 158
+                ? "text-kp-red"
+                : "text-kp-lime"
+            }
+          >
+            {form.extracto?.length ?? 0} / 158 chars ideales
+          </span>
         </div>
 
         {/* Vista previa Google */}
@@ -223,7 +322,7 @@ export function PostForm({ initial }: { initial?: PostRow }) {
           </div>
           <div className="text-[#006621] text-xs">kingpapacali.com › historias › {form.slug || "slug"}</div>
           <div className="text-[#4d5156] text-xs mt-1 line-clamp-2">
-            {form.extracto || "El extracto aparecerá aquí como descripción en los resultados de búsqueda."}
+            {form.extracto || autoExcerpt(form.contenido_html ?? "", 155) || "El extracto aparecerá aquí."}
           </div>
         </div>
       </BrutalCard>
@@ -254,17 +353,6 @@ export function PostForm({ initial }: { initial?: PostRow }) {
             <img src={form.imagen_url} alt="" className="w-full h-auto" />
           </div>
         )}
-      </BrutalCard>
-
-      <BrutalCard tone="cheese" className="p-5 space-y-3">
-        <h3 className="font-display uppercase text-lg">Contenido HTML</h3>
-        <textarea
-          rows={18}
-          value={form.contenido_html ?? ""}
-          onChange={(e) => setForm({ ...form, contenido_html: e.target.value })}
-          className={cn(textareaCls, "font-mono text-xs")}
-          placeholder="<p>Cuerpo del post en HTML…</p>"
-        />
       </BrutalCard>
 
       <BrutalCard tone="cheese" className="p-5 grid md:grid-cols-2 gap-4">
