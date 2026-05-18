@@ -88,17 +88,36 @@ function AdminMenuPage() {
     queryClient.invalidateQueries({ queryKey: ["menu"] });
   };
 
+  type CatPatch = {
+    id: string;
+    activo?: boolean;
+    nombre_override?: string | null;
+  };
   const catMut = useMutation({
-    mutationFn: (v: { id: string; activo: boolean }) => updateCat({ data: v }),
+    mutationFn: (v: CatPatch) => updateCat({ data: v }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
 
+  type ProdPatch = {
+    id: string;
+    disponible?: boolean;
+    destacado?: boolean;
+    es_nuevo?: boolean;
+    es_mas_vendido?: boolean;
+    es_recomendado?: boolean;
+    etiqueta_custom?: string | null;
+    clasificacion_me?: MEClass;
+    margen_pct?: number | null;
+    nombre_override?: string | null;
+    descripcion_override?: string | null;
+  };
   const prodMut = useMutation({
-    mutationFn: (v: { id: string; disponible: boolean }) => updateProd({ data: v }),
+    mutationFn: (v: ProdPatch) => updateProd({ data: v }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const reorderCatsMut = useMutation({
     mutationFn: (updates: { id: string; orden: number }[]) =>
