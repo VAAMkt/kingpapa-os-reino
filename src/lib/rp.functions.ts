@@ -113,7 +113,7 @@ async function syncSedeMenu(
           };
           if (!existingCatIds.has(c.rp_id)) base.orden = c.orden;
           return base;
-        }),
+        }) as never,
         { onConflict: "sede_id,rp_id" },
       )
       .select("id, rp_id");
