@@ -49,13 +49,24 @@ export type NormalizedCategoria = {
   rp_id: number;
   nombre: string;
   orden: number;
+  activo: boolean;
 };
 
 export function normalizeCategoria(raw: RpCategoria): NormalizedCategoria {
+  const r = raw as Record<string, unknown>;
+  const delivery = String(r["categoria_delivery"] ?? "").trim();
+  const estado = String(r["categoria_estado"] ?? "").trim().toLowerCase();
+  // Si la API no manda ninguno de los dos flags, asumimos activo (no romper sedes
+  // cuyo POS no envíe la columna). Si manda al menos uno, exigimos "1"/"activo".
+  const hasFlag = delivery !== "" || estado !== "";
+  const activo = hasFlag
+    ? delivery === "1" || estado === "1" || estado === "activo"
+    : true;
   return {
     rp_id: toInt(raw.categoria_id),
     nombre: String(raw.categoria_descripcion ?? ""),
     orden: raw.categoria_orden != null ? toInt(raw.categoria_orden) : 0,
+    activo,
   };
 }
 
