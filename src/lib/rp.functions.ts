@@ -72,6 +72,31 @@ async function syncSedeMenu(
   sede: { id: string; rp_local_id: number | null },
 ): Promise<{ categorias: number; productos: number }> {
   const menu = await rpGetCatalogo(sede.rp_local_id!);
+
+  // === TRAMPA NUCLEAR — quitar tras diagnóstico de imágenes ===
+  // Guardamos el PRIMER producto crudo tal como llega de Restaurant.pe
+  // (sin pasar por extractMenu/normalize) en rp_sync_log para inspección
+  // limpia desde /admin/sincronizacion. Lanzamos error para detener la sync
+  // y obligar al admin a copiar el payload.
+  const rawFirst = Array.isArray((menu as { data?: unknown[] }).data)
+    ? ((menu as { data: unknown[] }).data[0] ?? null)
+    : null;
+  if (rawFirst) {
+    await supabase.from("rp_sync_log").insert({
+      tipo: "debug_raw_product",
+      sede_id: sede.id,
+      ok: true,
+      mensaje: "DEBUG_RAW_PRODUCT_0",
+      payload: rawFirst as never,
+    });
+    throw new Error(
+      "TRAMPA NUCLEAR activa: primer producto crudo guardado en rp_sync_log. " +
+        "Ve a /admin/sincronizacion, copia el payload del último log " +
+        "'debug_raw_product' y pégalo en el chat para arreglar la extracción de imágenes.",
+    );
+  }
+  // === FIN TRAMPA NUCLEAR ===
+
   const { categorias: catsRaw, productos: prodsRaw } = extractMenu(menu);
 
   const dedupeByRpId = <T extends { rp_id: number }>(arr: T[]): T[] => {
