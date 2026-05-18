@@ -23,7 +23,7 @@ const adminNav = [
 ];
 
 function AdminLayout() {
-  const { isAuthenticated, loading, isAdmin } = useAuth();
+  const { isAuthenticated, loading, isAdmin, roleError } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -33,10 +33,29 @@ function AdminLayout() {
       navigate({ to: "/login", search: { redirect: "/admin" } });
       return;
     }
+    if (roleError) return;
     if (!isAdmin()) {
       navigate({ to: "/no-autorizado" });
     }
-  }, [loading, isAuthenticated, isAdmin, navigate]);
+  }, [loading, isAuthenticated, roleError, isAdmin, navigate]);
+
+  if (!loading && isAuthenticated && roleError) {
+    return (
+      <section className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <div className="border-2 border-kp-ink bg-kp-red p-6 shadow-brutal-sm">
+          <p className="font-display uppercase text-3xl leading-none text-kp-cheese">No pudimos verificar tu corona</p>
+          <p className="mt-3 text-sm text-kp-cheese/90">La sesión está activa, pero falló la consulta de roles.</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 border-2 border-kp-ink bg-kp-yellow px-5 py-3 font-display text-sm uppercase text-kp-ink shadow-brutal-sm"
+          >
+            Reintentar
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   if (loading || !isAuthenticated || !isAdmin()) {
     return (
