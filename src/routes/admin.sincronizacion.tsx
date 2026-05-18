@@ -67,6 +67,8 @@ function SyncPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  return (
     <div className="space-y-6">
       <header>
         <BrutalBadge tone="yellow">Sincronización</BrutalBadge>
