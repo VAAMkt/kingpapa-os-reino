@@ -1,85 +1,95 @@
-# CMS amigable: 3 arreglos para redactores sin conocimiento técnico
+# Plan: Aterrizar /franquicias con información veraz de KINGPAPA
 
-## 1. Por qué falla la subida de imágenes (causa raíz encontrada)
-
-Las políticas RLS del bucket `blog-images` siguen llamando a `public.has_role(...)`, pero en la migración anterior movimos esa función a `app_private.has_role` y revocamos el acceso público. Resultado: aunque el usuario es `super_admin`/`editor`, Postgres no puede ejecutar la función desde el contexto del storage → "new row violates row-level security policy".
-
-**Fix:** migración que reemplaza las 3 políticas de `storage.objects` para el bucket `blog-images` (INSERT/UPDATE/DELETE) y las apunta a `app_private.has_role`.
-
-## 2. Editor de texto enriquecido (adiós al HTML crudo)
-
-Reemplazar el `<textarea>` de "Contenido HTML" en `PostForm.tsx` por un editor visual basado en **TipTap** (estándar moderno, ligero, output HTML limpio).
-
-Barra de herramientas simple pensada para redactores:
-
-- **B** Negrita · *I* Cursiva · S̶ Tachado
-- H2 / H3 (sin H1 — ese es el título)
-- Lista con viñetas · Lista numerada · Cita
-- Enlace (con prompt para URL, target _blank automático)
-- Insertar imagen (sube al mismo bucket y la inserta en línea)
-- Limpiar formato · Deshacer / Rehacer
-
-Dependencias a instalar: `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-placeholder`.
-
-El HTML generado se guarda en `contenido_html` exactamente como hoy, así que el frontend público (`historias.$slug.tsx`) no necesita cambios. Se conservará un botón discreto "Ver HTML" plegable para los que sí saben código.
-
-**Bonus de migración:** los posts antiguos traen HTML de Divi/WordPress con basura (`[et_pb_section …]`, `data-path-to-node="3"`, `&#8243;`). Añadir un sanitizador al cargar el post en el editor (`sanitizeLegacyHtml`) que:
-
-- Elimina shortcodes `[et_pb_*]` y `[/et_pb_*]`
-- Elimina atributos `data-path-to-node`, `data-index-in-node`
-- Decodifica entidades HTML básicas
-- Quita estilos inline y clases de WordPress
-
-## 3. Extracto automático con asistencia de IA
-
-Cambios en el formulario de extracto:
-
-- **Botón "✨ Generar con IA"** — usa Lovable AI Gateway (`google/gemini-2.5-flash`) con prompt en español: "Genera una meta description SEO de 140–155 caracteres para este artículo, tono cercano y vendedor, sin comillas". Implementado como `createServerFn` `generateExcerpt` que recibe título + texto plano del contenido.
-- **Botón "Auto desde el texto"** — fallback sin IA: toma las primeras ~155 caracteres de texto plano del editor, corta en la última palabra completa y añade "…".
-- **Generación silenciosa al guardar** si el campo está vacío: ejecuta el fallback automáticamente antes de enviar a la base de datos. El redactor nunca queda sin extracto.
-
-Además: contador en vivo ya existe (rojo si <120 o >158, verde si está en rango). Se mantiene.
-
-## 4. Mini-mejoras SEO sin coste extra
-
-Mientras tocamos `PostForm.tsx`:
-
-- **Botón "✨ Sugerir título SEO"** con IA: variante de hasta 60 caracteres con palabra clave al inicio.
-- **Tiempo de lectura calculado** automáticamente del contenido (palabras / 220) y mostrado debajo del título — se inyecta también en el JSON-LD del artículo en `historias.$slug.tsx`.
-- **Slug**: si el usuario edita el título de un post ya publicado, mostrar warning "cambiar el slug rompe enlaces existentes y SEO" en lugar de re-generarlo automáticamente (ya está protegido por `slugTouched`, solo añadimos el warning visual).
-
-## 5. Bug menor de hidratación
-
-`UserMenu` / `TopAppBar` están provocando un mismatch SSR/cliente (visible en runtime-errors: el botón "Abrir menú" se renderiza distinto). Arreglo: envolver la parte que depende de `useAuth()` con un `useState(false)` + `useEffect(() => setMounted(true))` para que SSR siempre renderice el estado "no autenticado" y el cliente actualice tras hidratar. Esto también acelera el primer paint.
+**Sin cambios de diseño.** Mantengo exactamente la estructura, los componentes (`BrutalCard`, `BrutalBadge`, `SectionHeading`, `LeadFormFranquicia`), el sistema de tonos y los colores. Solo reemplazo copys, cifras y el formulario para que reflejen la realidad del brochure y los pilares BIC.
 
 ---
 
-## Archivos a tocar
+## 1. Hero (mismo layout, copy nuevo)
 
-**Migración SQL (1):**
+- Eyebrow: "Franquicias KINGPAPA"
+- H1: **"Expandamos el Reino juntos"** (se mantiene)
+- Subtítulo nuevo, anclado al brochure: nacida en un garaje del Limonar en 2021, hoy 15 sedes (10 Cali, 1 Jamundí, 4 Bogotá), meta 50 sedes a 2030.
+- CTA: "Quiero ser pionero del Reino" → `#aplicar`
 
-- Reemplazar 3 políticas de `storage.objects` para `blog-images` → usar `app_private.has_role`.
+## 2. Nueva sección "Tracción del Reino" (insertada justo después del hero)
 
-**Crear:**
+Misma estética de grid de 4 `BrutalCard` que ya existe, con cifras reales:
 
-- `src/components/admin/RichEditor.tsx` — wrapper TipTap con toolbar.
-- `src/lib/sanitize-html.ts` — limpia HTML legacy de Divi/WordPress.
-- `src/lib/ai.functions.ts` — `generateExcerpt`, `suggestSeoTitle` (Lovable AI Gateway, requiere `requireSupabaseAuth`).
+- **Tickets**: 49.008 (2021) → 197.224 (2022) → 228.191 (2023) → +280k (2025) → meta 350k (2026). Crecimiento +391% y +32,6%.
+- **Sedes**: 15 puntos en <5 años (Cali, Jamundí, Bogotá).
+- **Comunidad digital**: +3M de personas. TikTok 1.8M (restaurante #1 Colombia), IG 675k, YouTube 53k, Facebook activo.
+- **Origen**: del garaje del Limonar (2021) a plataforma de marca BIC.
 
-**Editar:**
+## 3. "Por qué KINGPAPA funciona" (reescrita con pilares del brochure)
 
-- `src/components/admin/PostForm.tsx` — usar `<RichEditor>`, botones IA, auto-extracto al guardar, tiempo de lectura.
-- `src/routes/historias.$slug.tsx` — añadir `wordCount` / `timeRequired` al JSON-LD.
-- `src/components/kp/Layout.tsx` (o `TopAppBar`) — fix hidratación del menú.
+Las 4 tarjetas existentes se reescriben con los pilares oficiales:
 
-**Dependencias:** `bun add @tiptap/react @tiptap/starter-kit @tiptap/extension-link @tiptap/extension-image @tiptap/extension-placeholder`.
+- **Marca con comunidad real**: la comunidad digital más grande de un restaurante en Colombia. Activo que reduce CAC y blinda contra competencia.
+- **Experiencia y calidad**: estándares de cantidad, gramajes generosos, atención cercana, "experiencias de la realeza".
+- **Operación estandarizada**: manual de procesos, fichas técnicas, centro de abastecimiento, know-how transferido.
+- **Acompañamiento integral**: selección de local, entrenamiento, campaña de lanzamiento, innovación continua, marketing.
+
+## 4. Nueva sección "Inversión y condiciones" (nueva, con mismo lenguaje brutalista)
+
+Grid de tarjetas cortas (igual al patrón de mapa de expansión):
+
+- Canon de entrada: **$50M COP + IVA**
+- Inversión inicial aprox: **$200M COP** (incluye derecho de marca)
+- Inventario inicial: **$10M aprox**
+- Regalías: **2,5%** (pioneros) — normal 3%
+- Publicidad: **2,5%** (pioneros) — normal 3%
+- Duración contrato: **6 años** (pioneros) — normal 5
+- Retorno promedio: **26 meses**
+
+Badge destacado: "Beneficios solo para pioneros" para activar urgencia.
+
+## 5. "Mapa de expansión" (actualizado a realidad)
+
+Mismo grid, ciudades actualizadas:
+
+- Cali — 10 sedes activas (lime)
+- Jamundí — 1 sede activa (lime)
+- Bogotá — 4 sedes activas (lime)
+- Resto del país — Buscando socios pioneros (red)
+- Meta 2030 — 50 puntos de venta (purple)
+
+## 6. "Proceso de aplicación" (nueva sección, 5 pasos)
+
+Tarjetas numeradas: 1) Formulario de postulación · 2) Aplicación formal · 3) Informe de verificación · 4) Entrevistas finales · 5) Formalización del contrato.
+
+## 7. Form de aplicación
+
+Se mantiene `LeadFormFranquicia` (no cambia diseño). Solo ajustes mínimos al copy del header y agregar línea de contacto directo: `kingpapacali@gmail.com` y WhatsApp `+57 317 2455336`.
+
+## 8. "Impacto del Reino" (BIC) — reescrita
+
+Las 3 tarjetas púrpuras ya existen. Se reescriben fieles al PDF:
+
+- **Stakeholders del Reino**: clientes, colaboradores, proveedores, comunidad e inversionistas — "un Reino donde todos ganemos" (SAS BIC).
+- **Talento que sostiene la corona**: foco en colaboradores como motor del Reino, plan carrera, círculo virtuoso colaborador→cliente→marca.
+- **Comunidad y causas**: +200 fundaciones apoyadas desde el inicio, visibilidad a causas locales, comunidad digital al servicio del impacto.
+
+## 9. Nueva sección "Tesis para el inversor" (cierre antes del footer)
+
+Bloque de 3 puntos en estilo manifiesto (mismo `BrutalCard` cheese/ink):
+
+- Marca con tracción brutal (15 sedes en <5 años desde un garaje).
+- Demanda probada (ratings altos, ticket medio-alto, gramajes generosos).
+- Propósito BIC con roadmap claro a 50 puntos al 2030.
 
 ---
 
-## Lo que NO cambia
+## Archivos a modificar (solo 2)
 
-- Esquema de la tabla `posts` (no añadimos columnas nuevas todavía; el extracto y el HTML enriquecido caben en lo existente).
-- Frontend público de historias (sigue renderizando `contenido_html`).
-- Sistema de roles y autenticación.
+- `src/routes/franquicias.tsx` — reemplazar copys de todas las secciones, agregar las secciones nuevas (Tracción, Inversión, Proceso, Tesis) usando los mismos componentes ya importados.
+- `src/components/kp/LeadFormFranquicia.tsx` — ajustes menores de copy + agregar pie con email y WhatsApp oficiales. Sin cambios de layout.
 
-¿Apruebas para implementar? Si quieres también añadir columnas dedicadas de SEO (`meta_titulo`, `og_image`, `keywords[]`, `tiempo_lectura_min`), montalo en esta ronda. 
+## Lo que NO voy a hacer
+
+- No cambio paleta, tipografías, componentes UI ni espaciados.
+- No agrego librerías nuevas.
+- No toco el head/SEO más allá de afinar `description` con el dato de "15 sedes, BIC, meta 50 a 2030".
+- No agrego contador en tiempo real de redes (lo mencionas como "sería una chimba", pero requiere integraciones; lo dejo para una siguiente iteración si lo confirmas).
+
+¿Apruebas para implementar?  
+Si, agrega secciones que mejoren la /franquicias que la vuelvan más atractiva, más enganche, que inviten aa ser parte del REINO, que vendan y convenzan
