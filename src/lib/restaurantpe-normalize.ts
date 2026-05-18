@@ -49,13 +49,24 @@ export type NormalizedCategoria = {
   rp_id: number;
   nombre: string;
   orden: number;
+  activo: boolean;
 };
 
 export function normalizeCategoria(raw: RpCategoria): NormalizedCategoria {
+  const r = raw as Record<string, unknown>;
+  const delivery = String(r["categoria_delivery"] ?? "").trim();
+  const estado = String(r["categoria_estado"] ?? "").trim().toLowerCase();
+  // Si la API no manda ninguno de los dos flags, asumimos activo (no romper sedes
+  // cuyo POS no envíe la columna). Si manda al menos uno, exigimos "1"/"activo".
+  const hasFlag = delivery !== "" || estado !== "";
+  const activo = hasFlag
+    ? delivery === "1" || estado === "1" || estado === "activo"
+    : true;
   return {
     rp_id: toInt(raw.categoria_id),
     nombre: String(raw.categoria_descripcion ?? ""),
     orden: raw.categoria_orden != null ? toInt(raw.categoria_orden) : 0,
+    activo,
   };
 }
 
@@ -102,28 +113,46 @@ export type NormalizedProducto = {
   almacen_id: number | null;
 };
 
-export function normalizeProduct(raw: RpProducto): NormalizedProducto {
+export function normalizeProduct(raw: RpProducto): NormalizedProducto | null {
   const r = raw as Record<string, unknown>;
-  // Priorizar productogeneral_id: la API devuelve `producto_id` reciclado
-  // entre combos y productos base, lo que produce colisiones por sede.
+  // Priorizar productogeneral_id (único entre sedes).
   const rpId = raw.productogeneral_id ?? raw.producto_id;
   const nombre =
     (raw.producto_descripcion as string | undefined) ??
     (raw.productogeneral_descripcion as string | undefined) ??
     "";
-  const precio = raw.producto_precio ?? raw.productogeneral_preciofijo ?? 0;
-  const mods = raw.modificadores ?? raw.listaModificadores;
-  const descripcionLarga =
-    (raw.producto_descripcion_larga as string | undefined) ??
-    (r["productogeneral_descripcionweb"] as string | undefined) ??
-    null;
+
+  // Filtro delivery: si hay lista_presentacion, exigir al menos una con
+  // producto_delivery === "1". Si no hay lista_presentacion, caemos al
+  // comportamiento legacy (sin filtrar) para no romper sedes que no la envíen.
+  const presentaciones = Array.isArray(raw.lista_presentacion)
+    ? (raw.lista_presentacion as Record<string, unknown>[])
+    : [];
+  let presentacionActiva: Record<string, unknown> | null = null;
+  if (presentaciones.length > 0) {
+    presentacionActiva =
+      presentaciones.find((p) => String(p["producto_delivery"] ?? "") === "1") ??
+      null;
+    if (!presentacionActiva) return null; // ninguna presentación delivery → descartar
+  }
+
+  const precio =
+    (presentacionActiva?.["producto_precio"] as number | string | undefined) ??
+    raw.producto_precio ??
+    raw.productogeneral_preciofijo ??
+    0;
   const imagen =
-    (raw.producto_imagen as string | undefined) ??
+    (presentacionActiva?.["producto_urlimagen"] as string | undefined) ??
     (r["productogeneral_urlimagen"] as string | undefined) ??
+    (raw.producto_imagen as string | undefined) ??
     null;
+  const descripcionLarga =
+    (r["productogeneral_descripcionweb"] as string | undefined) ??
+    (raw.productogeneral_descripcion as string | undefined) ??
+    (raw.producto_descripcion_larga as string | undefined) ??
+    null;
+  const mods = raw.modificadores ?? raw.listaModificadores;
   const estado = r["productogeneral_estado"];
-  // La API a veces devuelve `productogeneral_estado` como string ("Activo"/
-  // "Inactivo") y a veces como "1"/"0". Aceptamos ambos formatos.
   const estadoActivo = (() => {
     if (estado == null) return null;
     const s = String(estado).trim().toLowerCase();
