@@ -338,13 +338,23 @@ function SortableProdRow({
   idx,
   total,
   onMove,
-  onToggle,
+  onPatch,
 }: {
   prod: Prod;
   idx: number;
   total: number;
   onMove: (dir: -1 | 1) => void;
-  onToggle: (v: boolean) => void;
+  onPatch: (patch: Partial<{
+    disponible: boolean;
+    destacado: boolean;
+    es_nuevo: boolean;
+    es_mas_vendido: boolean;
+    es_recomendado: boolean;
+    etiqueta_custom: string | null;
+    clasificacion_me: MEClass;
+    margen_pct: number | null;
+    nombre_override: string | null;
+  }>) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: prod.id });
@@ -353,49 +363,173 @@ function SortableProdRow({
     transition,
     opacity: isDragging ? 0.6 : 1,
   };
+
+  const Pill = ({
+    label,
+    active,
+    onClick,
+    title,
+  }: {
+    label: string;
+    active: boolean;
+    onClick: () => void;
+    title: string;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`h-7 px-2 border-2 border-kp-ink font-display uppercase text-[10px] shadow-brutal-sm transition-all ${
+        active ? "bg-kp-red text-kp-cheese" : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  const displayName = prod.nombre_override ?? prod.nombre;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="grid grid-cols-[24px_48px_1fr_auto_auto] gap-2 items-center border-2 border-kp-ink bg-kp-cheese p-2 shadow-brutal-sm"
+      className="border-2 border-kp-ink bg-kp-cheese p-2 shadow-brutal-sm space-y-2"
     >
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-kp-ink/60 hover:text-kp-ink"
-        aria-label="Arrastrar para reordenar"
-      >
-        <GripVertical className="size-4" />
-      </button>
-      <div className="w-12 h-12 border-2 border-kp-ink bg-kp-yellow overflow-hidden">
-        {prod.imagen_url ? (
-          <img
-            src={prod.imagen_url}
-            alt=""
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = "none";
-            }}
-          />
-        ) : null}
+      <div className="grid grid-cols-[24px_48px_1fr_auto_auto] gap-2 items-center">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-kp-ink/60 hover:text-kp-ink"
+          aria-label="Arrastrar para reordenar"
+        >
+          <GripVertical className="size-4" />
+        </button>
+        <div className="w-12 h-12 border-2 border-kp-ink bg-kp-yellow overflow-hidden">
+          {prod.imagen_url ? (
+            <img
+              src={prod.imagen_url}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : null}
+        </div>
+        <div className="min-w-0">
+          <p className="font-display uppercase text-sm truncate">
+            {displayName}
+            {prod.nombre_override && (
+              <span className="ml-2 text-[10px] text-kp-ink/50">(editado)</span>
+            )}
+            {!prod.disponible && (
+              <span className="ml-2 text-xs text-kp-ink/50">(oculto)</span>
+            )}
+          </p>
+          <p className="text-xs text-kp-ink/60">
+            ${Number(prod.precio).toLocaleString("es-CO")}
+          </p>
+        </div>
+        <div className="flex gap-1">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8"
+            disabled={idx === 0}
+            onClick={() => onMove(-1)}
+            aria-label="Subir"
+          >
+            <ArrowUp className="size-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8"
+            disabled={idx === total - 1}
+            onClick={() => onMove(1)}
+            aria-label="Bajar"
+          >
+            <ArrowDown className="size-4" />
+          </Button>
+        </div>
+        <Switch
+          checked={prod.disponible}
+          onCheckedChange={(v) => onPatch({ disponible: v })}
+        />
       </div>
-      <div className="min-w-0">
-        <p className="font-display uppercase text-sm truncate">
-          {prod.nombre}
-          {!prod.disponible && <span className="ml-2 text-xs text-kp-ink/50">(oculto)</span>}
-        </p>
-        <p className="text-xs text-kp-ink/60">${Number(prod.precio).toLocaleString("es-CO")}</p>
+
+      {/* Ingeniería de menú: badges + clasificación */}
+      <div className="flex flex-wrap gap-1 items-center pl-[60px]">
+        <Pill
+          label="★ Destacado"
+          active={prod.destacado}
+          onClick={() => onPatch({ destacado: !prod.destacado })}
+          title="Sale grande en el menú (col-span-2)"
+        />
+        <Pill
+          label="🆕 Nuevo"
+          active={prod.es_nuevo}
+          onClick={() => onPatch({ es_nuevo: !prod.es_nuevo })}
+          title="Badge NUEVO"
+        />
+        <Pill
+          label="🔥 Top"
+          active={prod.es_mas_vendido}
+          onClick={() => onPatch({ es_mas_vendido: !prod.es_mas_vendido })}
+          title="Badge Más vendido + entra a Coronas del Rey"
+        />
+        <Pill
+          label="👑 Reco"
+          active={prod.es_recomendado}
+          onClick={() => onPatch({ es_recomendado: !prod.es_recomendado })}
+          title="Badge Recomendado del chef"
+        />
+        <select
+          value={prod.clasificacion_me ?? ""}
+          onChange={(e) =>
+            onPatch({
+              clasificacion_me: (e.target.value || null) as MEClass,
+            })
+          }
+          className="h-7 border-2 border-kp-ink bg-kp-cheese px-1 font-display uppercase text-[10px] shadow-brutal-sm"
+          title="Matriz Kasavana & Smith: Estrella (alta pop, alto margen) / Caballo (alta pop, bajo margen) / Puzzle (baja pop, alto margen) / Perro (baja pop, bajo margen)"
+        >
+          <option value="">— ME —</option>
+          <option value="star">★ Estrella</option>
+          <option value="plowhorse">🐴 Caballo</option>
+          <option value="puzzle">🧩 Puzzle</option>
+          <option value="dog">🐶 Perro</option>
+        </select>
+        <input
+          type="text"
+          defaultValue={prod.etiqueta_custom ?? ""}
+          placeholder="Etiqueta libre"
+          maxLength={40}
+          onBlur={(e) => {
+            const val = e.target.value.trim();
+            if (val !== (prod.etiqueta_custom ?? "")) {
+              onPatch({ etiqueta_custom: val || null });
+            }
+          }}
+          className="h-7 border-2 border-kp-ink bg-kp-cheese px-2 font-display uppercase text-[10px] shadow-brutal-sm w-32"
+        />
+        <input
+          type="text"
+          defaultValue={prod.nombre_override ?? ""}
+          placeholder="Renombrar"
+          maxLength={120}
+          onBlur={(e) => {
+            const val = e.target.value.trim();
+            if (val !== (prod.nombre_override ?? "")) {
+              onPatch({ nombre_override: val || null });
+            }
+          }}
+          className="h-7 border-2 border-kp-ink bg-kp-cheese px-2 font-display uppercase text-[10px] shadow-brutal-sm w-40"
+          title="Cambia el nombre que ve el cliente sin perder el del POS"
+        />
       </div>
-      <div className="flex gap-1">
-        <Button size="icon" variant="outline" className="h-8 w-8" disabled={idx === 0} onClick={() => onMove(-1)} aria-label="Subir">
-          <ArrowUp className="size-4" />
-        </Button>
-        <Button size="icon" variant="outline" className="h-8 w-8" disabled={idx === total - 1} onClick={() => onMove(1)} aria-label="Bajar">
-          <ArrowDown className="size-4" />
-        </Button>
-      </div>
-      <Switch checked={prod.disponible} onCheckedChange={onToggle} />
     </div>
   );
+}
 }
