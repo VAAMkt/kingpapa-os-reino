@@ -1,26 +1,158 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { BrutalCard, BrutalBadge, SectionHeading } from "@/components/ui-kp/Brutal";
+import { BrutalLink } from "@/components/ui-kp/BrutalButton";
+import { OrderRouter } from "@/components/kp/OrderRouter";
+import { ProductCard } from "@/components/kp/ProductCard";
+import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
+import { LoyaltyModule } from "@/components/kp/LoyaltyModule";
+import { EventCard, LocationCard } from "@/components/kp/Cards";
+import { Testimonios } from "@/components/kp/Testimonios";
+import { productos } from "@/data/productos";
+import { historias } from "@/data/historias";
+import { sedes } from "@/data/sedes";
+import heroImg from "@/assets/hero-salchipapa.jpg";
 
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "KINGPAPA — El Reino" },
+      { name: "description", content: "Los REYES de esta pendeja’. Pide, corónate y conviértete en súbdito del Reino KINGPAPA." },
+      { property: "og:title", content: "KINGPAPA — El Reino" },
+      { property: "og:description", content: "Salchipapas monstruosas, bowls coronados y retos para verdaderos súbditos." },
+      { property: "og:url", content: "/" },
+    ],
+    links: [{ rel: "canonical", href: "/" }],
+  }),
+  component: HomePage,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
+function HomePage() {
+  const estrellas = productos.slice(0, 4);
+  const retos = historias.filter((h) => h.categoria === "Retos" || h.categoria === "Festivales").slice(0, 3);
+  const sedesResumen = sedes.slice(0, 4);
 
-function Index() {
-  return <PlaceholderIndex />;
+  return (
+    <>
+      {/* HERO */}
+      <section className="bg-kp-yellow border-b-4 border-kp-ink relative overflow-hidden">
+        <div className="mx-auto max-w-7xl px-4 md:px-6 py-10 md:py-16 grid md:grid-cols-2 gap-8 items-center">
+          <div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <BrutalBadge tone="black">Cali</BrutalBadge>
+              <BrutalBadge tone="black">Bogotá</BrutalBadge>
+              <BrutalBadge tone="black">Jamundí</BrutalBadge>
+              <BrutalBadge tone="black">Medallo</BrutalBadge>
+            </div>
+            <h1 className="font-display text-6xl sm:text-7xl md:text-8xl uppercase leading-[0.85] text-kp-ink">
+              Los REYES<br />de esta<br />pendeja’
+            </h1>
+            <p className="mt-5 text-base md:text-lg max-w-md border-l-4 border-kp-ink pl-3">
+              Salchipapas monstruosas, bowls coronados y retos que solo un verdadero
+              súbdito del Reino se atreve a probar.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <BrutalLink href="#pedir" variant="dark" size="lg">
+                Pedir AHORA
+              </BrutalLink>
+              <BrutalLink href="#loyalty" variant="ghost" size="lg">
+                Hacerme súbdito del Reino
+              </BrutalLink>
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute -top-4 left-2 z-10">
+              <BrutalBadge tone="red" className="text-base">¡TAMAÑO MONSTRUO!</BrutalBadge>
+            </div>
+            <div className="aspect-square bg-kp-ink border-2 border-kp-ink shadow-brutal-lg overflow-hidden">
+              <img
+                src={heroImg}
+                alt="Salchipapa monstruosa KINGPAPA"
+                width={1280}
+                height={1280}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ORDER ROUTER */}
+      <section id="pedir" className="mx-auto max-w-7xl px-4 md:px-6 py-12">
+        <OrderRouter />
+      </section>
+
+      {/* PRODUCTOS ESTRELLA */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
+        <SectionHeading
+          eyebrow="Coronados del Reino"
+          title="Los más bravos del menú"
+          description="Lo que pides cuando vas en serio. Sin filtros, sin remordimientos."
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {estrellas.map((p) => (
+            <ProductCard key={p.id} producto={p} />
+          ))}
+        </div>
+        <div className="mt-6">
+          <Link
+            to="/menu"
+            className="font-display uppercase underline underline-offset-4 decoration-4 decoration-kp-yellow"
+          >
+            Ver el menú completo →
+          </Link>
+        </div>
+      </section>
+
+      {/* TRACKER */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
+        <TrackerOperativo />
+      </section>
+
+      {/* RETOS / FESTIVALES */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
+        <SectionHeading
+          eyebrow="Cultura del Reino"
+          title="Retos, festivales y locuras"
+          description="Lo que pasa en el Reino, queda coronado."
+        />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {retos.map((h) => (
+            <EventCard key={h.id} historia={h} />
+          ))}
+        </div>
+      </section>
+
+      {/* LOYALTY */}
+      <section id="loyalty" className="mx-auto max-w-7xl px-4 md:px-6 py-12">
+        <LoyaltyModule />
+      </section>
+
+      {/* SEDES RESUMEN */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
+        <SectionHeading
+          eyebrow="Tu Reino más cercano"
+          title="Encuentra tu castillo"
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {sedesResumen.map((s) => (
+            <LocationCard key={s.id} sede={s} />
+          ))}
+        </div>
+        <div className="mt-6">
+          <Link
+            to="/sedes"
+            className="font-display uppercase underline underline-offset-4 decoration-4 decoration-kp-yellow"
+          >
+            Ver todas las sedes del Reino →
+          </Link>
+        </div>
+      </section>
+
+      {/* TESTIMONIOS */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6 py-12">
+        <Testimonios />
+      </section>
+    </>
+  );
 }
