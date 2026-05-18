@@ -337,19 +337,21 @@ export const syncAllMenus = createServerFn({ method: "POST" })
 
     await supabase.from("rp_sync_log").insert({
       tipo: "menu_all",
-      payload: { sedes: targets.length, categorias: categorias.length, productos: productos.length } as never,
+      payload: { sedes: targets.length, categorias: totalCats, productos: totalProds } as never,
       ok: errores.length === 0,
       mensaje:
         errores.length === 0
-          ? `OK: ${targets.length} sedes, ${categorias.length} cats, ${productos.length} productos cada una.`
+          ? `OK: ${targets.length} sedes, ${totalCats} categorías y ${totalProds} productos upserteados.`
           : `Con errores en ${errores.length}/${targets.length}: ${errores.slice(0, 3).join(" | ")}`,
     });
 
     return {
       ok: errores.length === 0,
       sedes: targets.length,
-      categorias: categorias.length,
-      productos: productos.length,
+      categorias: totalCats,
+      productos: totalProds,
+      ultimaSchemaCats: totalCatsSchema,
+      ultimaSchemaProds: totalProdsSchema,
       errores,
     };
   });
