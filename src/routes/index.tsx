@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { useMemo } from "react";
 import { BrutalCard, BrutalBadge, SectionHeading } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { OrderRouter } from "@/components/kp/OrderRouter";
@@ -8,9 +10,10 @@ import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
 import { LoyaltyModule } from "@/components/kp/LoyaltyModule";
 import { EventCard, LocationCard } from "@/components/kp/Cards";
 import { Testimonios } from "@/components/kp/Testimonios";
-import { productos } from "@/data/productos";
-import { historias } from "@/data/historias";
 import { listPublicSedes } from "@/lib/sedes";
+import { listPublicPosts } from "@/lib/posts";
+import { getMenuForSede } from "@/lib/rp.functions";
+import { rpProductoToProducto, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
 import heroImg from "@/assets/hero-salchipapa.jpg";
 
 export const Route = createFileRoute("/")({
@@ -28,10 +31,30 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
-  const estrellas = productos.slice(0, 4);
-  const retos = historias.filter((h) => h.categoria === "Retos" || h.categoria === "Festivales").slice(0, 3);
   const { data: sedesData = [] } = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
   const sedesResumen = sedesData.slice(0, 4);
+  const defaultSedeSlug = sedesData[0]?.slug;
+
+  const fetchMenu = useServerFn(getMenuForSede);
+  const menuQ = useQuery({
+    queryKey: ["menu", defaultSedeSlug],
+    queryFn: () => fetchMenu({ data: { sedeSlug: defaultSedeSlug! } }),
+    enabled: !!defaultSedeSlug,
+    staleTime: 60_000,
+  });
+
+  const estrellas = useMemo(() => {
+    const cats = (menuQ.data?.categorias ?? []) as RpCategoriaRow[];
+    const prods = (menuQ.data?.productos ?? []) as RpProductoRow[];
+    const catsById = new Map(cats.map((c) => [c.id, c]));
+    return prods
+      .filter((p) => p.disponible)
+      .slice(0, 4)
+      .map((p) => rpProductoToProducto(p, catsById));
+  }, [menuQ.data]);
+
+  const { data: posts = [] } = useQuery({ queryKey: ["posts", "public"], queryFn: listPublicPosts, staleTime: 60_000 });
+  const retos = posts.filter((h) => h.categoria === "Retos" || h.categoria === "Festivales").slice(0, 3);
 
   return (
     <>
