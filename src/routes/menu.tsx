@@ -7,6 +7,9 @@ import { ProductCard } from "@/components/kp/ProductCard";
 import { categorias, productos } from "@/data/productos";
 
 export const Route = createFileRoute("/menu")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    sede: typeof search.sede === "string" ? search.sede : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Menú del Reino — KINGPAPA" },
