@@ -95,16 +95,167 @@ export type Database = {
         }
         Relationships: []
       }
+      rp_categorias: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+          orden: number
+          rp_id: number
+          sede_id: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          orden?: number
+          rp_id: number
+          sede_id: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          orden?: number
+          rp_id?: number
+          sede_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rp_categorias_sede_id_fkey"
+            columns: ["sede_id"]
+            isOneToOne: false
+            referencedRelation: "sedes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rp_productos: {
+        Row: {
+          almacen_id: number | null
+          categoria_id: string | null
+          created_at: string
+          descripcion: string | null
+          disponible: boolean
+          id: string
+          imagen_url: string | null
+          modificadores: Json
+          nombre: string
+          orden: number
+          precio: number
+          rp_id: number
+          sede_id: string
+          stock_cache: number | null
+          updated_at: string
+        }
+        Insert: {
+          almacen_id?: number | null
+          categoria_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          disponible?: boolean
+          id?: string
+          imagen_url?: string | null
+          modificadores?: Json
+          nombre: string
+          orden?: number
+          precio?: number
+          rp_id: number
+          sede_id: string
+          stock_cache?: number | null
+          updated_at?: string
+        }
+        Update: {
+          almacen_id?: number | null
+          categoria_id?: string | null
+          created_at?: string
+          descripcion?: string | null
+          disponible?: boolean
+          id?: string
+          imagen_url?: string | null
+          modificadores?: Json
+          nombre?: string
+          orden?: number
+          precio?: number
+          rp_id?: number
+          sede_id?: string
+          stock_cache?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rp_productos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "rp_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rp_productos_sede_id_fkey"
+            columns: ["sede_id"]
+            isOneToOne: false
+            referencedRelation: "sedes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rp_sync_log: {
+        Row: {
+          created_at: string
+          id: string
+          mensaje: string | null
+          ok: boolean
+          payload: Json | null
+          sede_id: string | null
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mensaje?: string | null
+          ok?: boolean
+          payload?: Json | null
+          sede_id?: string | null
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mensaje?: string | null
+          ok?: boolean
+          payload?: Json | null
+          sede_id?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rp_sync_log_sede_id_fkey"
+            columns: ["sede_id"]
+            isOneToOne: false
+            referencedRelation: "sedes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sedes: {
         Row: {
           abierta_ahora: boolean
           barrio: string | null
           ciudad: string
+          cobertura_radio_km: number
           created_at: string
           delivery: boolean
           direccion: string
           horario: string
           id: string
+          lat: number | null
+          lng: number | null
           mall: string | null
           maps_url: string | null
           nombre: string
@@ -112,6 +263,7 @@ export type Database = {
           pickup: boolean
           publicado: boolean
           qr_mesa: boolean
+          rp_local_id: number | null
           slug: string
           updated_at: string
           whatsapp: string | null
@@ -120,11 +272,14 @@ export type Database = {
           abierta_ahora?: boolean
           barrio?: string | null
           ciudad: string
+          cobertura_radio_km?: number
           created_at?: string
           delivery?: boolean
           direccion: string
           horario?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           mall?: string | null
           maps_url?: string | null
           nombre: string
@@ -132,6 +287,7 @@ export type Database = {
           pickup?: boolean
           publicado?: boolean
           qr_mesa?: boolean
+          rp_local_id?: number | null
           slug: string
           updated_at?: string
           whatsapp?: string | null
@@ -140,11 +296,14 @@ export type Database = {
           abierta_ahora?: boolean
           barrio?: string | null
           ciudad?: string
+          cobertura_radio_km?: number
           created_at?: string
           delivery?: boolean
           direccion?: string
           horario?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           mall?: string | null
           maps_url?: string | null
           nombre?: string
@@ -152,6 +311,7 @@ export type Database = {
           pickup?: boolean
           publicado?: boolean
           qr_mesa?: boolean
+          rp_local_id?: number | null
           slug?: string
           updated_at?: string
           whatsapp?: string | null

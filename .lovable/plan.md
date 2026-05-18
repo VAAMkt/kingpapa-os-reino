@@ -1,91 +1,191 @@
+# Plan: Integración KINGPAPA × Restaurant.pe (todo el stack, sin pasarela)
 
-## Objetivo
-
-1. Cargar las 15 sedes reales de KINGPAPA en la página `/sedes` (sin cambiar el diseño).
-2. Mover las sedes de mock estático (`src/data/sedes.ts`) a la base de datos para que se puedan administrar.
-3. Crear módulo admin en `/admin/sedes` para crear / editar / despublicar sedes.
-4. Cambiar el botón "Pedir aquí" para que use el flujo de pedido interno de la web (no WhatsApp). "Cómo llegar" se mantiene a Google Maps.
-5. Añadir cierre comercial: CTA a `/franquicias` ("¿Quieres ser parte del Reino?").
+Reemplazamos los mocks por datos reales de Restaurant.pe v2, en arquitectura **híbrida**: catálogo cacheado en Supabase + validación live al pedir. Sin pasarela de pago (queda pendiente). Sin rediseño visual: solo se cambian fuentes de datos y se añaden 3 piezas nuevas (CartDrawer, Customizer, OrderTracker) usando los componentes Brutal existentes.
 
 ---
 
-## 1. Base de datos
+## 0. Pre-requisitos (un solo turno antes de implementar)
 
-Nueva tabla `public.sedes` (migración):
-
-- `id uuid pk`, `slug text unique`, `nombre text`, `ciudad text`, `direccion text`
-- `barrio text null`, `mall text null`
-- `horario text` (texto libre tipo "12:00pm – 1:00am")
-- `abierta_ahora bool default true`, `delivery bool`, `pickup bool`, `qr_mesa bool`
-- `whatsapp text null`, `maps_url text null`, `orden int default 0`, `publicado bool default true`
-- `created_at`, `updated_at` con trigger `set_updated_at`
-
-RLS:
-- `SELECT` pública cuando `publicado = true`.
-- `SELECT` total + `INSERT/UPDATE/DELETE` para `super_admin` o `editor` (mismo patrón que `posts`).
-
-Seed: insertar las 15 sedes del payload del usuario, normalizando ciudad (`Cali`/`Jamundí`/`Bogotá`), y guardando el número de WhatsApp solo como dígitos (`573172455336`, `573027139738`, `573143484983`, null para El Edén). `maps_url` = URL de Google Maps provista.
+1. Confirmar `RESTAURANT_PE_TOKEN` y `RESTAURANT_PE_DOMINIO` ya configurados (✅ presentes).
+2. Pedir `VITE_GOOGLE_MAPS_API_KEY` (Maps JavaScript API + Geocoding + Distance Matrix habilitados).
+3. Confirmar el `dominio_id` numérico real de KINGPAPA en Restaurant.pe (el secret guarda el dominio, necesitamos también el ID).
+4. Confirmar mapeo sede Lovable ⇄ `local_id` Restaurant.pe (añadiremos columna `rp_local_id` a `public.sedes`).
 
 ---
 
-## 2. Capa de datos cliente
-
-- `src/lib/sedes.ts`: `listPublicSedes()`, `listAllSedes()`, `getSedeById()`, `createSede()`, `updateSede()`, `deleteSede()` (mismo patrón que `src/lib/posts.ts`, usando `supabase` browser client; RLS hace el trabajo).
-- Adaptar `src/types/kp.ts > Sede` para incluir `slug` y `publicado` (sin romper consumos actuales).
-- Marcar `src/data/sedes.ts` como deprecated y dejar el `OrderRouter` consumiendo desde la query de sedes publicadas (React Query) en vez del array estático.
-
----
-
-## 3. `/sedes` (sin tocar el diseño)
-
-- Reemplazar el `useMemo` sobre el array estático por `useQuery(['sedes','public'], listPublicSedes)`.
-- Ajustar derivación de `ciudades` para que salga del resultado real (Cali, Jamundí, Bogotá).
-- En `LocationCard` (`src/components/kp/Cards.tsx`):
-  - "Cómo llegar" → sigue usando `sede.mapsUrl`.
-  - "Pedir aquí" → cambia de `wa.me/...` a un `Link` interno a `/menu` con `search={{ sede: sede.slug }}` (el `/menu` ya es nuestro flujo de pedido; preseleccionar sede vía query). Sin WhatsApp.
-- Nuevas secciones (manteniendo estilo brutalist, mismos componentes `BrutalCard`/`SectionHeading`):
-  1. **"El Reino crece"**: 3 stats (`15 sedes`, `3 ciudades`, `meta 50 sedes 2030`).
-  2. **"Cómo pedir"** — ya existe, se conserva.
-  3. **CTA "¿Quieres traer el Reino a tu ciudad?"**: bloque `BrutalCard tone="purple"` con copy de franquicias y `BrutalLink` a `/franquicias` ("Quiero ser parte del Reino").
-
----
-
-## 4. Admin `/admin/sedes`
-
-Nueva ruta layout + listado + edición, copiando el patrón de `/admin/contenidos`:
-
-- `src/routes/admin.sedes.tsx` — layout con `<Outlet/>`.
-- `src/routes/admin.sedes.index.tsx` — tabla con columnas: Nombre, Ciudad, Dirección, Estado, Acciones (Editar / Publicar-Despublicar / Eliminar). Botón "+ Nueva sede".
-- `src/routes/admin.sedes.nuevo.tsx` y `src/routes/admin.sedes.$id.tsx` — formulario `SedeForm` compartido en `src/components/admin/SedeForm.tsx`:
-  - Campos: nombre, slug (autogenerado del nombre, editable), ciudad (select Cali/Bogotá/Jamundí + "otra"), dirección, barrio, mall, horario, whatsapp (solo dígitos), maps_url, switches delivery/pickup/qr_mesa/abierta_ahora/publicado, orden.
-  - Validación con `zod`.
-- Agregar item "Sedes" al `adminNav` de `src/routes/admin.tsx` (quitar el `soon: true` actual).
-
----
-
-## 5. Detalle técnico extra
-
-- "Pedir aquí" interno: `/menu` aún no tiene lógica por sede; sólo pasamos `?sede=<slug>` para que cuando exista el flujo real ya esté cableado. En esta iteración el botón abre el menú; no más WhatsApp por sede listada.
-- Mantener `OrderRouter` con sus opciones existentes (Rappi/DiDi/WhatsApp) — es otro componente y el usuario no pidió tocarlo.
-- No se cambia paleta, tipografía, ni componentes UI.
-
----
-
-## Archivos a crear / modificar
+## 1. Capa de datos: tipos + cliente server-only
 
 **Crear**
-- `supabase/migrations/<ts>_sedes.sql` (tabla + RLS + seed con las 15 sedes)
-- `src/lib/sedes.ts`
-- `src/components/admin/SedeForm.tsx`
-- `src/routes/admin.sedes.tsx`
-- `src/routes/admin.sedes.index.tsx`
-- `src/routes/admin.sedes.nuevo.tsx`
-- `src/routes/admin.sedes.$id.tsx`
+
+- `src/types/restaurantpe.ts` — DTOs crudos del swagger (`RpDominioResponse`, `RpLocal`, `RpProducto`, `RpCategoria`, `RpModificadorGrupo`, `RpStockResponse`, `RpDeliveryCreateRequest/Response`, `RpEstadoPedido`).
+- `src/types/kp-menu.ts` — tipos normalizados de UI (`KpMenuItem`, `KpModifierGroup`, `KpCartLine`, `KpOrder`, `KpOrderStatus`).
+- `src/lib/restaurantpe.server.ts` — cliente fetch contra `http://api.restaurant.pe/restaurant/public/v2/rest`, con header `Authorization: Token token="${RESTAURANT_PE_TOKEN}"`, timeout, retry x2, parseo de envoltura `{ tipo, data, mensajes }`. **Server-only** (extensión `.server.ts` bloquea el bundle cliente).
+- `src/lib/restaurantpe-normalize.ts` — funciones puras `normalizeProduct`, `normalizeBranch`, `normalizeOrderStatus` (importables desde cliente, sin secretos).
+
+**Reglas**
+
+- Nunca llamar Restaurant.pe desde React. Todo pasa por `createServerFn`.
+- Mapear errores de la API (`tipo !== "1"`) a `Error` con mensaje legible.
+
+---
+
+## 2. Sync híbrido del menú
+
+**Migración Supabase** (`supabase/migrations/<ts>_rp_catalog.sql`)
+
+- `public.sedes`: añadir `rp_local_id int unique`, `lat numeric`, `lng numeric`, `cobertura_radio_km numeric default 5`.
+- `public.rp_categorias`: `id uuid pk, rp_id int, sede_id uuid fk, nombre, orden, activo`.
+- `public.rp_productos`: `id uuid pk, rp_id int, sede_id uuid fk, categoria_id uuid fk, nombre, descripcion, precio numeric, imagen_url, disponible bool, modificadores jsonb, almacen_id int null, stock_cache numeric null, updated_at`.
+- `public.rp_sync_log`: `id, tipo (menu|branches|order), payload jsonb, ok bool, mensaje, created_at`.
+- RLS: `SELECT` público para categorías y productos donde `disponible=true`; CRUD solo `super_admin`/`editor`.
+- Triggers `set_updated_at`.
+
+**Server functions** (`src/lib/rp.functions.ts` — solo declaraciones server-fn)
+
+- `syncBranches()` — admin; pulla `obtenerInformacionDominio`, hace upsert en `sedes` por `rp_local_id`.
+- `syncMenuForSede({ sedeId })` — admin; pulla catálogo del local, upsert en `rp_categorias`/`rp_productos`, marca productos huérfanos como `disponible=false`, registra en `rp_sync_log`.
+- `getMenuForSede({ sedeId })` — público; lee desde Supabase.
+- `checkStockLive({ sedeId, productIds })` — público (RLS-safe); consulta `getStockProducto` para cada producto antes del checkout.
+
+**Admin UI** (`src/routes/admin.sincronizacion.tsx`)
+
+- Tarjetas con "Sincronizar sedes" y por sede "Sincronizar menú" (botones que disparan mutaciones).
+- Tabla con últimos 20 registros de `rp_sync_log`.
+- Item nuevo en `adminNav`.
+
+---
+
+## 3. `/menu` — menú real por sede
+
+**Modificar `src/routes/menu.tsx**`
+
+- `validateSearch`: ya acepta `sede`. Si falta, mostrar selector de sede (lista de `sedes` publicadas) — sin redirigir.
+- Reemplazar `import { productos } from "@/data/productos"` por `useQuery(['menu', sedeSlug], () => getMenuForSede(...))` (TanStack Query ya configurado).
+- Mantener `ProductCard`, `BrutalChip` para filtros (categorías reales).
+- Badge "Agotado en esta sede" cuando `disponible=false` (en lugar de ocultar).
+- Botón "Pedir esta corona" en `ProductCard`:
+  - Si el producto tiene modificadores → abre `ProductCustomizerDialog`.
+  - Si no → añade al carrito directo.
+
+**Deprecar** `src/data/productos.ts` (dejar archivo con `@deprecated` para fallback de dev).
+
+---
+
+## 4. Carrito brutal (estado cliente)
+
+**Crear**
+
+- `src/stores/cart.ts` — Zustand store con persist en `localStorage`. Estado: `sedeId`, `lines: KpCartLine[]`, `notes`, `canal: 'delivery'|'pickup'|'mesa'`. Acciones: `addLine`, `updateQty`, `removeLine`, `clear`, `setCanal`. Si cambia `sedeId`, limpia carrito (los precios y disponibilidad son por sede).
+- `src/components/kp/CartDrawer.tsx` — Sheet (de shadcn ya disponible) usando `BrutalCard`/`BrutalButton`. Muestra subtotal, domicilio (placeholder 0 hasta tener tarifa), puntos a ganar, total. CTA: "Pedir directo al Reino" → `/checkout`.
+- `src/components/kp/ProductCustomizerDialog.tsx` — Dialog con grupos de modificadores (radio/checkbox según `min/max` del grupo) y notas.
+- Botón flotante con contador en `Layout` (esquina inferior-derecha, estilo brutal, fixed).
+
+**No tocar** `OrderRouter` (Rappi/DiDi/WhatsApp) — pasa a ser respaldo secundario en `/menu`.
+
+---
+
+## 5. Geolocalización + sede sugerida
+
+**Secret nuevo**: `VITE_GOOGLE_MAPS_API_KEY` (público, va al bundle).
+
+**Crear**
+
+- `src/lib/geo.ts` — `haversineKm(a,b)`, `geocodeAddress(address)` usando Google Geocoding API (fetch directo, key pública).
+- `src/components/kp/SedeRouter.tsx` — modal/sección con 2 botones: "Usar mi ubicación" (browser geolocation) o "Escribir dirección" (Google Places Autocomplete).
+- Lógica `pickSedeForUser(lat, lng, sedes)`: ordena por haversine, filtra por `cobertura_radio_km` y `abierta_ahora`, devuelve sede sugerida.
+- Integrar en `/menu` (cuando no hay `?sede=`) y en `CartDrawer` antes de checkout.
+
+---
+
+## 6. Checkout sin pago
+
+**Crear**
+
+- `src/routes/checkout.tsx` — formulario: nombre, celular, canal (delivery/pickup/mesa), dirección + referencia (si delivery), método de pago (solo "Efectivo / por definir" — pasarela pendiente).
+- Server fns en `src/lib/orders.functions.ts`:
+  - `quoteOrder({ sedeId, lines, canal, address? })` — valida con `checkStockLive` + recalcula totales server-side.
+  - `createOrder({ ...quote, customer })` — llama `POST /delivery/...` (endpoint truncado en swagger; usar el de creación de delivery). Guarda snapshot en `order_snapshots` y devuelve `publicToken` (uuid) + `restaurantpe_order_id`.
+- Tras crear: redirigir a `/pedido/$publicToken`. Pago queda como `pending_payment`.
+
+**Migración Supabase** (`order_snapshots`)
+
+- `id, public_token uuid unique, user_id uuid null, sede_id uuid, rp_order_id text null, canal text, estado text, lines jsonb, totales jsonb, cliente jsonb, created_at, updated_at`.
+- RLS: público SELECT por `public_token` (sin listar); usuario logueado ve los suyos por `user_id`; editores ven todos.
+
+---
+
+## 7. Tracker de pedido
+
+**Crear**
+
+- `src/routes/pedido.$publicToken.tsx` — público, no requiere login. Muestra estados con timeline brutal: `draft → pending_payment → paid → accepted → preparing → ready/out_for_delivery → delivered`. Polling cada 20s con React Query (`refetchInterval`).
+- `src/routes/mi-reino.pedidos.tsx` — reemplazar mock por `listMyOrders()` (server fn con `requireSupabaseAuth`).
+- Server fn `pollOrderStatus({ publicToken })` — server-only: lee snapshot, si tiene `rp_order_id` consulta estado real en Restaurant.pe, actualiza snapshot.
+
+(Webhook entrante de Restaurant.pe queda **fuera de scope** de esta entrega — si la API lo soporta, se añade después en `/api/public/webhooks/restaurantpe`.)
+
+---
+
+## 8. Lealtad básica (sin gamificación avanzada)
+
+**Migración**
+
+- `public.loyalty_ledger`: `id, user_id, order_snapshot_id null, tipo (earn|redeem|adjust|expire), puntos int, motivo, created_at`. RLS: usuario ve los suyos; editores ven todos.
+- Trigger: cuando `order_snapshots.estado` cambia a `delivered` y tiene `user_id`, insertar `earn` con `floor(totales.total / 100)` puntos.
+
+**UI**
+
+- Actualizar `src/routes/mi-reino.puntos.tsx` para leer saldo real de `loyalty_ledger` (sum agrupado).
+- Mostrar "Ganarás X puntos" en `CartDrawer`/`/checkout` (calculado client-side, validado server-side al crear orden).
+
+(Cupones, badges, favoritos → fase posterior.)
+
+---
+
+## 9. Detalles técnicos importantes
+
+- **Boundary client/server**: todo lo que toca `RESTAURANT_PE_TOKEN` vive en `*.server.ts` o dentro de un `.handler()` de `createServerFn`. `rp.functions.ts` mantiene **solo** declaraciones de server-fn (regla `tss-serverfn-split`).
+- **Validación**: todos los inputs de server-fn con Zod (productos, cantidades, sede, dirección).
+- **Idempotencia**: `createOrder` usa client-side `requestId` (uuid) almacenado en `order_snapshots.public_token` para evitar duplicados.
+- **Cache menú**: React Query `staleTime: 5min`. Sync manual desde admin invalida `['menu', sedeSlug]`.
+- **No tocar**: `Layout`, `BrutalCard`, `BrutalButton`, `BrutalChip`, `ProductCard` (solo se les pasan props nuevos), paleta, tipografía.
+
+---
+
+## Archivos — resumen
+
+**Crear** (~18)
+
+- `src/types/restaurantpe.ts`, `src/types/kp-menu.ts`
+- `src/lib/restaurantpe.server.ts`, `src/lib/restaurantpe-normalize.ts`, `src/lib/rp.functions.ts`, `src/lib/orders.functions.ts`, `src/lib/geo.ts`
+- `src/stores/cart.ts`
+- `src/components/kp/CartDrawer.tsx`, `src/components/kp/ProductCustomizerDialog.tsx`, `src/components/kp/SedeRouter.tsx`, `src/components/kp/CartFab.tsx`, `src/components/kp/OrderTimeline.tsx`
+- `src/routes/checkout.tsx`, `src/routes/pedido.$publicToken.tsx`, `src/routes/admin.sincronizacion.tsx`
+- 3 migraciones SQL: `rp_catalog`, `order_snapshots`, `loyalty_ledger`
 
 **Modificar**
-- `src/types/kp.ts` (añadir `slug`, `publicado` opcionales)
-- `src/routes/sedes.tsx` (query + nuevas secciones + CTA franquicias)
-- `src/components/kp/Cards.tsx` (botón "Pedir aquí" → Link interno a `/menu`)
-- `src/components/kp/OrderRouter.tsx` (consumir sedes desde query)
-- `src/routes/admin.tsx` (activar item "Sedes")
-- `src/data/sedes.ts` (deprecar o vaciar tras migración)
+
+- `src/routes/menu.tsx` (datos reales + customizer)
+- `src/routes/mi-reino.pedidos.tsx`, `src/routes/mi-reino.puntos.tsx` (datos reales)
+- `src/components/kp/Layout.tsx` (montar `CartFab`)
+- `src/routes/admin.tsx` (item "Sincronización")
+- `src/components/kp/ProductCard.tsx` (handler `onPedir` recibido por prop, sin cambiar visual)
+
+**Deprecar**: `src/data/productos.ts` (fallback dev).
+
+---
+
+## Entregables por commits (8 turnos pequeños)
+
+1. Migraciones + tipos + cliente `restaurantpe.server.ts` + server-fns de sync.
+2. Admin `/admin/sincronizacion` + columna `rp_local_id` en sede form.
+3. `/menu` conectado a Supabase (datos reales sin carrito).
+4. CartStore + CartDrawer + CartFab + Customizer.
+5. SedeRouter + integración Google Maps (necesita el secret).
+6. `/checkout` + `quoteOrder` + `createOrder` + `order_snapshots`.
+7. `/pedido/$token` tracker + polling + `/mi-reino/pedidos` real.
+8. Loyalty ledger + trigger + puntos reales en `/mi-reino/puntos`.
+
+Cada commit es testeable y reversible. Pasarela y webhooks de pago quedan para una fase posterior con su propio plan.  
+  
+Documentación de la API: [APIV2 | 2 | RESTAURANT.PE | Studio](https://app.swaggerhub.com/apis-docs/RESTAURANT.PE/APIV2/2?view=elementsDocs)
