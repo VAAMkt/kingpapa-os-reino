@@ -18,7 +18,7 @@ const adminNav = [
   { to: "/admin", label: "Pedidos", soon: true },
   { to: "/admin", label: "Loyalty", soon: true },
   { to: "/admin", label: "Campañas", soon: true },
-  { to: "/admin", label: "Usuarios", soon: true },
+  { to: "/admin/usuarios", label: "Usuarios", soon: false },
   { to: "/admin", label: "Integraciones", soon: true },
 ];
 
