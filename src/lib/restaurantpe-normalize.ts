@@ -8,6 +8,16 @@ import type {
   RpModificadorGrupo,
 } from "@/types/restaurantpe";
 
+const RP_IMG_BASE = "https://api.restaurant.pe/archivos/";
+
+export function resolveRpImage(url: unknown): string | null {
+  if (url == null) return null;
+  const s = String(url).trim();
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return s;
+  return RP_IMG_BASE + s.replace(/^\/+/, "");
+}
+
 const toNum = (v: unknown): number => {
   if (typeof v === "number") return v;
   if (typeof v === "string") {
@@ -52,20 +62,26 @@ export type NormalizedCategoria = {
   activo: boolean;
 };
 
-export function normalizeCategoria(raw: RpCategoria): NormalizedCategoria {
+export function normalizeCategoria(
+  raw: RpCategoria,
+  index = 0,
+): NormalizedCategoria {
   const r = raw as Record<string, unknown>;
   const delivery = String(r["categoria_delivery"] ?? "").trim();
   const estado = String(r["categoria_estado"] ?? "").trim().toLowerCase();
-  // Si la API no manda ninguno de los dos flags, asumimos activo (no romper sedes
-  // cuyo POS no envíe la columna). Si manda al menos uno, exigimos "1"/"activo".
-  const hasFlag = delivery !== "" || estado !== "";
-  const activo = hasFlag
-    ? delivery === "1" || estado === "1" || estado === "activo"
-    : true;
+  // Limpieza extrema: exigimos ambos flags explícitos. Si la sede no manda
+  // alguno, la categoría queda inactiva (el admin la prende manualmente).
+  const activo =
+    delivery === "1" && (estado === "1" || estado === "activo");
+  const ordenRaw = raw.categoria_orden;
+  const orden =
+    ordenRaw != null && String(ordenRaw).trim() !== ""
+      ? toInt(ordenRaw)
+      : index;
   return {
     rp_id: toInt(raw.categoria_id),
     nombre: String(raw.categoria_descripcion ?? ""),
-    orden: raw.categoria_orden != null ? toInt(raw.categoria_orden) : 0,
+    orden,
     activo,
   };
 }
@@ -111,20 +127,20 @@ export type NormalizedProducto = {
   disponible: boolean;
   modificadores: NormalizedModifierGroup[];
   almacen_id: number | null;
+  orden: number;
 };
 
-export function normalizeProduct(raw: RpProducto): NormalizedProducto | null {
+export function normalizeProduct(
+  raw: RpProducto,
+  index = 0,
+): NormalizedProducto | null {
   const r = raw as Record<string, unknown>;
-  // Priorizar productogeneral_id (único entre sedes).
   const rpId = raw.productogeneral_id ?? raw.producto_id;
   const nombre =
     (raw.producto_descripcion as string | undefined) ??
     (raw.productogeneral_descripcion as string | undefined) ??
     "";
 
-  // Filtro delivery: si hay lista_presentacion, exigir al menos una con
-  // producto_delivery === "1". Si no hay lista_presentacion, caemos al
-  // comportamiento legacy (sin filtrar) para no romper sedes que no la envíen.
   const presentaciones = Array.isArray(raw.lista_presentacion)
     ? (raw.lista_presentacion as Record<string, unknown>[])
     : [];
@@ -133,19 +149,24 @@ export function normalizeProduct(raw: RpProducto): NormalizedProducto | null {
     presentacionActiva =
       presentaciones.find((p) => String(p["producto_delivery"] ?? "") === "1") ??
       null;
-    if (!presentacionActiva) return null; // ninguna presentación delivery → descartar
+    if (!presentacionActiva) return null;
   }
 
-  const precio =
+  // Precio: combos guardan en productogeneral_precio, simples en presentación.
+  const precioRaw =
+    (r["productogeneral_precio"] as number | string | undefined) ??
     (presentacionActiva?.["producto_precio"] as number | string | undefined) ??
-    raw.producto_precio ??
     raw.productogeneral_preciofijo ??
+    raw.producto_precio ??
     0;
+  const precio = toNum(precioRaw);
+  if (precio <= 0) return null; // descartar productos sin precio real
+
   const imagen =
-    (presentacionActiva?.["producto_urlimagen"] as string | undefined) ??
-    (r["productogeneral_urlimagen"] as string | undefined) ??
-    (raw.producto_imagen as string | undefined) ??
-    null;
+    resolveRpImage(presentacionActiva?.["producto_urlimagen"]) ??
+    resolveRpImage(r["productogeneral_urlimagen"]) ??
+    resolveRpImage(raw.producto_imagen);
+
   const descripcionLarga =
     (r["productogeneral_descripcionweb"] as string | undefined) ??
     (raw.productogeneral_descripcion as string | undefined) ??
@@ -169,10 +190,11 @@ export function normalizeProduct(raw: RpProducto): NormalizedProducto | null {
     rp_categoria_id: raw.categoria_id != null ? toInt(raw.categoria_id) : null,
     nombre: String(nombre),
     descripcion: descripcionLarga,
-    precio: toNum(precio),
-    imagen_url: imagen && String(imagen).trim() !== "" ? String(imagen) : null,
+    precio,
+    imagen_url: imagen,
     disponible,
     modificadores: normalizeModifiers(mods),
     almacen_id: raw.almacen_id != null ? toInt(raw.almacen_id) : null,
+    orden: index,
   };
 }
