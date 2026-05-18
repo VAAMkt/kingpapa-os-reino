@@ -28,6 +28,7 @@ import { Route as MiReinoPedidosRouteImport } from './routes/mi-reino.pedidos'
 import { Route as MiReinoFavoritosRouteImport } from './routes/mi-reino.favoritos'
 import { Route as MiReinoDatosRouteImport } from './routes/mi-reino.datos'
 import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
+import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
 import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
 import { Route as AdminContenidosIdRouteImport } from './routes/admin.contenidos.$id'
@@ -127,6 +128,11 @@ const HistoriasSlugRoute = HistoriasSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => HistoriasRoute,
 } as any)
+const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminContenidosRoute = AdminContenidosRouteImport.update({
   id: '/contenidos',
   path: '/contenidos',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/admin/contenidos'
+    | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
     | '/mi-reino/favoritos'
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/admin/contenidos'
+    | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
     | '/mi-reino/favoritos'
@@ -276,6 +287,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/admin/contenidos'
+    | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
     | '/mi-reino/favoritos'
@@ -437,6 +449,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoriasSlugRouteImport
       parentRoute: typeof HistoriasRoute
     }
+    '/admin/usuarios': {
+      id: '/admin/usuarios'
+      path: '/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AdminUsuariosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/contenidos': {
       id: '/admin/contenidos'
       path: '/contenidos'
@@ -477,11 +496,13 @@ const AdminContenidosRouteWithChildren = AdminContenidosRoute._addFileChildren(
 
 interface AdminRouteChildren {
   AdminContenidosRoute: typeof AdminContenidosRouteWithChildren
+  AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminContenidosRoute: AdminContenidosRouteWithChildren,
+  AdminUsuariosRoute: AdminUsuariosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
@@ -535,3 +556,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
