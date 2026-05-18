@@ -27,7 +27,7 @@ function isEditor(claims: { role?: string } | null | undefined): boolean {
 export const syncBranches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    if (!isEditor(context.claims)) throw new Error("No autorizado");
+    
 
     const data = await rpGetDominioInfo();
     const locales = (data.locales ?? []).map(normalizeBranch);
@@ -73,7 +73,7 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
     z.object({ sedeId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    if (!isEditor(context.claims)) throw new Error("No autorizado");
+    
 
     const { data: sede, error: sedeErr } = await supabaseAdmin
       .from("sedes")
@@ -243,7 +243,8 @@ export const checkStockLive = createServerFn({ method: "POST" })
 export const listSyncLog = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const { data, error } = await supabaseAdmin
+    const { supabase } = context;
+    const { data, error } = await supabase
       .from("rp_sync_log")
       .select("id, tipo, sede_id, ok, mensaje, created_at")
       .order("created_at", { ascending: false })
