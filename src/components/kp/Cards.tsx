@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
+import type { SedeRow } from "@/lib/sedes";
 
 // Formato estable SSR/CSR (evita hydration mismatch por locale del runtime).
 const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
