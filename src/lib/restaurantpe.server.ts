@@ -91,7 +91,7 @@ export async function rpGetCatalogo(localId: string | number): Promise<RpMenuDat
   // productos como array directo, pero `listaCategorias` vive en la raíz
   // del JSON (al mismo nivel que `data`). Si usáramos rpFetch perderíamos
   // las categorías. Hacemos el fetch manualmente y devolvemos el envelope.
-  const url = `${READ_BASE}/delivery/obtenerCartaPorLocal/${dominioId}/${localId}?quipupos=0`;
+  const url = `${READ_BASE}/delivery/obtenerCartaPorLocal/${dominioId}/${localId}?quipupos=1`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
