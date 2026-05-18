@@ -402,8 +402,9 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           </div>
         </div>
         <p className="text-xs text-kp-ink/70">
-          local_id es el ID numérico de la sede en Restaurant.pe. Necesario para sincronizar menú
-          y crear pedidos. Lat/Lng se usan para sugerir sede por ubicación del usuario.
+          Elige el local real de Restaurant.pe. Los que ya están asignados a otra sede
+          aparecen deshabilitados. Lat/Lng se usan para sugerir sede por ubicación; al
+          seleccionar un local se autocompletan si están vacíos.
         </p>
       </BrutalCard>
 
