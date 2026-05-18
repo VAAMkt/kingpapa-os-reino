@@ -103,15 +103,22 @@ export type NormalizedProducto = {
 };
 
 export function normalizeProduct(raw: RpProducto): NormalizedProducto {
+  const rpId = raw.producto_id ?? raw.productogeneral_id;
+  const nombre =
+    (raw.producto_descripcion as string | undefined) ??
+    (raw.productogeneral_descripcion as string | undefined) ??
+    "";
+  const precio = raw.producto_precio ?? raw.productogeneral_preciofijo ?? 0;
+  const mods = raw.modificadores ?? raw.listaModificadores;
   return {
-    rp_id: toInt(raw.producto_id),
+    rp_id: toInt(rpId),
     rp_categoria_id: raw.categoria_id != null ? toInt(raw.categoria_id) : null,
-    nombre: String(raw.producto_descripcion ?? ""),
+    nombre: String(nombre),
     descripcion: (raw.producto_descripcion_larga as string | undefined) ?? null,
-    precio: toNum(raw.producto_precio),
+    precio: toNum(precio),
     imagen_url: (raw.producto_imagen as string | undefined) ?? null,
     disponible: !toBool01(raw.producto_agotado),
-    modificadores: normalizeModifiers(raw.modificadores),
+    modificadores: normalizeModifiers(mods),
     almacen_id: raw.almacen_id != null ? toInt(raw.almacen_id) : null,
   };
 }
