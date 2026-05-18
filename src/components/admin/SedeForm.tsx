@@ -118,6 +118,13 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         whatsapp: form.whatsapp?.trim() ? form.whatsapp.replace(/\D/g, "") : null,
         maps_url: form.maps_url?.trim() ? form.maps_url.trim() : null,
         orden: Number(form.orden) || 0,
+        rp_local_id:
+          form.rp_local_id != null && String(form.rp_local_id).length > 0
+            ? Number(form.rp_local_id)
+            : null,
+        lat: form.lat != null && String(form.lat).length > 0 ? Number(form.lat) : null,
+        lng: form.lng != null && String(form.lng).length > 0 ? Number(form.lng) : null,
+        cobertura_radio_km: Number(form.cobertura_radio_km) || 5,
       };
       const parsed = SedeSchema.safeParse(cleaned);
       if (!parsed.success) {
