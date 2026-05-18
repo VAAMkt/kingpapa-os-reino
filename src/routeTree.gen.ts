@@ -10,7 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SedesRouteImport } from './routes/sedes'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RegistroRouteImport } from './routes/registro'
+import { Route as NoAutorizadoRouteImport } from './routes/no-autorizado'
 import { Route as MenuRouteImport } from './routes/menu'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as HistoriasRouteImport } from './routes/historias'
 import { Route as FranquiciasRouteImport } from './routes/franquicias'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -22,9 +26,29 @@ const SedesRoute = SedesRouteImport.update({
   path: '/sedes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegistroRoute = RegistroRouteImport.update({
+  id: '/registro',
+  path: '/registro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NoAutorizadoRoute = NoAutorizadoRouteImport.update({
+  id: '/no-autorizado',
+  path: '/no-autorizado',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MenuRoute = MenuRouteImport.update({
   id: '/menu',
   path: '/menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoriasRoute = HistoriasRouteImport.update({
@@ -58,7 +82,11 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/historias': typeof HistoriasRouteWithChildren
+  '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
+  '/no-autorizado': typeof NoAutorizadoRoute
+  '/registro': typeof RegistroRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/historias/$slug': typeof HistoriasSlugRoute
 }
@@ -67,7 +95,11 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/historias': typeof HistoriasRouteWithChildren
+  '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
+  '/no-autorizado': typeof NoAutorizadoRoute
+  '/registro': typeof RegistroRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/historias/$slug': typeof HistoriasSlugRoute
 }
@@ -77,7 +109,11 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/historias': typeof HistoriasRouteWithChildren
+  '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
+  '/no-autorizado': typeof NoAutorizadoRoute
+  '/registro': typeof RegistroRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/historias/$slug': typeof HistoriasSlugRoute
 }
@@ -88,7 +124,11 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/franquicias'
     | '/historias'
+    | '/login'
     | '/menu'
+    | '/no-autorizado'
+    | '/registro'
+    | '/reset-password'
     | '/sedes'
     | '/historias/$slug'
   fileRoutesByTo: FileRoutesByTo
@@ -97,7 +137,11 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/franquicias'
     | '/historias'
+    | '/login'
     | '/menu'
+    | '/no-autorizado'
+    | '/registro'
+    | '/reset-password'
     | '/sedes'
     | '/historias/$slug'
   id:
@@ -106,7 +150,11 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/franquicias'
     | '/historias'
+    | '/login'
     | '/menu'
+    | '/no-autorizado'
+    | '/registro'
+    | '/reset-password'
     | '/sedes'
     | '/historias/$slug'
   fileRoutesById: FileRoutesById
@@ -116,7 +164,11 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FranquiciasRoute: typeof FranquiciasRoute
   HistoriasRoute: typeof HistoriasRouteWithChildren
+  LoginRoute: typeof LoginRoute
   MenuRoute: typeof MenuRoute
+  NoAutorizadoRoute: typeof NoAutorizadoRoute
+  RegistroRoute: typeof RegistroRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SedesRoute: typeof SedesRoute
 }
 
@@ -129,11 +181,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SedesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/registro': {
+      id: '/registro'
+      path: '/registro'
+      fullPath: '/registro'
+      preLoaderRoute: typeof RegistroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/no-autorizado': {
+      id: '/no-autorizado'
+      path: '/no-autorizado'
+      fullPath: '/no-autorizado'
+      preLoaderRoute: typeof NoAutorizadoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/menu': {
       id: '/menu'
       path: '/menu'
       fullPath: '/menu'
       preLoaderRoute: typeof MenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/historias': {
@@ -191,9 +271,23 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   FranquiciasRoute: FranquiciasRoute,
   HistoriasRoute: HistoriasRouteWithChildren,
+  LoginRoute: LoginRoute,
   MenuRoute: MenuRoute,
+  NoAutorizadoRoute: NoAutorizadoRoute,
+  RegistroRoute: RegistroRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SedesRoute: SedesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
