@@ -66,14 +66,18 @@ export function EventCard({ historia }: { historia: Historia }) {
       <div className="p-4 flex flex-col gap-2 flex-1">
         <div className="flex items-center justify-between">
           <BrutalBadge tone="purple">{historia.categoria}</BrutalBadge>
-          <span className="text-xs text-kp-ink/60">
-            {new Date(historia.fecha).toLocaleDateString("es-CO", { month: "short", year: "numeric" })}
-          </span>
+          <span className="text-xs text-kp-ink/60">{formatFecha(historia.fecha)}</span>
         </div>
         <h3 className="font-display text-xl uppercase leading-tight">{historia.titulo}</h3>
         <p className="text-sm text-kp-ink/80 line-clamp-3">{historia.extracto}</p>
         <div className="flex gap-2 mt-auto pt-2">
-          <BrutalButton size="sm" variant="dark">Leer historia</BrutalButton>
+          <Link
+            to="/historias/$slug"
+            params={{ slug: historia.slug }}
+            className="inline-block px-3 py-2 bg-kp-ink text-kp-yellow font-display uppercase text-sm border-2 border-kp-ink shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition"
+          >
+            Leer historia
+          </Link>
           {historia.videoUrl && (
             <BrutalLink href={historia.videoUrl} external size="sm" variant="fire">
               Ver video
