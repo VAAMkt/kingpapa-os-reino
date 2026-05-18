@@ -8,6 +8,7 @@ import { listAllSedes } from "@/lib/sedes";
 import {
   syncBranches,
   syncMenuForSede,
+  syncAllMenus,
   listSyncLog,
 } from "@/lib/rp.functions";
 
@@ -25,6 +26,7 @@ function SyncPage() {
 
   const syncBranchesFn = useServerFn(syncBranches);
   const syncMenuFn = useServerFn(syncMenuForSede);
+  const syncAllMenusFn = useServerFn(syncAllMenus);
 
   const branchesMut = useMutation({
     mutationFn: () => syncBranchesFn(),
@@ -42,6 +44,24 @@ function SyncPage() {
     mutationFn: (sedeId: string) => syncMenuFn({ data: { sedeId } }),
     onSuccess: (res) => {
       toast.success(`Menú: ${res.categorias} categorías, ${res.productos} productos.`);
+      queryClient.invalidateQueries({ queryKey: ["menu"] });
+      queryClient.invalidateQueries({ queryKey: ["rp_sync_log"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const allMenusMut = useMutation({
+    mutationFn: () => syncAllMenusFn(),
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success(
+          `Menús sincronizados en ${res.sedes} sedes: ${res.categorias} categorías y ${res.productos} productos cada una.`,
+        );
+      } else {
+        toast.error(
+          `Sincronizado con errores (${res.errores.length}): ${res.errores.slice(0, 2).join(" · ")}`,
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["menu"] });
       queryClient.invalidateQueries({ queryKey: ["rp_sync_log"] });
     },
@@ -78,6 +98,18 @@ function SyncPage() {
 
       <BrutalCard tone="cheese" className="p-5 space-y-4">
         <h2 className="font-display uppercase text-lg">2. Menú por sede</h2>
+        <div className="flex flex-wrap gap-2 items-center">
+          <BrutalButton
+            variant="primary"
+            onClick={() => allMenusMut.mutate()}
+            disabled={allMenusMut.isPending}
+          >
+            {allMenusMut.isPending ? "Sincronizando todos…" : "Sincronizar TODOS los menús"}
+          </BrutalButton>
+          <span className="text-xs text-kp-ink/70">
+            Trae el catálogo del dominio una vez y lo aplica a cada sede con rp_local_id.
+          </span>
+        </div>
         {sedesQ.isLoading && <p className="text-sm">Cargando sedes…</p>}
         {sedesQ.data && sedesQ.data.length === 0 && (
           <p className="text-sm">No hay sedes registradas.</p>

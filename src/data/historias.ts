@@ -1,3 +1,4 @@
+// @deprecated - mantenido solo para admin.index/dashboard hasta migrar a counts reales. No usar en UI pública.
 // AUTO-GENERATED from kingpapacali.com blog. Do not edit by hand.
 // Regenerate via /tmp/ingest_blog.py
 import type { Historia } from "@/types/kp";

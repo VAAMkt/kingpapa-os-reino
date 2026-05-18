@@ -1,10 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { BrutalCard, BrutalBadge, BrutalChip } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { OrderRouter } from "@/components/kp/OrderRouter";
 import { ProductCard } from "@/components/kp/ProductCard";
-import { categorias, productos } from "@/data/productos";
+import { getMenuForSede } from "@/lib/rp.functions";
+import { listPublicSedes } from "@/lib/sedes";
+import { rpProductoToProducto, buildCategorias, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
 
 export const Route = createFileRoute("/menu")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -24,12 +28,41 @@ export const Route = createFileRoute("/menu")({
 });
 
 function MenuPage() {
+  const { sede: sedeParam } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [filtro, setFiltro] = useState<string>("all");
+
+  const sedesQ = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
+  const sedes = sedesQ.data ?? [];
+  const sedeSlug = sedeParam ?? sedes[0]?.slug;
+
+  const fetchMenu = useServerFn(getMenuForSede);
+  const menuQ = useQuery({
+    queryKey: ["menu", sedeSlug],
+    queryFn: () => fetchMenu({ data: { sedeSlug: sedeSlug! } }),
+    enabled: !!sedeSlug,
+    staleTime: 30_000,
+  });
+
+  const categoriasRp = (menuQ.data?.categorias ?? []) as RpCategoriaRow[];
+  const productosRp = (menuQ.data?.productos ?? []) as RpProductoRow[];
+  const categoriasUI = useMemo(() => buildCategorias(categoriasRp), [categoriasRp]);
+
+  const catsById = useMemo(() => {
+    const m = new Map<string, RpCategoriaRow>();
+    for (const c of categoriasRp) m.set(c.id, c);
+    return m;
+  }, [categoriasRp]);
+
+  const productos = useMemo(
+    () => productosRp.filter((p) => p.disponible).map((p) => rpProductoToProducto(p, catsById)),
+    [productosRp, catsById],
+  );
 
   const lista = useMemo(() => {
     if (filtro === "all") return productos;
     return productos.filter((p) => p.categorias.includes(filtro));
-  }, [filtro]);
+  }, [filtro, productos]);
 
   return (
     <>
@@ -55,28 +88,67 @@ function MenuPage() {
         <OrderRouter />
       </section>
 
-      {/* FILTROS */}
-      <section className="mx-auto max-w-7xl px-4 md:px-6">
-        <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1">
-          {categorias.map((c) => (
-            <BrutalChip
-              key={c.id}
-              active={filtro === c.id}
-              onClick={() => setFiltro(c.id)}
+      {/* SELECTOR SEDE */}
+      {sedes.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 md:px-6">
+          <label className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="font-display uppercase text-sm">Sede:</span>
+            <select
+              value={sedeSlug ?? ""}
+              onChange={(e) => navigate({ search: { sede: e.target.value } })}
+              className="border-2 border-kp-ink bg-kp-cheese shadow-brutal-sm px-3 py-2 font-display uppercase text-sm"
             >
-              {c.filtro}
-            </BrutalChip>
-          ))}
-        </div>
-      </section>
+              {sedes.map((s) => (
+                <option key={s.id} value={s.slug}>
+                  {s.nombre} · {s.ciudad}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+      )}
+
+      {/* FILTROS */}
+      {categoriasUI.length > 1 && (
+        <section className="mx-auto max-w-7xl px-4 md:px-6 mt-4">
+          <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1">
+            {categoriasUI.map((c) => (
+              <BrutalChip key={c.id} active={filtro === c.id} onClick={() => setFiltro(c.id)}>
+                {c.filtro}
+              </BrutalChip>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* GRID */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-8">
-        {lista.length === 0 ? (
-          <p className="text-center py-10 font-display uppercase text-2xl">
-            No hay productos en esta categoría… aún.
+        {menuQ.isLoading && (
+          <p className="text-center py-10 font-display uppercase text-xl">Cargando menú…</p>
+        )}
+        {menuQ.error && (
+          <p className="text-center py-10 font-display uppercase text-xl text-kp-red">
+            No se pudo cargar el menú: {(menuQ.error as Error).message}
           </p>
-        ) : (
+        )}
+        {!menuQ.isLoading && !menuQ.error && lista.length === 0 && (
+          <div className="text-center py-10 space-y-3">
+            <p className="font-display uppercase text-2xl">
+              {productos.length === 0
+                ? "Esta sede aún no tiene menú sincronizado."
+                : "No hay productos en esta categoría… aún."}
+            </p>
+            {productos.length === 0 && (
+              <Link
+                to="/admin/sincronizacion"
+                className="font-display uppercase underline underline-offset-4 decoration-4 decoration-kp-yellow"
+              >
+                Ir a sincronización →
+              </Link>
+            )}
+          </div>
+        )}
+        {lista.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {lista.map((p) => (
               <ProductCard key={p.id} producto={p} />

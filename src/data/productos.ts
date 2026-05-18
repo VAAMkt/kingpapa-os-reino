@@ -1,3 +1,4 @@
+// @deprecated - mantenido solo para admin.index/dashboard hasta migrar a counts reales. No usar en UI pública.
 // TODO: reemplazar por API /api/productos
 import type { Producto, Categoria } from "@/types/kp";
 import kingcallejera from "@/assets/kingcallejera.jpg";
