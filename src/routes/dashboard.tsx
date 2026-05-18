@@ -49,7 +49,7 @@ function DashboardPage() {
                 </div>
                 <div className="h-3 mt-1 bg-kp-cheese border-2 border-kp-ink overflow-hidden">
                   <div
-                    className={`h-full bg-${c.color}`}
+                    className={`h-full ${c.color}`}
                     style={{ width: `${(c.valor / maxCanal) * 100}%` }}
                   />
                 </div>
