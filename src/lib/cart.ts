@@ -17,25 +17,32 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 const emit = () => listeners.forEach((l) => l());
 
+let cache: CartItem[] | null = null;
+
 function read(): CartItem[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined") return EMPTY;
+  if (cache) return cache;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as CartItem[]) : [];
+    cache = raw ? (JSON.parse(raw) as CartItem[]) : [];
   } catch {
-    return [];
+    cache = [];
   }
+  return cache;
 }
 
 function write(items: CartItem[]) {
   if (typeof window === "undefined") return;
+  cache = items;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   emit();
 }
 
 function subscribe(l: Listener) {
   listeners.add(l);
-  return () => listeners.delete(l);
+  return () => {
+    listeners.delete(l);
+  };
 }
 
 const EMPTY: CartItem[] = [];
@@ -46,6 +53,7 @@ export function useCart() {
   const subtotal = items.reduce((acc, i) => acc + i.precio * i.cantidad, 0);
   return { items, count, subtotal };
 }
+
 
 export function addItem(input: Omit<CartItem, "key" | "cantidad"> & { cantidad?: number }) {
   const key = input.productoId;
