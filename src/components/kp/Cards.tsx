@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
 import type { Sede, Historia } from "@/types/kp";
