@@ -1,76 +1,118 @@
-# Migración del blog KINGPAPA → /historias
+## Objetivo de la fase 1
 
-Trasladar las **24 entradas** del JSON (`blog_kingpapa_24_entradas.txt`) a la sección **Historias** del KINGPAPA OS, respetando imágenes originales (descargadas localmente) y aplicando el diseño neo-brutalista existente.
+Activar Lovable Cloud y montar el esqueleto de las dos sub-apps de KINGPAPA OS — `/admin` (CMS + operación) y `/mi-reino` (portal del cliente) — con **auth real, sistema de roles y rutas protegidas**. El contenido funcional de cada módulo (CRUDs, pedidos, puntos) se construye en fases siguientes sobre esta base.
 
-## 1. Script de ingesta (one-shot, no se versiona)
+Las fases 2+ (CMS de contenidos, pedidos con checkout propio, MVP de puntos) se mencionan al final como roadmap, pero no se implementan en este turno.
 
-Script Python en `/tmp/ingest_blog.py` que:
+---
 
-1. Lee `/tmp/blog.json` (24 posts).
-2. Para cada post:
-   - Extrae `id`, `slug`, `date`, `title.rendered`, `excerpt.rendered`, `content.rendered`, `featured_media`.
-   - Limpia HTML del excerpt → texto plano (~200 chars).
-   - **Imagen destacada**:
-     - Primero intenta extraer el primer `<img src>` del `content.rendered`.
-     - Si no hay, hace `GET https://kingpapacali.com/wp-json/wp/v2/media/{featured_media}` y toma `source_url`.
-     - Descarga la imagen a `src/assets/blog/{slug}.jpg` (convirtiendo PNG/WebP → JPG con Pillow, max 1200px, calidad 82 para mantener bundle bajo).
-   - **Imágenes inline del contenido**: descarga todas, las guarda en `src/assets/blog/{slug}/{n}.jpg` y reescribe los `src=` del HTML para apuntar a las rutas locales (`/src/assets/blog/...` resueltas vía import map o copia a `public/blog/...` — ver decisión técnica abajo).
-   - **Asigna categoría** (`CategoriaHistoria`) heurísticamente a partir de palabras clave en título/contenido: "reto"→Retos, "fest"/"festival"→Festivales, "sede"/"abrimos"/"mallplaza"→Nuevas sedes, "franquicia"→Franquicias, "fan"/"súbdito"→Fans, default→Cultura interna.
-3. Genera `src/data/historias.ts` con:
-   - Array tipado `historias: Historia[]` (mismos campos actuales) + `contenidoHtml: string` nuevo.
-   - Imports estáticos de las imágenes (`import img_{slug} from "@/assets/blog/{slug}.jpg"`).
-   - Ordenado por `date` descendente.
+## 1. Activar Lovable Cloud
 
-**Decisión técnica imágenes inline**: para evitar 100+ imports y mantener simple el render del HTML embebido, guardo imágenes inline en `public/blog/{slug}/{n}.ext` (servidas como `/blog/{slug}/{n}.ext`). La portada (la que se muestra en el card) sí va a `src/assets/blog/{slug}.jpg` para bundling/optimización.
+- Activar la integración (provisiona Postgres, Auth y storage).
+- Configurar Auth: Email/Password + Google (vía broker de Lovable).
+- Habilitar leaked password protection.
 
-## 2. Cambios de tipos (`src/types/kp.ts`)
+## 2. Modelo de datos inicial (migración)
 
-Añadir a `Historia`:
+Solo lo imprescindible para roles + perfil. Lo demás se añade en cada fase.
 
-```ts
-export interface Historia {
-  // ... existentes
-  contenidoHtml?: string;  // HTML completo del post (sanitizado, imgs reescritas a rutas locales)
-  link?: string;           // URL original como referencia
-}
+```text
+profiles
+  id uuid PK -> auth.users(id) ON DELETE CASCADE
+  display_name text
+  whatsapp text
+  ciudad text
+  arquetipo text         -- del quiz existente
+  created_at timestamptz default now()
+
+app_role (enum): 'super_admin' | 'editor' | 'marketing' | 'franquiciado' | 'cliente'
+
+user_roles
+  id uuid PK
+  user_id uuid -> auth.users(id) ON DELETE CASCADE
+  role app_role NOT NULL
+  sede_id uuid NULL          -- para franquiciados (scope por sede, fase 2)
+  UNIQUE(user_id, role)
+
+has_role(_user_id uuid, _role app_role) RETURNS boolean
+  SECURITY DEFINER, STABLE, SET search_path = public
 ```
 
-## 3. Página de detalle: `src/routes/historias.$slug.tsx`
+**RLS**
+- `profiles`: el usuario ve/edita el suyo; `super_admin` ve todos (vía `has_role`).
+- `user_roles`: solo `super_admin` puede insertar/borrar; cada usuario puede leer sus propios roles.
+- Trigger `handle_new_user()` (AFTER INSERT en `auth.users`) → crea fila en `profiles` y asigna rol `cliente` por defecto.
 
-Nueva ruta dinámica con:
-- `loader` que busca la historia por `slug` en `historias`; si no existe, `notFound()`.
-- `head()` con `title`, `description` (excerpt), `og:title`, `og:description`, `og:image` (URL absoluta de la portada).
-- Layout: hero con la imagen destacada + título + categoría + fecha; contenido renderizado con `dangerouslySetInnerHTML` dentro de un contenedor `prose`-like estilizado con tokens KP (titulares Bebas Neue, body Montserrat, links amarillo/morado).
-- Estilos para `figure`, `img` (border-2 + shadow-brutal), `blockquote`, `h2/h3`, listas — definidos como clase `.kp-prose` en `src/styles.css`.
-- Botón "Volver a Historias" + sección "Más historias del Reino" (3 cards aleatorios de la misma categoría).
-- `errorComponent` + `notFoundComponent` propios.
+## 3. Auth wiring (TanStack Start)
 
-## 4. Ajustes en `src/routes/historias.tsx` (listado)
+- Listener `supabase.auth.onAuthStateChange` en `__root.tsx` → `router.invalidate()` + `queryClient.invalidateQueries()`.
+- Hook `useAuth()` que expone `{ user, session, roles, hasRole, hasAnyRole, signOut }`.
+- `attachSupabaseAuth` ya está en `src/start.ts` (verificar; si falta, añadir como `functionMiddleware`).
+- Server fn `getMyRoles()` con `requireSupabaseAuth` que devuelve los roles del usuario actual.
 
-- Mantener filtros por categoría.
-- `EventCard` actualizado (`src/components/kp/Cards.tsx`):
-  - El botón "Leer historia" pasa de placeholder a `<Link to="/historias/$slug" params={{ slug: h.slug }}>`.
-  - Requiere añadir `slug: string` a `Historia` (ya viene del JSON).
-- Quitar `videoUrl` si no aplica para estos posts (queda opcional).
-- Mostrar fecha en formato consistente (evita el hydration mismatch actual: usar `toLocaleDateString("es-CO", { month: "short", year: "numeric", timeZone: "UTC" })`).
+## 4. Rutas y layouts
 
-## 5. Limpieza
+### Rutas públicas nuevas
+- `src/routes/login.tsx` — email/password + botón Google. Soporta `?redirect=` para volver al destino.
+- `src/routes/registro.tsx` — signup (crea usuario → trigger crea profile + rol `cliente`).
+- `src/routes/reset-password.tsx` — set new password (requerido por flujo de recovery).
 
-- Borrar mocks anteriores de `historias` y assets ya no usados (`share-platter.jpg`, etc. solo si no se referencian en otras rutas — verificar con `rg`).
-- Añadir `src/assets/blog/` a la estructura.
+### Sub-app cliente — `/mi-reino` (layout `_cliente`)
+- `src/routes/_cliente.tsx` — `beforeLoad` exige sesión; redirige a `/login` si no.
+- `src/routes/_cliente/mi-reino.tsx` — landing del portal con tabs placeholders: **Inicio · Pedidos · Puntos · Datos · Favoritos**.
+- Layout reutiliza `Layout.tsx` actual + sidebar/tabs en estilo brutal.
 
-## 6. Fuera de alcance
+### Sub-app admin — `/admin` (layout `_admin`)
+- `src/routes/_admin.tsx` — `beforeLoad`: exige sesión + `hasAnyRole(['super_admin','editor','marketing','franquiciado'])`; si no, redirige a `/` o `/no-autorizado`.
+- `src/routes/_admin/index.tsx` — Dashboard placeholder con KPIs mock (reusa `dashboardMock`).
+- Shell con `SidebarProvider` shadcn + secciones del sidebar (links a rutas todavía no implementadas, marcadas como "Próximamente" para no romper navegación):
+  - Dashboard · Contenidos · Menú · Sedes · Pedidos · Loyalty · Campañas · Usuarios · Integraciones
+- `src/routes/no-autorizado.tsx` — pantalla 403 en estilo del reino.
 
-- No se implementa búsqueda full-text del blog (solo filtro por categoría).
-- No se importan comentarios ni autores.
-- No se conecta a Lovable Cloud (todo sigue como data estática tipada).
+### Header / navegación pública
+- En `Layout.tsx`, agregar en el header:
+  - Si no hay sesión → "Iniciar sesión" / "Crear cuenta".
+  - Si hay sesión cliente → avatar + dropdown ("Mi Reino", "Cerrar sesión").
+  - Si hay sesión con rol admin → además link a "Admin".
+
+## 5. Componentes nuevos
+
+- `src/components/auth/LoginForm.tsx`, `SignupForm.tsx`, `ResetPasswordForm.tsx` — estilo brutal (reutiliza `BrutalInput`, `BrutalButton`).
+- `src/components/auth/UserMenu.tsx` — avatar + dropdown en header.
+- `src/components/admin/AdminSidebar.tsx` — sidebar shadcn con secciones.
+- `src/components/admin/AdminShell.tsx` — wrapper con `SidebarProvider` + header con `SidebarTrigger`.
+- `src/components/cliente/ClienteTabs.tsx` — tabs del portal.
+- `src/hooks/useAuth.ts` — hook centralizado.
+
+## 6. Integración con quiz existente
+
+`LoyaltyModule` actualmente guarda en `localStorage`. Cambiamos: si hay sesión, hace UPSERT en `profiles` (`arquetipo`, `whatsapp`, `ciudad`); si no, sigue en `localStorage` y al hacer signup migra esos datos al profile.
+
+## 7. Out of scope (fases siguientes)
+
+Aprobado conceptualmente, NO se implementa ahora:
+- **Fase 2 — CMS de contenidos**: tablas `posts`, `post_categories`, `media`; mover `historias.ts` a DB; CRUDs en `/admin/contenidos`, `/admin/menu`, `/admin/sedes`.
+- **Fase 3 — Pedidos + checkout propio**: tablas `orders`, `order_items`; carrito; `/admin/pedidos` con cola por estados; tracker conectado a DB.
+- **Fase 4 — Loyalty MVP**: `loyalty_accounts`, `loyalty_transactions`; reglas (X% del subtotal en puntos); canje en checkout; vista de saldo en `/mi-reino/puntos`.
+- **Fase 5+**: campañas, cupones, integraciones POS / Rappi / DiDi, segmentación.
+
+---
 
 ## Detalles técnicos
 
-- **Stack**: TanStack Start file-based routing → `historias.$slug.tsx` se registra automáticamente.
-- **Sanitización**: el HTML viene de WP propio (confiable). Aun así, se elimina `<script>`/`<style>` con regex en el script de ingesta antes de guardarlo en `contenidoHtml`.
-- **Bundle**: ~24 imágenes portada en `src/assets/blog/` (~50–120 KB c/u tras recompresión) + N imágenes inline en `public/blog/` (servidas tal cual).
-- **Hydration fix**: el `toLocaleDateString` actual produce "sept" en servidor y "ago" en cliente por diferencia de locale/timezone. Forzar `timeZone: "UTC"` y un locale fijo lo resuelve.
-- **Comando de ingesta**: se ejecuta una sola vez en la fase de implementación; el output (`historias.ts` + assets) es lo que queda versionado.
+- **Stack**: TanStack Start v1 + Supabase (Lovable Cloud). Auth con `requireSupabaseAuth` para server fns; `supabaseAdmin` solo para operaciones server-only verificadas.
+- **Roles**: tabla separada `user_roles` + función `has_role` SECURITY DEFINER (evita recursión RLS). Nunca guardar rol en `profiles`.
+- **Rutas protegidas**: `beforeLoad` en layouts `_cliente` y `_admin` con `throw redirect(...)` — no en componentes (evita flash).
+- **Hidratación**: el error actual de "ago/sept" en `Cards.tsx` ya quedó pendiente; lo arreglo de paso forzando `MESES` consistentes (ya estaba previsto pero quedó residuo). Revisar `formatFecha` y `EventCard`.
+- **Migraciones**: una sola migración que crea enum, tablas, función, trigger y políticas RLS.
 
-Al aprobar, ejecuto el script, descargo todas las imágenes, genero el data file, creo la ruta de detalle y entrego /historias funcional con las 24 entradas reales.
+## Criterios de aceptación fase 1
+
+1. Cloud activado, Auth con email + Google funcionando.
+2. `/login`, `/registro`, `/reset-password` operativas.
+3. Signup crea automáticamente `profile` + rol `cliente`.
+4. `/mi-reino` accesible solo con sesión; muestra tabs placeholder y datos del profile.
+5. `/admin` accesible solo con rol admin/editor/marketing; muestra dashboard mock + sidebar navegable (secciones marcadas como "Próximamente" si no hay CRUD aún).
+6. Header público refleja estado de sesión y rol.
+7. Quiz `LoyaltyModule` persiste arquetipo en `profiles` cuando hay sesión.
+8. Sin errores de hidratación en `/historias`.
