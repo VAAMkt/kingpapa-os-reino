@@ -492,3 +492,46 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+const reorderInput = z.object({
+  updates: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        orden: z.number().int().min(0).max(99999),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
+export const reorderAdminCategorias = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => reorderInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    // No tenemos rpc batch — actualizamos en paralelo.
+    const results = await Promise.all(
+      data.updates.map((u) =>
+        supabase.from("rp_categorias").update({ orden: u.orden }).eq("id", u.id),
+      ),
+    );
+    const err = results.find((r) => r.error)?.error;
+    if (err) throw new Error(err.message);
+    return { ok: true, count: data.updates.length };
+  });
+
+export const reorderAdminProductos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => reorderInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const results = await Promise.all(
+      data.updates.map((u) =>
+        supabase.from("rp_productos").update({ orden: u.orden }).eq("id", u.id),
+      ),
+    );
+    const err = results.find((r) => r.error)?.error;
+    if (err) throw new Error(err.message);
+    return { ok: true, count: data.updates.length };
+  });
