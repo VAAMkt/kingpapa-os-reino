@@ -41,19 +41,32 @@ type Cat = {
   id: string;
   rp_id: number;
   nombre: string;
+  nombre_override: string | null;
   orden: number;
   activo: boolean;
 };
+type MEClass = "star" | "plowhorse" | "puzzle" | "dog" | null;
 type Prod = {
   id: string;
   rp_id: number;
   categoria_id: string | null;
   nombre: string;
+  nombre_override: string | null;
+  descripcion: string | null;
+  descripcion_override: string | null;
   precio: number;
   imagen_url: string | null;
   disponible: boolean;
   orden: number;
+  destacado: boolean;
+  es_nuevo: boolean;
+  es_mas_vendido: boolean;
+  es_recomendado: boolean;
+  etiqueta_custom: string | null;
+  clasificacion_me: MEClass;
+  margen_pct: number | null;
 };
+
 
 function AdminMenuPage() {
   const queryClient = useQueryClient();
