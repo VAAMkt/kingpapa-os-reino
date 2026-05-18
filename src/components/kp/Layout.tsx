@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { BrutalLink, BrutalButton } from "@/components/ui-kp/BrutalButton";
+import { UserMenu } from "@/components/auth/UserMenu";
 import crown from "@/assets/crown.png";
 
 const nav = [
@@ -41,9 +42,7 @@ export function TopAppBar() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <BrutalLink href="#pedir" variant="dark" size="sm" className="hidden md:inline-flex">
-            Pedir Ahora
-          </BrutalLink>
+          <UserMenu />
           <BrutalButton
             variant="dark"
             size="sm"
