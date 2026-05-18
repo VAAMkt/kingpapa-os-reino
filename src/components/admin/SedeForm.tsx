@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
@@ -8,10 +9,12 @@ import { cn } from "@/lib/utils";
 import {
   CIUDADES_SUGERIDAS,
   createSede,
+  getUsedRpLocalIds,
   slugifySede,
   updateSede,
   type SedeRow,
 } from "@/lib/sedes";
+import { listRpLocales } from "@/lib/rp.functions";
 import { toast } from "sonner";
 
 const SedeSchema = z.object({
@@ -104,6 +107,27 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
   );
   const [slugTouched, setSlugTouched] = useState(editing);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const fetchRpLocales = useServerFn(listRpLocales);
+  const rpLocalesQuery = useQuery({
+    queryKey: ["rp", "locales"],
+    queryFn: () => fetchRpLocales(),
+    staleTime: 60_000,
+    retry: 0,
+  });
+  const usedQuery = useQuery({
+    queryKey: ["sedes", "usedRpIds"],
+    queryFn: getUsedRpLocalIds,
+    staleTime: 30_000,
+  });
+  const usedById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const u of usedQuery.data ?? []) {
+      if (u.sede_id !== initial?.id) m.set(u.rp_local_id, u.nombre);
+    }
+    return m;
+  }, [usedQuery.data, initial?.id]);
+
 
   useEffect(() => {
     if (!slugTouched) setForm((f) => ({ ...f, slug: slugifySede(f.nombre) }));
@@ -267,19 +291,80 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
 
       <BrutalCard tone="cheese" className="p-5 space-y-3">
         <h3 className="font-display uppercase text-lg">Restaurant.pe & ubicación</h3>
-        <div className="grid md:grid-cols-4 gap-3">
-          <div className={fieldCls}>
-            <label className={labelCls}>local_id Restaurant.pe</label>
-            <BrutalInput
-              type="number"
-              value={form.rp_local_id ?? ""}
-              onChange={(e) =>
-                setForm({ ...form, rp_local_id: e.target.value ? Number(e.target.value) : null })
-              }
-              placeholder="1"
-            />
-            {errors.rp_local_id && <p className="text-xs text-kp-red">{errors.rp_local_id}</p>}
-          </div>
+        <div className={fieldCls}>
+          <label className={labelCls}>Sede en Restaurant.pe</label>
+          {rpLocalesQuery.isLoading || usedQuery.isLoading ? (
+            <p className="text-xs text-kp-ink/70 py-2">Cargando locales…</p>
+          ) : rpLocalesQuery.isError ? (
+            <div className="space-y-2">
+              <p className="text-xs text-kp-red">
+                No se pudo cargar la lista. Verifica el token de Restaurant.pe.
+              </p>
+              <div className="flex gap-2">
+                <BrutalButton type="button" variant="ghost" onClick={() => rpLocalesQuery.refetch()}>
+                  Reintentar
+                </BrutalButton>
+                <Link
+                  to="/admin/sincronizacion"
+                  className="font-display uppercase text-xs underline self-center"
+                >
+                  Ir a sincronización
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <>
+              {(() => {
+                const locales = rpLocalesQuery.data ?? [];
+                const currentId = form.rp_local_id ?? null;
+                const currentInList = currentId != null && locales.some((l) => l.rp_local_id === currentId);
+                return (
+                  <select
+                    value={currentId ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value ? Number(e.target.value) : null;
+                      const local = locales.find((l) => l.rp_local_id === v);
+                      setForm((f) => ({
+                        ...f,
+                        rp_local_id: v,
+                        lat: f.lat == null && local?.lat != null ? local.lat : f.lat,
+                        lng: f.lng == null && local?.lng != null ? local.lng : f.lng,
+                      }));
+                    }}
+                    className={inputBaseCls}
+                  >
+                    <option value="">— Sin vincular —</option>
+                    {locales.map((l) => {
+                      const usadaPor = usedById.get(l.rp_local_id);
+                      const disabled = !!usadaPor;
+                      return (
+                        <option key={l.rp_local_id} value={l.rp_local_id} disabled={disabled}>
+                          {l.nombre} (#{l.rp_local_id})
+                          {usadaPor ? ` · en uso por ${usadaPor}` : ""}
+                        </option>
+                      );
+                    })}
+                    {currentId != null && !currentInList && (
+                      <option value={currentId}>
+                        ⚠ ID {currentId} no encontrado en Restaurant.pe
+                      </option>
+                    )}
+                  </select>
+                );
+              })()}
+              {(rpLocalesQuery.data?.length ?? 0) === 0 && (
+                <p className="text-xs text-kp-ink/70 mt-1">
+                  No se encontraron locales en Restaurant.pe.{" "}
+                  <Link to="/admin/sincronizacion" className="underline">
+                    Sincronizar
+                  </Link>
+                </p>
+              )}
+            </>
+          )}
+          {errors.rp_local_id && <p className="text-xs text-kp-red">{errors.rp_local_id}</p>}
+        </div>
+        <div className="grid md:grid-cols-3 gap-3">
           <div className={fieldCls}>
             <label className={labelCls}>Latitud</label>
             <BrutalInput
@@ -317,8 +402,9 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           </div>
         </div>
         <p className="text-xs text-kp-ink/70">
-          local_id es el ID numérico de la sede en Restaurant.pe. Necesario para sincronizar menú
-          y crear pedidos. Lat/Lng se usan para sugerir sede por ubicación del usuario.
+          Elige el local real de Restaurant.pe. Los que ya están asignados a otra sede
+          aparecen deshabilitados. Lat/Lng se usan para sugerir sede por ubicación; al
+          seleccionar un local se autocompletan si están vacíos.
         </p>
       </BrutalCard>
 
