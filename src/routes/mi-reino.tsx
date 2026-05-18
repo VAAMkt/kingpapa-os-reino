@@ -10,13 +10,13 @@ export const Route = createFileRoute("/mi-reino")({
   component: MiReinoLayout,
 });
 
-const tabs: ReadonlyArray<{ to: string; label: string; exact?: boolean }> = [
+const tabs = [
   { to: "/mi-reino", label: "Inicio", exact: true },
   { to: "/mi-reino/pedidos", label: "Pedidos" },
   { to: "/mi-reino/puntos", label: "Puntos" },
   { to: "/mi-reino/datos", label: "Datos" },
   { to: "/mi-reino/favoritos", label: "Favoritos" },
-];
+] as const;
 
 function MiReinoLayout() {
   const { isAuthenticated, loading, user } = useAuth();
