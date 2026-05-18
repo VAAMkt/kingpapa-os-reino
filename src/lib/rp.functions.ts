@@ -303,7 +303,8 @@ export const getMenuForSede = createServerFn({ method: "GET" })
          productos_master!inner (
            id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio,
            imagen_url, disponible, almacen_id, orden,
-           destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom
+           destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom,
+           modificadores, modificadores_raw
          )`,
       )
       .eq("sede_id", sede.id)
@@ -332,6 +333,8 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         es_mas_vendido: boolean;
         es_recomendado: boolean;
         etiqueta_custom: string | null;
+        modificadores: unknown;
+        modificadores_raw: unknown;
       };
     };
 
@@ -355,6 +358,8 @@ export const getMenuForSede = createServerFn({ method: "GET" })
           es_mas_vendido: pm.es_mas_vendido,
           es_recomendado: pm.es_recomendado,
           etiqueta_custom: pm.etiqueta_custom,
+          modificadores: pm.modificadores ?? [],
+          modificadores_raw: pm.modificadores_raw ?? {},
         };
       })
       .sort((a, b) => a.orden - b.orden);
