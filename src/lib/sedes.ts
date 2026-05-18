@@ -62,3 +62,18 @@ export function slugifySede(input: string): string {
 }
 
 export const CIUDADES_SUGERIDAS = ["Cali", "Jamundí", "Bogotá", "Medellín"] as const;
+
+export type SedeRpUsage = { sede_id: string; nombre: string; rp_local_id: number };
+
+export async function getUsedRpLocalIds(): Promise<SedeRpUsage[]> {
+  const { data, error } = await supabase
+    .from("sedes")
+    .select("id, nombre, rp_local_id")
+    .not("rp_local_id", "is", null);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    sede_id: r.id,
+    nombre: r.nombre,
+    rp_local_id: r.rp_local_id as number,
+  }));
+}
