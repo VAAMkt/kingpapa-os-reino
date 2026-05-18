@@ -1,49 +1,41 @@
 ## Diagnóstico
 
-La API real sí está devolviendo menú. Probé directamente `obtenerCartaPorLocal` con las credenciales del entorno y devuelve `130` productos para el local `1`.
+El timeout viene de la cantidad de llamadas a la base, no de la API de Restaurant.pe. Para 14 sedes el código actual hace:
 
-El problema exacto es este: `rpFetch` siempre retorna solo `json.data`, pero en la respuesta real de Restaurant.pe:
+- 14 fetch HTTP a Restaurant.pe (rápido, ~1s c/u).
+- ~26 upserts secuenciales de categorías por sede × 14 = ~360 round-trips.
+- ~130 upserts secuenciales de productos por sede × 14 = ~1.820 round-trips.
 
-- `data` es el array de productos directamente.
-- `listaCategorias` viene en la raíz del JSON, al mismo nivel que `data`.
-
-Entonces el código actual recibe solo el array de productos y pierde `listaCategorias`. Luego `syncAllMenus` intenta leer `menu.listaCategorias` y `menu.data`, pero `menu` en realidad es un array, por eso ambos quedan vacíos.
+Más de 2.000 idas y vueltas a Postgres dentro de una sola server function. Excede el límite de ejecución del worker y por eso la respuesta nunca llega.
 
 ## Plan de cambios
 
-1. **Corregir `rpGetCatalogo` sin tocar UI**
-   - Ajustar `src/lib/restaurantpe.server.ts` para que el fetch del catálogo retorne el payload completo del envelope, no solamente `json.data`.
-   - Mantener las rutas correctas:
-     - lectura: `/readonly/rest/delivery/obtenerCartaPorLocal/{dominio}/{local}?quipupos=0`
-     - escritura: `/public/v2/rest/delivery/registrarDelivery/{dominio}`
+1. **Upserts en lote (la cura real)**
+   - En `src/lib/rp.functions.ts`, dentro de `syncAllMenus` y `syncMenuForSede`:
+     - Reemplazar el loop de categorías por **un solo `.upsert(arrayCategorias, { onConflict: "sede_id,rp_id" }).select("id, rp_id")`** que regrese el mapa `rp_id → id` en una sola llamada.
+     - Reemplazar el loop de productos por **un solo `.upsert(arrayProductos, { onConflict: "sede_id,rp_id" })`** por sede.
+   - Resultado: ~3 llamadas a la base por sede en vez de ~156.
 
-2. **Hacer robusta la extracción del menú**
-   - Ajustar `syncMenuForSede` y `syncAllMenus` en `src/lib/rp.functions.ts` para soportar ambas formas reales:
-     - productos como `menu.data` cuando viene objeto completo
-     - productos como `menu` cuando viene array directo
-   - Leer categorías desde `menu.listaCategorias`.
-   - Si no hay categorías pero los productos traen `categoria_id` y `categoria_descripcion`, crear categorías derivadas desde los productos como fallback realista.
+2. **Paralelizar sedes con concurrencia controlada**
+   - Procesar las 14 sedes con un pool de concurrencia (p. ej. 4 sedes en simultáneo) usando `Promise.allSettled` por lotes.
+   - Eliminar la pausa de 150 ms entre sedes (ya no satura porque cada sede pesa mucho menos).
 
-3. **Actualizar tipos para reflejar la respuesta real**
-   - Ajustar `src/types/restaurantpe.ts` para documentar que `listaCategorias` está en la raíz del envelope y que `data` puede ser el array de productos.
-   - Añadir campos reales vistos en producción como `productogeneral_urlimagen`, `productogeneral_descripcionweb`, `categoria_descripcion`.
+3. **Acortar el fetch a Restaurant.pe**
+   - Bajar el timeout por request de 15 s a 10 s para que una sede atascada no bloquee el lote.
+   - Mantener un reintento.
 
-4. **Mejorar normalización de productos**
-   - En `src/lib/restaurantpe-normalize.ts`, mapear:
-     - imagen desde `productogeneral_urlimagen`
-     - descripción larga desde `productogeneral_descripcionweb`
-     - disponibilidad desde `productogeneral_estado` cuando exista
-   - Mantener compatibilidad con los campos legacy actuales.
+4. **Robustez sin tocar UI**
+   - Si una sede falla, capturarla en `errores[]` y seguir con el resto (ya está, se conserva).
+   - Conservar el barrido de "marcar no disponibles" como UNA sola query por sede (ya lo es).
+   - Conservar el log `rp_sync_log` final.
 
-5. **Validación posterior**
-   - No meter una trampa que rompa el flujo al usuario.
-   - Dejar el resultado listo para que al presionar “Sincronizar TODOS los menús” devuelva conteos reales mayores a 0 y guarde productos/categorías.
+5. **Validación**
+   - El usuario presiona “Sincronizar TODOS los menús” y debe completar en pocos segundos con conteos reales > 0.
+   - Verificar después con consulta a `rp_categorias` y `rp_productos` que hay filas.
 
 ## Archivos a tocar
 
-- `src/lib/restaurantpe.server.ts`
-- `src/lib/rp.functions.ts`
-- `src/lib/restaurantpe-normalize.ts`
-- `src/types/restaurantpe.ts`
+- `src/lib/rp.functions.ts` (única edición funcional)
+- `src/lib/restaurantpe.server.ts` (solo bajar `TIMEOUT_MS`)
 
-No tocaré componentes visuales ni clases de UI.
+Sin cambios en componentes, rutas ni estilos.
