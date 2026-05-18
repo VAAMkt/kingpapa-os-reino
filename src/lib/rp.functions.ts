@@ -17,32 +17,28 @@ import {
   normalizeProduct,
 } from "@/lib/restaurantpe-normalize";
 
-function isEditor(claims: { role?: string } | null | undefined): boolean {
-  // requireSupabaseAuth ya valida sesión; la verificación de rol la dejamos
-  // a las policies RLS al hacer upsert con el cliente autenticado del usuario.
-  // Aquí solo confirmamos que hay usuario.
-  return !!claims;
-}
+// Para mutaciones usamos `context.supabase` (cliente del usuario autenticado)
+// para que las RLS validen el rol editor/super_admin.
+// Para lecturas públicas usamos `supabaseAdmin` (sin sesión disponible).
 
 export const syncBranches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    
-
+    const { supabase } = context;
     const data = await rpGetDominioInfo();
     const locales = (data.locales ?? []).map(normalizeBranch);
 
     const log: { matched: number; missing: number[] } = { matched: 0, missing: [] };
 
     for (const local of locales) {
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await supabase
         .from("sedes")
         .select("id, rp_local_id")
         .eq("rp_local_id", local.rp_local_id)
         .maybeSingle();
 
       if (existing) {
-        await supabaseAdmin
+        const { error: updErr } = await supabase
           .from("sedes")
           .update({
             lat: local.lat ?? undefined,
@@ -51,13 +47,14 @@ export const syncBranches = createServerFn({ method: "POST" })
             pickup: local.pickup,
           })
           .eq("id", existing.id);
+        if (updErr) throw new Error(`Sede ${local.rp_local_id}: ${updErr.message}`);
         log.matched += 1;
       } else {
         log.missing.push(local.rp_local_id);
       }
     }
 
-    await supabaseAdmin.from("rp_sync_log").insert({
+    await supabase.from("rp_sync_log").insert({
       tipo: "branches",
       payload: { locales, log } as never,
       ok: true,
@@ -73,9 +70,9 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
     z.object({ sedeId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    
+    const { supabase } = context;
 
-    const { data: sede, error: sedeErr } = await supabaseAdmin
+    const { data: sede, error: sedeErr } = await supabase
       .from("sedes")
       .select("id, rp_local_id, nombre")
       .eq("id", data.sedeId)
@@ -89,10 +86,9 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
     const categorias = (menu.categorias ?? []).map(normalizeCategoria);
     const productos = (menu.productos ?? []).map(normalizeProduct);
 
-    // Upsert categorías
     const catIdByRpId = new Map<number, string>();
     for (const c of categorias) {
-      const { data: up, error } = await supabaseAdmin
+      const { data: up, error } = await supabase
         .from("rp_categorias")
         .upsert(
           {
@@ -110,13 +106,12 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
       catIdByRpId.set(c.rp_id, up.id);
     }
 
-    // Upsert productos
     let upsertedProducts = 0;
     for (const p of productos) {
       const categoria_id = p.rp_categoria_id != null
         ? catIdByRpId.get(p.rp_categoria_id) ?? null
         : null;
-      const { error } = await supabaseAdmin.from("rp_productos").upsert(
+      const { error } = await supabase.from("rp_productos").upsert(
         {
           sede_id: sede.id,
           rp_id: p.rp_id,
@@ -135,17 +130,16 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
       upsertedProducts += 1;
     }
 
-    // Marcar como no disponibles los productos que dejaron de venir
     const incomingIds = productos.map((p) => p.rp_id);
     if (incomingIds.length > 0) {
-      await supabaseAdmin
+      await supabase
         .from("rp_productos")
         .update({ disponible: false })
         .eq("sede_id", sede.id)
         .not("rp_id", "in", `(${incomingIds.join(",")})`);
     }
 
-    await supabaseAdmin.from("rp_sync_log").insert({
+    await supabase.from("rp_sync_log").insert({
       tipo: "menu",
       sede_id: sede.id,
       payload: { categorias: categorias.length, productos: productos.length } as never,
@@ -242,9 +236,8 @@ export const checkStockLive = createServerFn({ method: "POST" })
 
 export const listSyncLog = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
-    const { supabase } = context;
-    const { data, error } = await supabase
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
       .from("rp_sync_log")
       .select("id, tipo, sede_id, ok, mensaje, created_at")
       .order("created_at", { ascending: false })
