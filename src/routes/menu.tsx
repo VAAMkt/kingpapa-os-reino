@@ -136,6 +136,27 @@ function MenuPage() {
         </section>
       )}
 
+      {/* CORONAS DEL REY — destacados + más vendidos. Solo si NO hay filtro activo. */}
+      {filtro === "all" && coronas.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 md:px-6 pt-6">
+          <div className="flex items-end justify-between mb-3">
+            <h2 className="font-display text-3xl uppercase leading-none">
+              ★ Coronas del rey
+            </h2>
+            <span className="text-xs font-display uppercase text-kp-ink/60">
+              Las imperdibles
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {coronas.map((p) => (
+              <ProductCard key={p.id} producto={p} compact />
+            ))}
+          </div>
+        </section>
+      )}
+
+
+
       {/* GRID */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-8">
         {menuQ.isLoading && (
