@@ -50,21 +50,36 @@ export type RpModificadorGrupo = {
 };
 
 export type RpProducto = {
-  producto_id: string | number;
-  producto_descripcion: string;
+  // Campos legacy (v2 antiguo) — opcionales por compatibilidad.
+  producto_id?: string | number;
+  producto_descripcion?: string;
   producto_descripcion_larga?: string;
-  producto_precio: string | number;
+  producto_precio?: string | number;
   producto_imagen?: string;
   producto_agotado?: string | number;
-  categoria_id?: string | number;
   modificadores?: RpModificadorGrupo[];
+
+  // Campos OAS3 (obtenerCartaPorLocal).
+  productogeneral_id?: string | number;
+  productogeneral_descripcion?: string;
+  productogeneral_preciofijo?: string | number;
+  lista_presentacion?: unknown[];
+  listaModificadores?: RpModificadorGrupo[];
+  lista_productobase?: unknown[];
+  lista_productoadicional?: unknown[];
+
+  categoria_id?: string | number;
   almacen_id?: string | number;
   [k: string]: unknown;
 };
 
+// Catálogo OAS3: el envelope externo trae { tipo, data }, donde `data` es este objeto.
+// Productos viven en `data` (array) y categorías en `listaCategorias`.
 export type RpMenuData = {
-  categorias?: RpCategoria[];
-  productos?: RpProducto[];
+  tipo?: string | number;
+  data?: RpProducto[];
+  listaCategorias?: RpCategoria[];
+  totalregistros?: number;
   [k: string]: unknown;
 };
 
