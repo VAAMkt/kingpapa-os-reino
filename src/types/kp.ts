@@ -71,12 +71,15 @@ export type CategoriaHistoria =
 
 export interface Historia {
   id: string;
+  slug: string;
   titulo: string;
   categoria: CategoriaHistoria;
   extracto: string;
-  fecha: string;       // ISO
+  fecha: string;          // ISO (YYYY-MM-DD)
   imagen: string;
   videoUrl?: string;
+  link?: string;          // URL original (kingpapacali.com)
+  contenidoHtml?: string; // HTML completo del post
 }
 
 export interface QuizQuestion {
