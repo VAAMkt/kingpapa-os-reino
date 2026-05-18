@@ -55,7 +55,7 @@ export function normalizeCategoria(raw: RpCategoria): NormalizedCategoria {
   return {
     rp_id: toInt(raw.categoria_id),
     nombre: String(raw.categoria_descripcion ?? ""),
-    orden: toInt(raw.categoria_orden),
+    orden: raw.categoria_orden != null ? toInt(raw.categoria_orden) : 0,
   };
 }
 
