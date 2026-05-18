@@ -114,11 +114,18 @@ function HomePage() {
           title="Los más bravos del menú"
           description="Lo que pides cuando vas en serio. Sin filtros, sin remordimientos."
         />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {estrellas.map((p) => (
-            <ProductCard key={p.id} producto={p} />
-          ))}
-        </div>
+        {estrellas.length === 0 ? (
+          <p className="text-sm text-kp-ink/70 border-2 border-dashed border-kp-ink p-4">
+            El menú aún no está sincronizado. Un editor puede traerlo desde{" "}
+            <Link to="/admin/sincronizacion" className="underline font-bold">/admin/sincronizacion</Link>.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {estrellas.map((p) => (
+              <ProductCard key={p.id} producto={p} />
+            ))}
+          </div>
+        )}
         <div className="mt-6">
           <Link
             to="/menu"
