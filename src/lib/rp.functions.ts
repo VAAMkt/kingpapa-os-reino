@@ -124,8 +124,7 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
       throw new Error(`Sede "${sede.nombre}" no tiene rp_local_id asignado`);
 
     const menu = await rpGetCatalogo(sede.rp_local_id);
-    const categorias = (menu.listaCategorias ?? []).map(normalizeCategoria);
-    const productos = (menu.data ?? []).map(normalizeProduct);
+    const { categorias, productos } = extractMenu(menu);
 
     const catIdByRpId = new Map<number, string>();
     for (const c of categorias) {
@@ -328,8 +327,7 @@ export const syncAllMenus = createServerFn({ method: "POST" })
       try {
         // El catálogo es por LOCAL, lo traemos para cada sede.
         const menu = await rpGetCatalogo(sede.rp_local_id!);
-        const categorias = (menu.listaCategorias ?? []).map(normalizeCategoria);
-        const productos = (menu.data ?? []).map(normalizeProduct);
+        const { categorias, productos } = extractMenu(menu);
         totalCatsSchema = categorias.length;
         totalProdsSchema = productos.length;
 
