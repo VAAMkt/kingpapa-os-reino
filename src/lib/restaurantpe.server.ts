@@ -12,7 +12,7 @@ import type {
 const HOST = "http://api.restaurant.pe/restaurant";
 const READ_BASE = `${HOST}/readonly/rest`;
 const WRITE_BASE = `${HOST}/public/v2/rest`;
-const TIMEOUT_MS = 15_000;
+const TIMEOUT_MS = 10_000;
 
 function authHeader() {
   const token = process.env.RESTAURANT_PE_TOKEN;
