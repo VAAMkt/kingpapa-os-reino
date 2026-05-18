@@ -1,66 +1,76 @@
-# Plan — KINGPAPA OS: El Sistema Operativo del Reino
+# Migración del blog KINGPAPA → /historias
 
-Construir la web completa siguiendo los bocetos del zip (Home, Menú, Sedes, Franquicias, Dashboard) + Historias del Reino, sobre el stack actual del proyecto (TanStack Start + React + TS + Tailwind v4), no Next.js — el stack ya está fijado en Lovable y cumple los mismos objetivos (rutas, SSR, TS, Tailwind). Mobile-first, con versión desktop trabajada.
+Trasladar las **24 entradas** del JSON (`blog_kingpapa_24_entradas.txt`) a la sección **Historias** del KINGPAPA OS, respetando imágenes originales (descargadas localmente) y aplicando el diseño neo-brutalista existente.
 
-## 1. Design system (src/styles.css + componentes base)
+## 1. Script de ingesta (one-shot, no se versiona)
 
-Tokens nuevos en `:root` (oklch) mapeados en `@theme inline`:
-- `--kp-yellow` (papa), `--kp-orange` (salsa), `--kp-red` (fuego), `--kp-black` (noche), `--kp-purple` (neón), `--kp-cheese` (blanco queso), `--kp-lime` (acento), más `--kp-bg`, `--kp-ink`, `--kp-border`.
-- Sombras duras: `--shadow-brutal: 6px 6px 0 0 var(--kp-black)`.
-- Radios mínimos (neo-brutalismo: bordes marcados).
-- Fuentes vía Google Fonts (`<link>` en `__root.tsx` head): **Bebas Neue** (display) y **Montserrat** (texto). Variables `--font-display`, `--font-body`.
+Script Python en `/tmp/ingest_blog.py` que:
 
-Componentes base reutilizables en `src/components/ui-kp/`:
-- `BrutalButton` (variants: primary amarillo, fire rojo, ghost, neon morado), `BrutalCard`, `BrutalBadge`, `BrutalInput`, `BrutalChip`, `BrutalModal`, `Stepper`.
+1. Lee `/tmp/blog.json` (24 posts).
+2. Para cada post:
+   - Extrae `id`, `slug`, `date`, `title.rendered`, `excerpt.rendered`, `content.rendered`, `featured_media`.
+   - Limpia HTML del excerpt → texto plano (~200 chars).
+   - **Imagen destacada**:
+     - Primero intenta extraer el primer `<img src>` del `content.rendered`.
+     - Si no hay, hace `GET https://kingpapacali.com/wp-json/wp/v2/media/{featured_media}` y toma `source_url`.
+     - Descarga la imagen a `src/assets/blog/{slug}.jpg` (convirtiendo PNG/WebP → JPG con Pillow, max 1200px, calidad 82 para mantener bundle bajo).
+   - **Imágenes inline del contenido**: descarga todas, las guarda en `src/assets/blog/{slug}/{n}.jpg` y reescribe los `src=` del HTML para apuntar a las rutas locales (`/src/assets/blog/...` resueltas vía import map o copia a `public/blog/...` — ver decisión técnica abajo).
+   - **Asigna categoría** (`CategoriaHistoria`) heurísticamente a partir de palabras clave en título/contenido: "reto"→Retos, "fest"/"festival"→Festivales, "sede"/"abrimos"/"mallplaza"→Nuevas sedes, "franquicia"→Franquicias, "fan"/"súbdito"→Fans, default→Cultura interna.
+3. Genera `src/data/historias.ts` con:
+   - Array tipado `historias: Historia[]` (mismos campos actuales) + `contenidoHtml: string` nuevo.
+   - Imports estáticos de las imágenes (`import img_{slug} from "@/assets/blog/{slug}.jpg"`).
+   - Ordenado por `date` descendente.
 
-## 2. Componentes de dominio (`src/components/kp/`)
+**Decisión técnica imágenes inline**: para evitar 100+ imports y mantener simple el render del HTML embebido, guardo imágenes inline en `public/blog/{slug}/{n}.ext` (servidas como `/blog/{slug}/{n}.ext`). La portada (la que se muestra en el card) sí va a `src/assets/blog/{slug}.jpg` para bundling/optimización.
 
-- `TopAppBar` — logo KINGPAPA + nav fija + mini OrderRouter.
-- `Footer` — links + “Si estás a dieta, NO nos sigas.”
-- `OrderRouter` — selector de ciudad/sede, 3 CTAs (apps / directo / pickup), deeplinks Rappi/DiDi/WhatsApp (TODO con URLs reales).
-- `Hero`, `ProductCard`, `LoyaltyModule` (con teaser de quiz), `QuizSubdito` (modal multi-step), `TrackerOperativo` (4 pasos animados), `EventCard`, `LocationCard`, `LeadFormFranquicia`, `Testimonios`, `LayoutDashboard`.
+## 2. Cambios de tipos (`src/types/kp.ts`)
 
-## 3. Datos mock y tipos (`src/data/`, `src/types/`)
+Añadir a `Historia`:
 
-`types/`: `Producto`, `Categoria`, `Sede`, `Historia`, `Usuario`, `Subdito`, `LeadFranquicia`, `QuizQuestion`, `OrderChannel`.
-`data/`: `productos.ts`, `categorias.ts`, `sedes.ts` (Cali, Bogotá, Jamundí, Medellín), `historias.ts`, `quiz.ts`, `dashboardMock.ts`. Cada archivo con `// TODO: reemplazar por API …`.
+```ts
+export interface Historia {
+  // ... existentes
+  contenidoHtml?: string;  // HTML completo del post (sanitizado, imgs reescritas a rutas locales)
+  link?: string;           // URL original como referencia
+}
+```
 
-## 4. Rutas (`src/routes/`)
+## 3. Página de detalle: `src/routes/historias.$slug.tsx`
 
-Cada ruta con su `head()` (title, description, og:*) único:
-- `index.tsx` — Home: Hero, OrderRouter, Productos estrella, TrackerOperativo demo, Retos/Festivales, LoyaltyModule, Sedes resumen, SocialProof.
-- `menu.tsx` — Hero menú + chips de filtros + grid ProductCard + módulo Combo Imán.
-- `sedes.tsx` — Hero + buscador + filtros + lista LocationCard + módulo educativo.
-- `franquicias.tsx` — Hero + “lo que nadie te cuenta” + futuro/mapa + LeadForm + bloque cultura/BIC.
-- `historias.tsx` — Hero + filtros por categoría + grid EventCard.
-- `dashboard.tsx` — LayoutDashboard mock (cards de KPIs, top sedes, top productos, súbditos).
+Nueva ruta dinámica con:
+- `loader` que busca la historia por `slug` en `historias`; si no existe, `notFound()`.
+- `head()` con `title`, `description` (excerpt), `og:title`, `og:description`, `og:image` (URL absoluta de la portada).
+- Layout: hero con la imagen destacada + título + categoría + fecha; contenido renderizado con `dangerouslySetInnerHTML` dentro de un contenedor `prose`-like estilizado con tokens KP (titulares Bebas Neue, body Montserrat, links amarillo/morado).
+- Estilos para `figure`, `img` (border-2 + shadow-brutal), `blockquote`, `h2/h3`, listas — definidos como clase `.kp-prose` en `src/styles.css`.
+- Botón "Volver a Historias" + sección "Más historias del Reino" (3 cards aleatorios de la misma categoría).
+- `errorComponent` + `notFoundComponent` propios.
 
-Reemplaza el placeholder actual de `index.tsx`. `__root.tsx` añade fuentes y conserva `<Outlet />`.
+## 4. Ajustes en `src/routes/historias.tsx` (listado)
 
-## 5. Imágenes
+- Mantener filtros por categoría.
+- `EventCard` actualizado (`src/components/kp/Cards.tsx`):
+  - El botón "Leer historia" pasa de placeholder a `<Link to="/historias/$slug" params={{ slug: h.slug }}>`.
+  - Requiere añadir `slug: string` a `Historia` (ya viene del JSON).
+- Quitar `videoUrl` si no aplica para estos posts (queda opcional).
+- Mostrar fecha en formato consistente (evita el hydration mismatch actual: usar `toLocaleDateString("es-CO", { month: "short", year: "numeric", timeZone: "UTC" })`).
 
-Extraer del sitio existente `kingpapacali.com` (logo, productos, retos) vía `fetch_website` y guardarlas en `src/assets/`. Donde falte, usar `imagegen` con prompts brand-aligned (papa gigante neón, festival nocturno caleño). Bocetos del zip ya inspeccionados como referencia visual.
+## 5. Limpieza
 
-## 6. Integraciones futuras (TODOs marcados)
+- Borrar mocks anteriores de `historias` y assets ya no usados (`share-platter.jpg`, etc. solo si no se referencian en otras rutas — verificar con `rg`).
+- Añadir `src/assets/blog/` a la estructura.
 
-- OrderRouter → Rappi/DiDi deeplinks + WhatsApp Business API.
-- Quiz/Loyalty → endpoint POST `/api/subditos` (preparado pero no implementado; se podría activar Lovable Cloud después).
-- LeadFormFranquicia → POST `/api/leads`.
-- Dashboard → fetch real cuando exista backend.
+## 6. Fuera de alcance
+
+- No se implementa búsqueda full-text del blog (solo filtro por categoría).
+- No se importan comentarios ni autores.
+- No se conecta a Lovable Cloud (todo sigue como data estática tipada).
 
 ## Detalles técnicos
 
-- TanStack Start file-based routing (ya configurado). No tocar `routeTree.gen.ts`.
-- Tailwind v4 con `@theme inline` — agregar tokens KP ahí (oklch).
-- Mobile-first: layouts en una columna, breakpoints `md:` y `lg:` para grids 2–4 col.
-- Sin backend en esta iteración; todo con mocks tipados. Loyalty/quiz capturan en `localStorage` con función `saveSubdito()` lista para swap a API.
-- No se añade auth real (registro de súbdito es captura de email/WhatsApp en form, no login).
+- **Stack**: TanStack Start file-based routing → `historias.$slug.tsx` se registra automáticamente.
+- **Sanitización**: el HTML viene de WP propio (confiable). Aun así, se elimina `<script>`/`<style>` con regex en el script de ingesta antes de guardarlo en `contenidoHtml`.
+- **Bundle**: ~24 imágenes portada en `src/assets/blog/` (~50–120 KB c/u tras recompresión) + N imágenes inline en `public/blog/` (servidas tal cual).
+- **Hydration fix**: el `toLocaleDateString` actual produce "sept" en servidor y "ago" en cliente por diferencia de locale/timezone. Forzar `timeZone: "UTC"` y un locale fijo lo resuelve.
+- **Comando de ingesta**: se ejecuta una sola vez en la fase de implementación; el output (`historias.ts` + assets) es lo que queda versionado.
 
-## Fuera de alcance (para próxima iteración)
-
-- Conexión real a Lovable Cloud (auth, DB, storage) — se deja arquitectura lista.
-- Pasarela de pago / checkout propio.
-- Mapa interactivo real en /sedes (se usa lista + placeholder de mapa).
-- Internacionalización.
-
-Al aprobar, implemento todo de una sola pasada y entrego la app navegable.
+Al aprobar, ejecuto el script, descargo todas las imágenes, genero el data file, creo la ruta de detalle y entrego /historias funcional con las 24 entradas reales.
