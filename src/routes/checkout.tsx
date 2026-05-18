@@ -56,10 +56,10 @@ function CheckoutPage() {
       <h1 className="font-display text-5xl uppercase leading-none">Confirma tu corona</h1>
 
       <BrutalCard tone="cheese" className="p-5">
-        <p className="text-xs font-display uppercase">
-          {esRecoger ? "Recoger en sede" : "Delivery a"}
-        </p>
-        <p className="mt-1 font-display text-lg">{sede?.label ?? "Sin ubicación"}</p>
+        <BrutalBadge tone={esRecoger ? "red" : "lime"}>
+          {esRecoger ? "Recoger en sede" : "Delivery"}
+        </BrutalBadge>
+        <p className="mt-2 font-display text-lg">{sede?.label ?? "Sin ubicación"}</p>
         {!esRecoger && sede?.direccionTexto && (
           <p className="text-xs mt-1">{sede.direccionTexto}{detalles}</p>
         )}

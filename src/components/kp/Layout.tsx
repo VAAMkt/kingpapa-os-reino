@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { BrutalLink, BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { useActiveSede } from "@/lib/active-sede";
+import { openLocationGate } from "@/components/kp/LocationGate";
 import crown from "@/assets/crown.png";
 
 const nav = [
@@ -11,6 +13,27 @@ const nav = [
   { to: "/franquicias", label: "Franquicias" },
   { to: "/historias", label: "Historias" },
 ] as const;
+
+function LocationPill({ className = "" }: { className?: string }) {
+  const sede = useActiveSede();
+  const hasReal = !!sede && sede.source !== "exploring";
+  const label = hasReal
+    ? (sede!.direccionTexto || sede!.label)
+    : "Ingresa tu ubicación";
+  return (
+    <button
+      onClick={openLocationGate}
+      title={label}
+      className={
+        "inline-flex items-center gap-2 max-w-[260px] px-3 py-1.5 bg-kp-cheese border-2 border-kp-ink shadow-brutal-sm font-display uppercase text-[11px] md:text-xs hover:-translate-y-[1px] truncate " +
+        className
+      }
+    >
+      <span>📍</span>
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
 
 export function TopAppBar() {
   const [open, setOpen] = useState(false);
@@ -42,6 +65,7 @@ export function TopAppBar() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <LocationPill className="hidden sm:inline-flex" />
           <UserMenu />
           <BrutalButton
             variant="dark"
@@ -53,6 +77,11 @@ export function TopAppBar() {
             {open ? "Cerrar" : "Menú"}
           </BrutalButton>
         </div>
+      </div>
+
+      {/* Pill móvil en una segunda línea para que siempre se vea */}
+      <div className="sm:hidden px-4 pb-3">
+        <LocationPill className="w-full justify-start" />
       </div>
 
       {open && (
