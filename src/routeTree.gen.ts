@@ -23,6 +23,10 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MiReinoIndexRouteImport } from './routes/mi-reino.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as MiReinoPuntosRouteImport } from './routes/mi-reino.puntos'
+import { Route as MiReinoPedidosRouteImport } from './routes/mi-reino.pedidos'
+import { Route as MiReinoFavoritosRouteImport } from './routes/mi-reino.favoritos'
+import { Route as MiReinoDatosRouteImport } from './routes/mi-reino.datos'
 import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
 
 const SedesRoute = SedesRouteImport.update({
@@ -95,6 +99,26 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const MiReinoPuntosRoute = MiReinoPuntosRouteImport.update({
+  id: '/puntos',
+  path: '/puntos',
+  getParentRoute: () => MiReinoRoute,
+} as any)
+const MiReinoPedidosRoute = MiReinoPedidosRouteImport.update({
+  id: '/pedidos',
+  path: '/pedidos',
+  getParentRoute: () => MiReinoRoute,
+} as any)
+const MiReinoFavoritosRoute = MiReinoFavoritosRouteImport.update({
+  id: '/favoritos',
+  path: '/favoritos',
+  getParentRoute: () => MiReinoRoute,
+} as any)
+const MiReinoDatosRoute = MiReinoDatosRouteImport.update({
+  id: '/datos',
+  path: '/datos',
+  getParentRoute: () => MiReinoRoute,
+} as any)
 const HistoriasSlugRoute = HistoriasSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
@@ -115,6 +139,10 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/historias/$slug': typeof HistoriasSlugRoute
+  '/mi-reino/datos': typeof MiReinoDatosRoute
+  '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
+  '/mi-reino/pedidos': typeof MiReinoPedidosRoute
+  '/mi-reino/puntos': typeof MiReinoPuntosRoute
   '/admin/': typeof AdminIndexRoute
   '/mi-reino/': typeof MiReinoIndexRoute
 }
@@ -130,6 +158,10 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/historias/$slug': typeof HistoriasSlugRoute
+  '/mi-reino/datos': typeof MiReinoDatosRoute
+  '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
+  '/mi-reino/pedidos': typeof MiReinoPedidosRoute
+  '/mi-reino/puntos': typeof MiReinoPuntosRoute
   '/admin': typeof AdminIndexRoute
   '/mi-reino': typeof MiReinoIndexRoute
 }
@@ -148,6 +180,10 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/historias/$slug': typeof HistoriasSlugRoute
+  '/mi-reino/datos': typeof MiReinoDatosRoute
+  '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
+  '/mi-reino/pedidos': typeof MiReinoPedidosRoute
+  '/mi-reino/puntos': typeof MiReinoPuntosRoute
   '/admin/': typeof AdminIndexRoute
   '/mi-reino/': typeof MiReinoIndexRoute
 }
@@ -167,6 +203,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/historias/$slug'
+    | '/mi-reino/datos'
+    | '/mi-reino/favoritos'
+    | '/mi-reino/pedidos'
+    | '/mi-reino/puntos'
     | '/admin/'
     | '/mi-reino/'
   fileRoutesByTo: FileRoutesByTo
@@ -182,6 +222,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/historias/$slug'
+    | '/mi-reino/datos'
+    | '/mi-reino/favoritos'
+    | '/mi-reino/pedidos'
+    | '/mi-reino/puntos'
     | '/admin'
     | '/mi-reino'
   id:
@@ -199,6 +243,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/historias/$slug'
+    | '/mi-reino/datos'
+    | '/mi-reino/favoritos'
+    | '/mi-reino/pedidos'
+    | '/mi-reino/puntos'
     | '/admin/'
     | '/mi-reino/'
   fileRoutesById: FileRoutesById
@@ -318,6 +366,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/mi-reino/puntos': {
+      id: '/mi-reino/puntos'
+      path: '/puntos'
+      fullPath: '/mi-reino/puntos'
+      preLoaderRoute: typeof MiReinoPuntosRouteImport
+      parentRoute: typeof MiReinoRoute
+    }
+    '/mi-reino/pedidos': {
+      id: '/mi-reino/pedidos'
+      path: '/pedidos'
+      fullPath: '/mi-reino/pedidos'
+      preLoaderRoute: typeof MiReinoPedidosRouteImport
+      parentRoute: typeof MiReinoRoute
+    }
+    '/mi-reino/favoritos': {
+      id: '/mi-reino/favoritos'
+      path: '/favoritos'
+      fullPath: '/mi-reino/favoritos'
+      preLoaderRoute: typeof MiReinoFavoritosRouteImport
+      parentRoute: typeof MiReinoRoute
+    }
+    '/mi-reino/datos': {
+      id: '/mi-reino/datos'
+      path: '/datos'
+      fullPath: '/mi-reino/datos'
+      preLoaderRoute: typeof MiReinoDatosRouteImport
+      parentRoute: typeof MiReinoRoute
+    }
     '/historias/$slug': {
       id: '/historias/$slug'
       path: '/$slug'
@@ -351,10 +427,18 @@ const HistoriasRouteWithChildren = HistoriasRoute._addFileChildren(
 )
 
 interface MiReinoRouteChildren {
+  MiReinoDatosRoute: typeof MiReinoDatosRoute
+  MiReinoFavoritosRoute: typeof MiReinoFavoritosRoute
+  MiReinoPedidosRoute: typeof MiReinoPedidosRoute
+  MiReinoPuntosRoute: typeof MiReinoPuntosRoute
   MiReinoIndexRoute: typeof MiReinoIndexRoute
 }
 
 const MiReinoRouteChildren: MiReinoRouteChildren = {
+  MiReinoDatosRoute: MiReinoDatosRoute,
+  MiReinoFavoritosRoute: MiReinoFavoritosRoute,
+  MiReinoPedidosRoute: MiReinoPedidosRoute,
+  MiReinoPuntosRoute: MiReinoPuntosRoute,
   MiReinoIndexRoute: MiReinoIndexRoute,
 }
 
