@@ -48,7 +48,7 @@ function MiReinoLayout() {
 
       <nav className="flex flex-wrap gap-2 mb-6 border-b-4 border-kp-ink pb-3">
         {tabs.map((t) => {
-          const active = t.exact ? pathname === t.to : pathname.startsWith(t.to);
+          const active = "exact" in t && t.exact ? pathname === t.to : pathname.startsWith(t.to);
           return (
             <Link
               key={t.to}
