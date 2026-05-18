@@ -4,15 +4,86 @@ import { BrutalBadge } from "@/components/ui-kp/Brutal";
 import { EventCard, formatFecha } from "@/components/kp/Cards";
 import { getPublicPostBySlug, listPublicPosts } from "@/lib/posts";
 
+const SITE_URL =
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_SITE_URL) ||
+  "https://kingpapacali.com";
+
 export const Route = createFileRoute("/historias/$slug")({
-  head: ({ params }) => ({
-    meta: [
-      { title: `${params.slug} — Historias del Reino` },
+  loader: async ({ params, context }) => {
+    const post = await context.queryClient.ensureQueryData({
+      queryKey: ["posts", "public", params.slug],
+      queryFn: () => getPublicPostBySlug(params.slug),
+    });
+    return { post };
+  },
+  head: ({ loaderData, params }) => {
+    const post = loaderData?.post;
+    const url = `${SITE_URL}/historias/${params.slug}`;
+    const titulo = post?.titulo ?? "Historia del Reino";
+    const desc = (post?.extracto || "Lo que pasa en el Reino, queda coronado.").slice(0, 158);
+    const title = `${titulo} — KINGPAPA`.slice(0, 60);
+    const img = post?.imagen?.startsWith("http") ? post.imagen : post?.imagen ? `${SITE_URL}${post.imagen}` : undefined;
+
+    const meta = [
+      { title },
+      { name: "description", content: desc },
       { property: "og:type", content: "article" },
-      { property: "og:url", content: `/historias/${params.slug}` },
-    ],
-    links: [{ rel: "canonical", href: `/historias/${params.slug}` }],
-  }),
+      { property: "og:title", content: title },
+      { property: "og:description", content: desc },
+      { property: "og:url", content: url },
+      { property: "article:section", content: post?.categoria ?? "Historias" },
+      { property: "article:published_time", content: post?.fecha },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: desc },
+    ].filter((m) => (m as any).content);
+
+    if (img) {
+      meta.push(
+        { property: "og:image", content: img },
+        { name: "twitter:image", content: img },
+      );
+    }
+
+    const scripts = post
+      ? [
+          {
+            type: "application/ld+json",
+            children: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Article",
+              headline: post.titulo,
+              description: post.extracto || undefined,
+              image: img ? [img] : undefined,
+              datePublished: post.fecha,
+              dateModified: post.fecha,
+              author: { "@type": "Organization", name: "KINGPAPA" },
+              publisher: {
+                "@type": "Organization",
+                name: "KINGPAPA",
+                logo: { "@type": "ImageObject", url: `${SITE_URL}/logo.png` },
+              },
+              mainEntityOfPage: { "@type": "WebPage", "@id": url },
+              articleSection: post.categoria,
+            }),
+          },
+          {
+            type: "application/ld+json",
+            children: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              itemListElement: [
+                { "@type": "ListItem", position: 1, name: "Inicio", item: SITE_URL },
+                { "@type": "ListItem", position: 2, name: "Historias", item: `${SITE_URL}/historias` },
+                { "@type": "ListItem", position: 3, name: post.titulo, item: url },
+              ],
+            }),
+          },
+        ]
+      : [];
+
+    return { meta, links: [{ rel: "canonical", href: url }], scripts };
+  },
   component: HistoriaDetalle,
   errorComponent: ({ error, reset }) => {
     const router = useRouter();
@@ -100,6 +171,9 @@ function HistoriaDetalle() {
             <img
               src={historia.imagen}
               alt={historia.titulo}
+              width={1200}
+              height={675}
+              fetchPriority="high"
               className="w-full h-auto object-cover"
             />
           </div>

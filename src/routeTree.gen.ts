@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SedesRouteImport } from './routes/sedes'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegistroRouteImport } from './routes/registro'
@@ -30,9 +31,15 @@ import { Route as MiReinoDatosRouteImport } from './routes/mi-reino.datos'
 import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
+import { Route as AdminContenidosIndexRouteImport } from './routes/admin.contenidos.index'
 import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
 import { Route as AdminContenidosIdRouteImport } from './routes/admin.contenidos.$id'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SedesRoute = SedesRouteImport.update({
   id: '/sedes',
   path: '/sedes',
@@ -138,6 +145,11 @@ const AdminContenidosRoute = AdminContenidosRouteImport.update({
   path: '/contenidos',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminContenidosIndexRoute = AdminContenidosIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminContenidosRoute,
+} as any)
 const AdminContenidosNuevoRoute = AdminContenidosNuevoRouteImport.update({
   id: '/nuevo',
   path: '/nuevo',
@@ -162,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
@@ -173,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/mi-reino/': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
+  '/admin/contenidos/': typeof AdminContenidosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -185,7 +199,7 @@ export interface FileRoutesByTo {
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
-  '/admin/contenidos': typeof AdminContenidosRouteWithChildren
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -196,6 +210,7 @@ export interface FileRoutesByTo {
   '/mi-reino': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
+  '/admin/contenidos': typeof AdminContenidosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -211,6 +226,7 @@ export interface FileRoutesById {
   '/registro': typeof RegistroRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
@@ -222,6 +238,7 @@ export interface FileRoutesById {
   '/mi-reino/': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
+  '/admin/contenidos/': typeof AdminContenidosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -238,6 +255,7 @@ export interface FileRouteTypes {
     | '/registro'
     | '/reset-password'
     | '/sedes'
+    | '/sitemap.xml'
     | '/admin/contenidos'
     | '/admin/usuarios'
     | '/historias/$slug'
@@ -249,6 +267,7 @@ export interface FileRouteTypes {
     | '/mi-reino/'
     | '/admin/contenidos/$id'
     | '/admin/contenidos/nuevo'
+    | '/admin/contenidos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -261,7 +280,7 @@ export interface FileRouteTypes {
     | '/registro'
     | '/reset-password'
     | '/sedes'
-    | '/admin/contenidos'
+    | '/sitemap.xml'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -272,6 +291,7 @@ export interface FileRouteTypes {
     | '/mi-reino'
     | '/admin/contenidos/$id'
     | '/admin/contenidos/nuevo'
+    | '/admin/contenidos'
   id:
     | '__root__'
     | '/'
@@ -286,6 +306,7 @@ export interface FileRouteTypes {
     | '/registro'
     | '/reset-password'
     | '/sedes'
+    | '/sitemap.xml'
     | '/admin/contenidos'
     | '/admin/usuarios'
     | '/historias/$slug'
@@ -297,6 +318,7 @@ export interface FileRouteTypes {
     | '/mi-reino/'
     | '/admin/contenidos/$id'
     | '/admin/contenidos/nuevo'
+    | '/admin/contenidos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -312,10 +334,18 @@ export interface RootRouteChildren {
   RegistroRoute: typeof RegistroRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SedesRoute: typeof SedesRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sedes': {
       id: '/sedes'
       path: '/sedes'
@@ -463,6 +493,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminContenidosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/contenidos/': {
+      id: '/admin/contenidos/'
+      path: '/'
+      fullPath: '/admin/contenidos/'
+      preLoaderRoute: typeof AdminContenidosIndexRouteImport
+      parentRoute: typeof AdminContenidosRoute
+    }
     '/admin/contenidos/nuevo': {
       id: '/admin/contenidos/nuevo'
       path: '/nuevo'
@@ -483,11 +520,13 @@ declare module '@tanstack/react-router' {
 interface AdminContenidosRouteChildren {
   AdminContenidosIdRoute: typeof AdminContenidosIdRoute
   AdminContenidosNuevoRoute: typeof AdminContenidosNuevoRoute
+  AdminContenidosIndexRoute: typeof AdminContenidosIndexRoute
 }
 
 const AdminContenidosRouteChildren: AdminContenidosRouteChildren = {
   AdminContenidosIdRoute: AdminContenidosIdRoute,
   AdminContenidosNuevoRoute: AdminContenidosNuevoRoute,
+  AdminContenidosIndexRoute: AdminContenidosIndexRoute,
 }
 
 const AdminContenidosRouteWithChildren = AdminContenidosRoute._addFileChildren(
@@ -552,6 +591,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegistroRoute: RegistroRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SedesRoute: SedesRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
