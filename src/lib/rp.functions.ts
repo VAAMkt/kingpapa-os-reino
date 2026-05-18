@@ -72,31 +72,6 @@ async function syncSedeMenu(
   sede: { id: string; rp_local_id: number | null },
 ): Promise<{ categorias: number; productos: number }> {
   const menu = await rpGetCatalogo(sede.rp_local_id!);
-
-  // === TRAMPA NUCLEAR — quitar tras diagnóstico de imágenes ===
-  // Guardamos el PRIMER producto crudo tal como llega de Restaurant.pe
-  // (sin pasar por extractMenu/normalize) en rp_sync_log para inspección
-  // limpia desde /admin/sincronizacion. Lanzamos error para detener la sync
-  // y obligar al admin a copiar el payload.
-  const rawFirst = Array.isArray((menu as { data?: unknown[] }).data)
-    ? ((menu as { data: unknown[] }).data[0] ?? null)
-    : null;
-  if (rawFirst) {
-    await supabase.from("rp_sync_log").insert({
-      tipo: "debug_raw_product",
-      sede_id: sede.id,
-      ok: true,
-      mensaje: "DEBUG_RAW_PRODUCT_0",
-      payload: rawFirst as never,
-    });
-    throw new Error(
-      "TRAMPA NUCLEAR activa: primer producto crudo guardado en rp_sync_log. " +
-        "Ve a /admin/sincronizacion, copia el payload del último log " +
-        "'debug_raw_product' y pégalo en el chat para arreglar la extracción de imágenes.",
-    );
-  }
-  // === FIN TRAMPA NUCLEAR ===
-
   const { categorias: catsRaw, productos: prodsRaw } = extractMenu(menu);
 
   const dedupeByRpId = <T extends { rp_id: number }>(arr: T[]): T[] => {
@@ -328,7 +303,8 @@ export const getMenuForSede = createServerFn({ method: "GET" })
          productos_master!inner (
            id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio,
            imagen_url, disponible, almacen_id, orden,
-           destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom
+           destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom,
+           modificadores, modificadores_raw
          )`,
       )
       .eq("sede_id", sede.id)
@@ -357,6 +333,8 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         es_mas_vendido: boolean;
         es_recomendado: boolean;
         etiqueta_custom: string | null;
+        modificadores: unknown;
+        modificadores_raw: unknown;
       };
     };
 
@@ -380,6 +358,8 @@ export const getMenuForSede = createServerFn({ method: "GET" })
           es_mas_vendido: pm.es_mas_vendido,
           es_recomendado: pm.es_recomendado,
           etiqueta_custom: pm.etiqueta_custom,
+          modificadores: pm.modificadores ?? [],
+          modificadores_raw: pm.modificadores_raw ?? {},
         };
       })
       .sort((a, b) => a.orden - b.orden);

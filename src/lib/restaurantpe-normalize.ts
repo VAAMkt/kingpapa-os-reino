@@ -161,8 +161,10 @@ export function normalizeProduct(
     : toNum(presentaciones[0]?.["producto_precio"] ?? r["productogeneral_precio"]);
   if (precio <= 0) return null;
 
-  // Imagen: cada producto debe tener la SUYA, no la del nodo general (esa es genérica).
-  // - Combos: productogeneral_urlimagen (es la del combo armado).
+  // Imagen: cada producto debe tener la SUYA.
+  // - Combos: muchas veces `productogeneral_urlimagen` viene null. La foto real
+  //   vive en `lista_productobase[0].producto_urlimagen` (la papa base del
+  //   combo). Fallback final a `lista_productoCambio[0]` o legacy.
   // - Normales: SIEMPRE la de la presentación primero (es la real). Solo si la
   //   presentación no trae imagen caemos al padre/legacy.
   const imgPresentacion = presentaciones[0]?.["producto_urlimagen"] as
@@ -170,9 +172,19 @@ export function normalizeProduct(
     | undefined;
   const imgGeneral = r["productogeneral_urlimagen"] as string | undefined;
   const imgLegacy = raw.producto_imagen as string | undefined;
+
+  const baseList = Array.isArray(r["lista_productobase"])
+    ? (r["lista_productobase"] as Record<string, unknown>[])
+    : [];
+  const imgBase = baseList[0]?.["producto_urlimagen"] as string | undefined;
+  const cambioList = Array.isArray(baseList[0]?.["lista_productoCambio"])
+    ? (baseList[0]!["lista_productoCambio"] as Record<string, unknown>[])
+    : [];
+  const imgCambio = cambioList[0]?.["producto_urlimagen"] as string | undefined;
+
   const imgRel = esCombo
-    ? (imgGeneral ?? imgPresentacion ?? imgLegacy)
-    : (imgPresentacion ?? imgLegacy ?? imgGeneral);
+    ? (imgGeneral ?? imgBase ?? imgCambio ?? imgLegacy)
+    : (imgPresentacion ?? imgLegacy ?? imgGeneral ?? imgBase);
   const imagen = resolveRpImage(imgRel);
 
   // Delivery activo: combo siempre true; normal => alguna presentación con producto_delivery==="1"
