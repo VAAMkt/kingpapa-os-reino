@@ -85,6 +85,7 @@ function MenuPage() {
 
   return (
     <>
+      <OrderIntentDialog />
       {/* HERO */}
       <section className="bg-kp-red text-kp-cheese border-b-4 border-kp-ink">
         <div className="mx-auto max-w-7xl px-4 md:px-6 py-10 md:py-14">
