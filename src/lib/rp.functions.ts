@@ -259,3 +259,90 @@ export const listRpLocales = createServerFn({ method: "GET" })
       lng: l.lng,
     }));
   });
+
+export const syncAllMenus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+
+    const { data: sedes, error: sedesErr } = await supabase
+      .from("sedes")
+      .select("id, nombre, rp_local_id")
+      .not("rp_local_id", "is", null);
+    if (sedesErr) throw new Error(sedesErr.message);
+
+    const targets = (sedes ?? []).filter((s) => s.rp_local_id != null);
+    if (targets.length === 0) {
+      return { ok: true, sedes: 0, categorias: 0, productos: 0, errores: [] as string[] };
+    }
+
+    // El catálogo es por dominio; lo traemos una sola vez.
+    const menu = await rpGetCatalogo();
+    const categorias = (menu.categorias ?? []).map(normalizeCategoria);
+    const productos = (menu.productos ?? []).map(normalizeProduct);
+
+    let totalCats = 0;
+    let totalProds = 0;
+    const errores: string[] = [];
+
+    for (const sede of targets) {
+      try {
+        const catIdByRpId = new Map<number, string>();
+        for (const c of categorias) {
+          const { data: up, error } = await supabase
+            .from("rp_categorias")
+            .upsert(
+              { sede_id: sede.id, rp_id: c.rp_id, nombre: c.nombre, orden: c.orden, activo: true },
+              { onConflict: "sede_id,rp_id" },
+            )
+            .select("id, rp_id")
+            .single();
+          if (error) throw new Error(`cat ${c.nombre}: ${error.message}`);
+          catIdByRpId.set(c.rp_id, up.id);
+          totalCats += 1;
+        }
+        for (const p of productos) {
+          const categoria_id = p.rp_categoria_id != null
+            ? catIdByRpId.get(p.rp_categoria_id) ?? null
+            : null;
+          const { error } = await supabase.from("rp_productos").upsert(
+            {
+              sede_id: sede.id,
+              rp_id: p.rp_id,
+              categoria_id,
+              nombre: p.nombre,
+              descripcion: p.descripcion,
+              precio: p.precio,
+              imagen_url: p.imagen_url,
+              disponible: p.disponible,
+              modificadores: p.modificadores as never,
+              almacen_id: p.almacen_id,
+            },
+            { onConflict: "sede_id,rp_id" },
+          );
+          if (error) throw new Error(`prod ${p.nombre}: ${error.message}`);
+          totalProds += 1;
+        }
+      } catch (e) {
+        errores.push(`${sede.nombre}: ${(e as Error).message}`);
+      }
+    }
+
+    await supabase.from("rp_sync_log").insert({
+      tipo: "menu_all",
+      payload: { sedes: targets.length, categorias: categorias.length, productos: productos.length } as never,
+      ok: errores.length === 0,
+      mensaje:
+        errores.length === 0
+          ? `OK: ${targets.length} sedes, ${categorias.length} cats, ${productos.length} productos cada una.`
+          : `Con errores en ${errores.length}/${targets.length}: ${errores.slice(0, 3).join(" | ")}`,
+    });
+
+    return {
+      ok: errores.length === 0,
+      sedes: targets.length,
+      categorias: categorias.length,
+      productos: productos.length,
+      errores,
+    };
+  });
