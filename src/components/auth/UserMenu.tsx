@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -12,8 +13,13 @@ import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
 
 export function UserMenu() {
   const { user, isAuthenticated, isAdmin, signOut, loading } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  if (loading) return null;
+  // Evita hydration mismatch: durante SSR/primer render mostramos placeholder estable.
+  if (!mounted || loading) {
+    return <div className="w-[88px] h-[34px]" aria-hidden />;
+  }
 
   if (!isAuthenticated) {
     return (
