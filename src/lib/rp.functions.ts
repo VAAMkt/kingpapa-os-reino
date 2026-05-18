@@ -62,6 +62,75 @@ function extractMenu(menu: unknown) {
   return { categorias, productos };
 }
 
+// Sincroniza el menú de UNA sede usando upserts en lote (3 llamadas a la base
+// en vez de cientos). Devuelve los conteos. Lanza error si algo falla.
+async function syncSedeMenu(
+  supabase: Parameters<typeof normalizeBranch> extends never ? never : import("@supabase/supabase-js").SupabaseClient,
+  sede: { id: string; rp_local_id: number | null },
+): Promise<{ categorias: number; productos: number }> {
+  const menu = await rpGetCatalogo(sede.rp_local_id!);
+  const { categorias, productos } = extractMenu(menu);
+
+  if (categorias.length === 0 && productos.length === 0) {
+    return { categorias: 0, productos: 0 };
+  }
+
+  // 1) Bulk upsert categorías y recibir el mapeo rp_id -> id en una sola llamada.
+  const catIdByRpId = new Map<number, string>();
+  if (categorias.length > 0) {
+    const { data: upsertedCats, error: catErr } = await supabase
+      .from("rp_categorias")
+      .upsert(
+        categorias.map((c) => ({
+          sede_id: sede.id,
+          rp_id: c.rp_id,
+          nombre: c.nombre,
+          orden: c.orden,
+          activo: true,
+        })),
+        { onConflict: "sede_id,rp_id" },
+      )
+      .select("id, rp_id");
+    if (catErr) throw new Error(`categorías: ${catErr.message}`);
+    for (const row of upsertedCats ?? []) {
+      catIdByRpId.set(row.rp_id as number, row.id as string);
+    }
+  }
+
+  // 2) Bulk upsert productos en una sola llamada.
+  if (productos.length > 0) {
+    const rows = productos.map((p) => ({
+      sede_id: sede.id,
+      rp_id: p.rp_id,
+      categoria_id:
+        p.rp_categoria_id != null ? catIdByRpId.get(p.rp_categoria_id) ?? null : null,
+      nombre: p.nombre,
+      descripcion: p.descripcion,
+      precio: p.precio,
+      imagen_url: p.imagen_url,
+      disponible: p.disponible,
+      modificadores: p.modificadores as never,
+      almacen_id: p.almacen_id,
+    }));
+    const { error: prodErr } = await supabase
+      .from("rp_productos")
+      .upsert(rows, { onConflict: "sede_id,rp_id" });
+    if (prodErr) throw new Error(`productos: ${prodErr.message}`);
+  }
+
+  // 3) Marcar como no disponibles los que ya no vienen en el catálogo (1 query).
+  const incomingIds = productos.map((p) => p.rp_id);
+  if (incomingIds.length > 0) {
+    await supabase
+      .from("rp_productos")
+      .update({ disponible: false })
+      .eq("sede_id", sede.id)
+      .not("rp_id", "in", `(${incomingIds.join(",")})`);
+  }
+
+  return { categorias: categorias.length, productos: productos.length };
+}
+
 export const syncBranches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
