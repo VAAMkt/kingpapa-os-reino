@@ -287,8 +287,8 @@ export const syncAllMenus = createServerFn({ method: "POST" })
       try {
         // El catálogo es por LOCAL, lo traemos para cada sede.
         const menu = await rpGetCatalogo(sede.rp_local_id!);
-        const categorias = (menu.categorias ?? []).map(normalizeCategoria);
-        const productos = (menu.productos ?? []).map(normalizeProduct);
+        const categorias = (menu.listaCategorias ?? []).map(normalizeCategoria);
+        const productos = (menu.data ?? []).map(normalizeProduct);
         totalCatsSchema = categorias.length;
         totalProdsSchema = productos.length;
 
