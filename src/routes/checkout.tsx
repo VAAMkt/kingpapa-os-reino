@@ -36,8 +36,15 @@ function CheckoutPage() {
     );
   }
 
+  const esRecoger = !sede?.enCobertura;
+  const direccion = sede?.direccionTexto ?? sede?.label ?? "Sin ubicación";
+  const detalles = sede?.detalles ? ` (${sede.detalles})` : "";
+
   const waText = encodeURIComponent(
-    `Hola KINGPAPA, quiero pedir desde ${sede?.label ?? "mi ubicación"}:\n` +
+    `Hola KINGPAPA, quiero pedir (${esRecoger ? "RECOGER en sede" : "DELIVERY"}):\n` +
+      (esRecoger
+        ? `Sede: ${sede?.label ?? ""}\n`
+        : `Dirección: ${direccion}${detalles}\n`) +
       items.map((i) => `• ${i.cantidad}× ${i.nombre} (${cop(i.precio * i.cantidad)})`).join("\n") +
       `\nTotal: ${cop(subtotal)}`,
   );
@@ -49,11 +56,16 @@ function CheckoutPage() {
       <h1 className="font-display text-5xl uppercase leading-none">Confirma tu corona</h1>
 
       <BrutalCard tone="cheese" className="p-5">
-        <p className="text-xs font-display uppercase">Sede</p>
-        <p className="mt-1">{sede?.label ?? "Sin ubicación"}</p>
-        <p className="text-xs mt-1">
-          Modo: <strong>{sede?.enCobertura ? "Delivery" : "Recoger en sede"}</strong>
+        <p className="text-xs font-display uppercase">
+          {esRecoger ? "Recoger en sede" : "Delivery a"}
         </p>
+        <p className="mt-1 font-display text-lg">{sede?.label ?? "Sin ubicación"}</p>
+        {!esRecoger && sede?.direccionTexto && (
+          <p className="text-xs mt-1">{sede.direccionTexto}{detalles}</p>
+        )}
+        {sede?.distanciaKm != null && (
+          <p className="text-xs mt-1 opacity-70">Distancia: {sede.distanciaKm} km</p>
+        )}
       </BrutalCard>
 
       <BrutalCard tone="cheese" className="p-5">

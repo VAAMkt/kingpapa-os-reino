@@ -4,15 +4,23 @@ import { useSyncExternalStore } from "react";
 import type { SedeRow } from "@/lib/sedes";
 
 const STORAGE_KEY = "kp.activeSede";
+export const DEFAULT_COBERTURA_KM = 7;
+
+export type ActiveSedeSource = "gps" | "address" | "manual" | "exploring";
 
 export type ActiveSede = {
   sedeId: string;
   slug: string;
   label: string;
-  source: "gps" | "address" | "manual";
+  source: ActiveSedeSource;
   distanciaKm?: number;
   enCobertura: boolean;
   ts: number;
+  // v2: ubicación del usuario
+  lat?: number;
+  lng?: number;
+  direccionTexto?: string;
+  detalles?: string;
 };
 
 type Listener = () => void;
@@ -54,6 +62,18 @@ export function clearActiveSede() {
   emit();
 }
 
+/** Sede "vitrina" para que el usuario navegue sin elegir ubicación todavía. */
+export function setExploringSede(sede: SedeRow) {
+  setActiveSede({
+    sedeId: sede.id,
+    slug: sede.slug,
+    label: `Explorando · ${sede.nombre}`,
+    source: "exploring",
+    enCobertura: false,
+    ts: Date.now(),
+  });
+}
+
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e: StorageEvent) => {
     if (e.key === STORAGE_KEY) {
@@ -73,7 +93,6 @@ function subscribe(l: Listener) {
 export function useActiveSede(): ActiveSede | null {
   return useSyncExternalStore(subscribe, read, () => null);
 }
-
 
 // Haversine en km.
 export function haversineKm(
@@ -108,7 +127,7 @@ export function pickNearestSede(
   let best: NearestResult | null = null;
   for (const s of conGeo) {
     const d = haversineKm(point, { lat: Number(s.lat), lng: Number(s.lng) });
-    const radio = Number(s.cobertura_radio_km ?? 5);
+    const radio = Number(s.cobertura_radio_km ?? DEFAULT_COBERTURA_KM) || DEFAULT_COBERTURA_KM;
     const cur: NearestResult = {
       sede: s,
       distanciaKm: d,
