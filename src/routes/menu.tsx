@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { BrutalCard, BrutalBadge, BrutalChip, SectionHeading } from "@/components/ui-kp/Brutal";
+import { BrutalCard, BrutalBadge, BrutalChip } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { OrderRouter } from "@/components/kp/OrderRouter";
 import { ProductCard } from "@/components/kp/ProductCard";
