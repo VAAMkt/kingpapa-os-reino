@@ -532,4 +532,4 @@ function SortableProdRow({
     </div>
   );
 }
-}
+
