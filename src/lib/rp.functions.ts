@@ -146,6 +146,7 @@ async function syncSedeMenu(
         imagen_url: p.imagen_url,
         disponible: p.disponible,
         modificadores: p.modificadores,
+        modificadores_raw: p.modificadores_raw,
         almacen_id: p.almacen_id,
       };
       if (!existingProdIds.has(p.rp_id)) base.orden = p.orden;
