@@ -1,9 +1,15 @@
+import { useEffect } from "react";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import type { Producto } from "@/types/kp";
 import { addItem } from "@/lib/cart";
 import { useActiveSede } from "@/lib/active-sede";
 import { openLocationGate } from "@/components/kp/LocationGate";
+import {
+  setPendingIntent,
+  GATE_CONFIRMED_EVENT,
+  runPendingIntent,
+} from "@/lib/pending-intent";
 import { toast } from "sonner";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
@@ -30,8 +36,20 @@ function HambreBar({ n }: { n: number }) {
   );
 }
 
+// Listener global único: cualquier gate confirmado dispara la intención pendiente.
+let listenerInstalled = false;
+function ensureListener() {
+  if (typeof window === "undefined" || listenerInstalled) return;
+  listenerInstalled = true;
+  window.addEventListener(GATE_CONFIRMED_EVENT, () => {
+    runPendingIntent();
+  });
+}
+
 export function ProductCard({ producto, compact = false }: { producto: Producto; compact?: boolean }) {
   const sede = useActiveSede();
+  useEffect(() => { ensureListener(); }, []);
+
   const ocasionLabel: Record<string, string> = {
     parche: "parche",
     "after-rumba": "after rumba",
@@ -40,6 +58,29 @@ export function ProductCard({ producto, compact = false }: { producto: Producto;
     "antojo-mortal": "antojo mortal",
     solo: "solo",
   };
+
+  function onPedir() {
+    const tieneUbicacionReal = !!sede && sede.source !== "exploring";
+    if (!tieneUbicacionReal) {
+      setPendingIntent({
+        type: "add",
+        productoId: producto.id,
+        nombre: producto.nombre,
+        precio: producto.precioDesde,
+        imagen: producto.imagen,
+      });
+      openLocationGate();
+      toast.message("Dinos a dónde te lo llevamos");
+      return;
+    }
+    addItem({
+      productoId: producto.id,
+      nombre: producto.nombre,
+      precio: producto.precioDesde,
+      imagen: producto.imagen,
+    });
+    toast.success(`${producto.nombre} al carrito`);
+  }
 
   return (
     <BrutalCard tone="cheese" className="overflow-hidden flex flex-col">
@@ -77,24 +118,7 @@ export function ProductCard({ producto, compact = false }: { producto: Producto;
 
         <div className="mt-auto pt-3 flex items-center justify-between gap-2">
           <span className="font-display text-2xl">{cop(producto.precioDesde)}</span>
-          <BrutalButton
-            size="sm"
-            variant="primary"
-            onClick={() => {
-              if (!sede || sede.source === "exploring") {
-                openLocationGate();
-                toast.message("Confírmanos tu ubicación primero");
-                return;
-              }
-              addItem({
-                productoId: producto.id,
-                nombre: producto.nombre,
-                precio: producto.precioDesde,
-                imagen: producto.imagen,
-              });
-              toast.success(`${producto.nombre} al carrito`);
-            }}
-          >
+          <BrutalButton size="sm" variant="primary" onClick={onPedir}>
             Pedir esta corona
           </BrutalButton>
         </div>

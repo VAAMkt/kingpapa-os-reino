@@ -146,6 +146,7 @@ export type Database = {
           id: string
           imagen_url: string | null
           modificadores: Json
+          modificadores_raw: Json
           nombre: string
           orden: number
           precio: number
@@ -163,6 +164,7 @@ export type Database = {
           id?: string
           imagen_url?: string | null
           modificadores?: Json
+          modificadores_raw?: Json
           nombre: string
           orden?: number
           precio?: number
@@ -180,6 +182,7 @@ export type Database = {
           id?: string
           imagen_url?: string | null
           modificadores?: Json
+          modificadores_raw?: Json
           nombre?: string
           orden?: number
           precio?: number

@@ -1,73 +1,131 @@
+# Plan: Catálogo Maestro Global + Flujo "Craving First"
 
-# LocationGate v2 — Flujo Gangster (no bloqueante, con mapa)
+Ejecuto en 3 fases para minimizar riesgo. Fases 1 y 2 las puedes mergear hoy. Fase 3 toca BD y la dejo para confirmar contigo antes de migrar.
 
-## Prerrequisito: clave de Google Maps para el navegador
+---
 
-Hoy en el proyecto sólo existe `GOOGLE_MAPS_API_KEY` (server-side, usada en `geocode.functions.ts`). **No** existe `VITE_GOOGLE_MAPS_API_KEY` ni una clave restringida por *referrer* segura para embeber en el HTML. Para cargar el Maps JavaScript API en el navegador necesitamos una clave pública.
+## FASE 1 — Motor de datos real (normalizador quirúrgico)
 
-**Recomiendo conectar el connector "Google Maps Platform" de Lovable** (un click). Eso expone `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` ya restringida por dominio — es lo que usaremos para Maps JS + Places (New) en el cliente. El `GOOGLE_MAPS_API_KEY` server-side se mantiene para Geocoding desde server functions.
+**Archivo:** `src/lib/restaurantpe-normalize.ts`
 
-Confírmame si quieres que conectemos ese connector antes de implementar (es el camino limpio). Si prefieres usar tu propia API key, te pediré subirla como `VITE_GOOGLE_MAPS_API_KEY`.
+Reescribir `normalizeProduct` con la lógica condicional `escombo`:
 
-## Cambios por paso
+```ts
+const esCombo = String(r["productogeneral_escombo"] ?? "0") === "1";
 
-### Paso 1 — Navegación libre (sin esposas)
-- En `LocationGate`: el modal sigue auto-abriendo en el primer ingreso si no hay sede activa, **pero**:
-  - Se puede cerrar con `Esc` y clic afuera (quitar los `e.preventDefault()`).
-  - Nuevo botón secundario "Solo quiero explorar la carta" (`BrutalButton variant="ghost"`).
-  - Al cerrarlo sin elegir, seteamos una "sede vitrina" (la primera publicada) con `source: "exploring"` y `enCobertura: false` para que `/menu` cargue productos.
-- En `ProductCard` (botón "Pedir esta corona"): si la sede activa es `exploring` o `enCobertura === false`, abrimos el `LocationGate` antes de hacer `addItem`. Es ahí donde forzamos la validación, no al entrar.
-- Añadir `"exploring"` al union `source` en `src/lib/active-sede.ts`.
+// Precio
+const presentaciones = Array.isArray(raw.lista_presentacion) ? raw.lista_presentacion : [];
+const precio = esCombo
+  ? toNum(r["productogeneral_precio"] ?? r["productogeneral_preciofijo"])
+  : toNum(presentaciones[0]?.["producto_precio"]);
 
-### Paso 2 — Mapa visual + pin arrastrable
-- Nuevo componente `src/components/kp/GateMap.tsx`:
-  - Carga Maps JS con `loading=async&callback=...&channel=...` usando `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY`.
-  - Mantiene un `google.maps.Map` y un `google.maps.Marker` con `draggable: true` (no usamos `AdvancedMarkerElement` para no exigir `mapId`).
-  - Props: `center`, `onPinChange(lat, lng)`.
-  - Loader único a nivel de módulo (no recargar el script).
-  - Render fallback con `<Skeleton>` mientras se inicializa.
-- `LocationGate` mantiene `pin: {lat, lng} | null`. Cuando hay pin, mostramos el mapa y la dirección humana debajo.
+// Imagen
+const imgRel =
+  (r["productogeneral_urlimagen"] as string | undefined) ??
+  (presentaciones[0]?.["producto_urlimagen"] as string | undefined);
+const imagen = resolveRpImage(imgRel);
 
-### Paso 3 — Reverse geocoding + dirección editable
-- Nueva server function `reverseGeocode(lat, lng)` en `src/lib/geocode.functions.ts` (mismo patrón que `geocodeAddress`, endpoint `latlng=...`, `region=co`, `language=es`).
-- Al obtener pin (GPS, autocomplete o arrastrar marker), llamamos `reverseGeocode` y mostramos:
-  - `BrutalInput` con la dirección formateada (editable).
-  - `BrutalInput` para "Detalles (Apto, casa, referencia)".
-- Al confirmar, guardamos en `ActiveSede`:
-  - Extendemos el tipo con `direccionTexto?: string`, `detalles?: string`, `lat?: number`, `lng?: number`.
-  - Migración suave: campos opcionales, lectura existente sigue funcionando.
+// Delivery activo
+const activoDelivery = esCombo
+  ? true
+  : presentaciones.some((p) => String(p["producto_delivery"] ?? "0") === "1");
 
-### Paso 4 — Matemática de cobertura + Pickup fallback
-- `pickNearestSede` ya usa Haversine en km correctamente — el bug real es que muchas sedes tienen `lat/lng` en null (filtramos y devolvemos `null` → mensaje "no hay sedes"). Verificación rápida via `psql` antes de implementar.
-- Cambios:
-  - Radio por defecto: subir de 5 km → **7 km** cuando `cobertura_radio_km` es null/0.
-  - Si todas las sedes carecen de coordenadas: caer al primer sede publicada como "vitrina" + mostrar aviso "Sólo recoger".
-  - Si el punto del usuario está fuera del radio de la sede más cercana: **no bloquear**. Mostrar pantalla "Estás fuera de zona de domicilio — recoges en {sede}", con `BrutalButton` "Pedir para recoger" que activa `pickup` en el `ActiveSede` (`enCobertura: false` ya lo modela; el `CartDrawer` ya muestra "Recoger" en ese caso).
-- En `/checkout`: si `enCobertura === false`, ocultar input de dirección de entrega y mostrar la dirección de la sede para recoger.
-
-### Paso 5 — Skeletons y feedback visual
-- Mientras se pide GPS / carga Maps JS / corre reverse geocoding: usar `<Skeleton>` (ya existe en `src/components/ui/skeleton.tsx`) en lugar de sólo texto "Leyendo GPS…".
-- Toasts con `sonner` ya están — añadir uno para "Pin movido, recalculando dirección…" con `loading`/`success` ids.
-
-## Archivos a tocar
-
-```text
-src/lib/active-sede.ts            (extender ActiveSede, añadir "exploring", subir radio default a 7)
-src/lib/geocode.functions.ts      (añadir reverseGeocode)
-src/components/kp/LocationGate.tsx (rediseño UX: navegable, mapa, dirección editable, pickup fallback)
-src/components/kp/GateMap.tsx     (NUEVO — mapa + marker arrastrable)
-src/components/kp/ProductCard.tsx  (gate en click "Pedir" si exploring/fuera cobertura)
-src/routes/checkout.tsx           (modo recoger vs delivery según enCobertura)
+if (precio <= 0 || !activoDelivery) return null;
 ```
 
-No se tocan: `cart.ts`, otros componentes, ni el estilo Neubrutalista global.
+Mantener el resto de campos. Añadir a la fila guardada un campo `modificadores_raw` con `{ listaModificadores, lista_productobase, lista_productoadicional }` para upselling futuro — requiere columna `modificadores_raw jsonb` en `rp_productos` (default `'{}'::jsonb`). Migración pequeña incluida.
 
-## Fuera de alcance
-- Sustituir el connector Google Maps por Mapbox/Leaflet.
-- Autocomplete Places (lo dejamos como mejora siguiente; ahora seguimos con `geocodeAddress` por texto + el mapa para precisión).
-- Pago real (sigue WhatsApp).
+**Verificación:** correr `syncMenuForSede` con una sede real y confirmar que aparecen combos (precio > 0) y desaparecen insumos.
 
-## Confirmaciones que necesito antes de implementar
-1. ¿Conectamos el connector **Google Maps Platform** de Lovable para tener la browser key? (recomendado)
-2. ¿OK subir el radio default a 7 km cuando la sede no define el suyo?
-3. ¿Confirmo que la sede "vitrina" (modo explorar) sea la primera publicada por `orden`?
+---
+
+## FASE 2 — Flujo "Craving First" (UX sin bloqueo)
+
+### 2.1 — Quitar auto-open del LocationGate
+`src/components/kp/LocationGate.tsx`: eliminar el `useEffect` que hace `setOpen(true)` cuando no hay sede activa. El gate **solo** abre vía `openLocationGate()` (evento `kp:open-location-gate`).
+
+### 2.2 — Auto-seleccionar sede "vitrina" al cargar /menu
+`src/routes/menu.tsx`: en un `useEffect`, si no hay `activeSede` y `sedes.length > 0`, llamar `setExploringSede(sedes[0])` automáticamente. Así el menú renderiza solo, sin modal.
+
+### 2.3 — Pill "📍 Ingresa tu ubicación" en el header
+`src/components/kp/Layout.tsx` (header): mostrar un `BrutalButton` permanente que llame `openLocationGate()`. Texto dinámico:
+- sin sede o `source === "exploring"` → "📍 Ingresa tu ubicación"
+- con sede → "📍 {direccionTexto corta}"
+
+Quita el render condicional del `ActiveSedePill` cuando esté vacío — el pill del header lo reemplaza.
+
+### 2.4 — Trigger del gate en ProductCard
+Ya existe (`if (!sede || source === "exploring") openLocationGate()`). Verificar que después de confirmar ubicación, el item se añade al carrito automáticamente. Para esto:
+- Añadir a `LocationGate` un callback opcional `onConfirmed?: (sede) => void` y en `ProductCard` pasar una intención pendiente (guardar el producto en un ref/zustand mini-store `pendingProductIntent`). Tras confirmar, `addItem` + `openCart()`.
+- Alternativa simple: tras confirmar gate exitoso, emitir evento `kp:gate-confirmed` y `ProductCard` re-ejecuta su `onClick` pendiente. Voy con la simple.
+
+### 2.5 — Google Places Autocomplete (New)
+Reemplazar el `BrutalInput` + botón "Buscar" del gate por `PlaceAutocompleteElement` (Places API New, browser key). Mantener fallback texto si la API no carga. Cuando el usuario selecciona una predicción → mover pin y reverseGeocode.
+
+Archivo nuevo: `src/components/kp/PlacesAutocomplete.tsx`. Carga Maps JS con `libraries=places` (ya cargamos Maps JS en `GateMap`; centralizar el loader en `src/lib/google-maps.ts` para no duplicar scripts).
+
+### 2.6 — Pickup fallback
+Ya implementado. Verificar que en checkout se vea claramente "RECOGER EN TIENDA" cuando `enCobertura === false`.
+
+---
+
+## FASE 3 — Catálogo Maestro Global (requiere confirmación)
+
+**Cambio grande de modelo.** Hoy `rp_categorias` y `rp_productos` son **por sede** (`sede_id` NOT NULL). El usuario pide un catálogo único administrado una sola vez; cada sede solo prende/apaga disponibilidad y stock.
+
+### Modelo propuesto
+
+```text
+productos_master (global)
+  id uuid pk
+  rp_productogeneral_id int unique   -- id estable del POS
+  categoria_master_id uuid
+  nombre, descripcion, precio_base, imagen_url
+  modificadores_raw jsonb
+  orden int
+  activo bool
+
+categorias_master (global)
+  id uuid pk
+  rp_categoria_id int unique
+  nombre, orden, activo
+
+sede_producto_overrides
+  sede_id uuid, producto_master_id uuid  (pk compuesta)
+  disponible bool default true
+  precio_override numeric null
+  stock_cache numeric null
+  almacen_id int
+```
+
+Sync: `syncBranches` igual. `syncAllMenus` ahora upsertea **a `*_master`** (no a tablas por-sede) y crea/actualiza filas en `sede_producto_overrides` (disponibilidad por sede).
+
+Lectura pública (`getMenuForSede`): JOIN `productos_master` con `sede_producto_overrides WHERE sede_id = X AND disponible = true`.
+
+Admin (`/admin/menu`): ya no pide sede; lista de `productos_master`. Reorden global, ocultar inactivos global. Un panel separado "Disponibilidad por sede" para apagar productos por sede puntual.
+
+### Migración de datos
+1. Crear tablas nuevas.
+2. Backfill: para cada `(rp_productos)` agrupar por `rp_id` → insertar 1 fila en `productos_master`; insertar overrides por sede.
+3. Reescribir `rp.functions.ts` (`syncAllMenus`, `getMenuForSede`, `listAdminMenu`, `update*`, `reorder*`).
+4. Reescribir `src/routes/admin.menu.tsx` (sin selector de sede).
+5. Mantener `rp_categorias`/`rp_productos` un tiempo como `_legacy` para rollback, después drop.
+
+### Detalles técnicos para no romper RLS
+- `productos_master`/`categorias_master`: lectura pública si `activo=true`; CRUD solo editor/super_admin (mismo patrón actual).
+- `sede_producto_overrides`: lectura pública; CRUD editor/super_admin.
+
+---
+
+## Lo que NO está en este plan
+- Cambios al diseño Neubrutalista (intacto).
+- Pagos reales en checkout.
+- WhatsApp template del checkout (ya existe).
+
+---
+
+## Preguntas antes de ejecutar
+
+1. **Fase 3 (catálogo global) — ¿la ejecuto en este mismo loop o prefieres mergear Fases 1–2 primero y probar?** Es la migración más invasiva (cambia el modelo de BD y reescribe `/admin/menu`).
+2. **Places Autocomplete (New)** — confirmo que uso `PlaceAutocompleteElement` browser-side con la `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` ya configurada. ✅ (no requiere acción tuya)
+3. **`modificadores_raw`** — ¿guardo el JSON crudo completo (`listaModificadores + lista_productobase + lista_productoadicional`) o solo `listaModificadores`?
