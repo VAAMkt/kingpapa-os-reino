@@ -18,6 +18,7 @@ import { Route as MiReinoRouteImport } from './routes/mi-reino'
 import { Route as MenuRouteImport } from './routes/menu'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HistoriasRouteImport } from './routes/historias'
+import { Route as GraciasRouteImport } from './routes/gracias'
 import { Route as FranquiciasRouteImport } from './routes/franquicias'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CheckoutRouteImport } from './routes/checkout'
@@ -85,6 +86,11 @@ const LoginRoute = LoginRouteImport.update({
 const HistoriasRoute = HistoriasRouteImport.update({
   id: '/historias',
   path: '/historias',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GraciasRoute = GraciasRouteImport.update({
+  id: '/gracias',
+  path: '/gracias',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FranquiciasRoute = FranquiciasRouteImport.update({
@@ -209,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
+  '/gracias': typeof GraciasRoute
   '/historias': typeof HistoriasRouteWithChildren
   '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
@@ -242,6 +249,7 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
+  '/gracias': typeof GraciasRoute
   '/historias': typeof HistoriasRouteWithChildren
   '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
@@ -274,6 +282,7 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
+  '/gracias': typeof GraciasRoute
   '/historias': typeof HistoriasRouteWithChildren
   '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
@@ -310,6 +319,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/dashboard'
     | '/franquicias'
+    | '/gracias'
     | '/historias'
     | '/login'
     | '/menu'
@@ -343,6 +353,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/dashboard'
     | '/franquicias'
+    | '/gracias'
     | '/historias'
     | '/login'
     | '/menu'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/dashboard'
     | '/franquicias'
+    | '/gracias'
     | '/historias'
     | '/login'
     | '/menu'
@@ -409,6 +421,7 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   DashboardRoute: typeof DashboardRoute
   FranquiciasRoute: typeof FranquiciasRoute
+  GraciasRoute: typeof GraciasRoute
   HistoriasRoute: typeof HistoriasRouteWithChildren
   LoginRoute: typeof LoginRoute
   MenuRoute: typeof MenuRoute
@@ -483,6 +496,13 @@ declare module '@tanstack/react-router' {
       path: '/historias'
       fullPath: '/historias'
       preLoaderRoute: typeof HistoriasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gracias': {
+      id: '/gracias'
+      path: '/gracias'
+      fullPath: '/gracias'
+      preLoaderRoute: typeof GraciasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/franquicias': {
@@ -738,6 +758,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   DashboardRoute: DashboardRoute,
   FranquiciasRoute: FranquiciasRoute,
+  GraciasRoute: GraciasRoute,
   HistoriasRoute: HistoriasRouteWithChildren,
   LoginRoute: LoginRoute,
   MenuRoute: MenuRoute,
