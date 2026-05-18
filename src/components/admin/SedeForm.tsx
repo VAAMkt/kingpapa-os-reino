@@ -34,6 +34,10 @@ const SedeSchema = z.object({
   maps_url: z.string().url("URL inválida").optional().nullable(),
   orden: z.number().int().min(0).max(9999),
   publicado: z.boolean(),
+  rp_local_id: z.number().int().min(0).max(999999).nullable().optional(),
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lng: z.number().min(-180).max(180).nullable().optional(),
+  cobertura_radio_km: z.number().min(0).max(50),
 });
 
 type FormState = z.input<typeof SedeSchema>;
@@ -54,6 +58,10 @@ const emptyState: FormState = {
   maps_url: "",
   orden: 0,
   publicado: true,
+  rp_local_id: null,
+  lat: null,
+  lng: null,
+  cobertura_radio_km: 5,
 };
 
 const labelCls = "block font-display uppercase text-xs mb-1";
@@ -87,6 +95,10 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           maps_url: initial.maps_url ?? "",
           orden: initial.orden,
           publicado: initial.publicado,
+          rp_local_id: initial.rp_local_id ?? null,
+          lat: initial.lat != null ? Number(initial.lat) : null,
+          lng: initial.lng != null ? Number(initial.lng) : null,
+          cobertura_radio_km: initial.cobertura_radio_km != null ? Number(initial.cobertura_radio_km) : 5,
         }
       : emptyState,
   );
@@ -106,6 +118,13 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         whatsapp: form.whatsapp?.trim() ? form.whatsapp.replace(/\D/g, "") : null,
         maps_url: form.maps_url?.trim() ? form.maps_url.trim() : null,
         orden: Number(form.orden) || 0,
+        rp_local_id:
+          form.rp_local_id != null && String(form.rp_local_id).length > 0
+            ? Number(form.rp_local_id)
+            : null,
+        lat: form.lat != null && String(form.lat).length > 0 ? Number(form.lat) : null,
+        lng: form.lng != null && String(form.lng).length > 0 ? Number(form.lng) : null,
+        cobertura_radio_km: Number(form.cobertura_radio_km) || 5,
       };
       const parsed = SedeSchema.safeParse(cleaned);
       if (!parsed.success) {
@@ -244,6 +263,63 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
             {errors.maps_url && <p className="text-xs text-kp-red">{errors.maps_url}</p>}
           </div>
         </div>
+      </BrutalCard>
+
+      <BrutalCard tone="cheese" className="p-5 space-y-3">
+        <h3 className="font-display uppercase text-lg">Restaurant.pe & ubicación</h3>
+        <div className="grid md:grid-cols-4 gap-3">
+          <div className={fieldCls}>
+            <label className={labelCls}>local_id Restaurant.pe</label>
+            <BrutalInput
+              type="number"
+              value={form.rp_local_id ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, rp_local_id: e.target.value ? Number(e.target.value) : null })
+              }
+              placeholder="1"
+            />
+            {errors.rp_local_id && <p className="text-xs text-kp-red">{errors.rp_local_id}</p>}
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Latitud</label>
+            <BrutalInput
+              type="number"
+              step="any"
+              value={form.lat ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, lat: e.target.value ? Number(e.target.value) : null })
+              }
+              placeholder="3.4516"
+            />
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Longitud</label>
+            <BrutalInput
+              type="number"
+              step="any"
+              value={form.lng ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, lng: e.target.value ? Number(e.target.value) : null })
+              }
+              placeholder="-76.5320"
+            />
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Cobertura (km)</label>
+            <BrutalInput
+              type="number"
+              step="0.5"
+              value={form.cobertura_radio_km}
+              onChange={(e) =>
+                setForm({ ...form, cobertura_radio_km: Number(e.target.value) })
+              }
+            />
+          </div>
+        </div>
+        <p className="text-xs text-kp-ink/70">
+          local_id es el ID numérico de la sede en Restaurant.pe. Necesario para sincronizar menú
+          y crear pedidos. Lat/Lng se usan para sugerir sede por ubicación del usuario.
+        </p>
       </BrutalCard>
 
       <BrutalCard tone="cheese" className="p-5 space-y-3">
