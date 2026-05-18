@@ -458,7 +458,7 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = {};
+    const patch: { orden?: number; disponible?: boolean } = {};
     if (data.orden !== undefined) patch.orden = data.orden;
     if (data.disponible !== undefined) patch.disponible = data.disponible;
     if (Object.keys(patch).length === 0) return { ok: true };
