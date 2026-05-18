@@ -8,6 +8,7 @@ import { listAllSedes } from "@/lib/sedes";
 import {
   syncBranches,
   syncMenuForSede,
+  syncAllMenus,
   listSyncLog,
 } from "@/lib/rp.functions";
 
