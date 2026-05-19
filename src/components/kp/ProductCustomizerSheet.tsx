@@ -311,6 +311,7 @@ function UpsellSection({ currentId }: { currentId: string }) {
                   nombre: p.nombre,
                   precio: p.precioDesde,
                   imagen: p.imagen,
+                  silent: true,
                 });
                 toast.success(`${p.nombre} sumado`);
               }}
