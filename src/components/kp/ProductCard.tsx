@@ -77,12 +77,14 @@ export function ProductCard({
         className="overflow-hidden flex flex-col h-full"
       >
         <div className={`relative ${isHero ? "aspect-[16/10]" : "aspect-square"} bg-kp-ink`}>
-          <img
-            src={producto.imagen}
-            alt={producto.nombre}
-            loading="lazy"
-            className="w-full h-full object-cover"
-          />
+          {producto.imagen && (
+            <img
+              src={producto.imagen}
+              alt={producto.nombre}
+              loading="lazy"
+              className="w-full h-full object-cover"
+            />
+          )}
           <div className="absolute top-3 left-3 flex flex-col gap-1 items-start">
             {producto.esNuevo && <BrutalBadge tone="lime">Nuevo</BrutalBadge>}
             {producto.esMasVendido && <BrutalBadge tone="red">Más vendido</BrutalBadge>}

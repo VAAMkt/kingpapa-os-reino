@@ -117,11 +117,13 @@ function CustomizerBody({
     <div className="flex flex-col">
       {/* Hero */}
       <div className="relative aspect-[16/10] bg-kp-ink">
-        <img
-          src={producto.imagen}
-          alt={producto.nombre}
-          className="w-full h-full object-cover"
-        />
+        {producto.imagen && (
+          <img
+            src={producto.imagen}
+            alt={producto.nombre}
+            className="w-full h-full object-cover"
+          />
+        )}
       </div>
 
       <div className="p-5 space-y-4">

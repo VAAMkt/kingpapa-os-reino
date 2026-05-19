@@ -73,7 +73,7 @@ export function rpProductoToProducto(
     id: row.id,
     nombre: row.nombre,
     descripcion: row.descripcion ?? "",
-    imagen: row.imagen_url || placeholder,
+    imagen: row.imagen_url ?? "",
     pesoAprox: "",
     precioDesde: Number(row.precio) || 0,
     nivelHambre: 3,
