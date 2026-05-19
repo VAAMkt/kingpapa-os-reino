@@ -43,7 +43,16 @@ function CheckoutPage() {
   const tipo: OrderType = orderType ?? (sede?.enCobertura ? "delivery" : "pickup");
   const esRecoger = tipo === "pickup";
 
+  // Si la dirección quedó fuera de cobertura, forzar pickup automáticamente.
+  useEffect(() => {
+    if (sede && !sede.enCobertura && tipo === "delivery") {
+      setOrderType("pickup");
+      toast.message("Tu dirección está fuera de cobertura — solo recogida en sede");
+    }
+  }, [sede, tipo]);
+
   const total = useMemo(() => subtotal, [subtotal]);
+  const puntos = Math.floor(subtotal / 1000) * 10;
 
   if (count === 0) {
     return (
