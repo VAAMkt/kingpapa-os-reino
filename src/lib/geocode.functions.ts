@@ -6,7 +6,7 @@ const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_maps";
 
 function getCreds(): { lovable: string; conn: string } | null {
   const lovable = process.env.LOVABLE_API_KEY;
-  const conn = process.env.GOOGLE_MAPS_API_KEY;
+  const conn = process.env.GOOGLE_MAPS_API_KEY_1 || process.env.GOOGLE_MAPS_API_KEY;
   if (!lovable || !conn) return null;
   return { lovable, conn };
 }
@@ -16,6 +16,13 @@ function authHeaders(c: { lovable: string; conn: string }) {
     Authorization: `Bearer ${c.lovable}`,
     "X-Connection-Api-Key": c.conn,
   };
+}
+
+async function gatewayError(prefix: string, res: Response) {
+  if (res.status === 401 || res.status === 403) {
+    return `${prefix}: credencial de Google Maps no autorizada (${res.status})`;
+  }
+  return `${prefix} ${res.status}`;
 }
 
 export const geocodeAddress = createServerFn({ method: "POST" })
@@ -32,7 +39,7 @@ export const geocodeAddress = createServerFn({ method: "POST" })
     try {
       const res = await fetch(url.toString(), { headers: authHeaders(c) });
       if (!res.ok) {
-        return { ok: false as const, error: `Geocoding ${res.status}` };
+        return { ok: false as const, error: await gatewayError("Geocoding", res) };
       }
       const json = (await res.json()) as {
         status: string;
@@ -78,7 +85,7 @@ export const reverseGeocode = createServerFn({ method: "POST" })
     try {
       const res = await fetch(url.toString(), { headers: authHeaders(c) });
       if (!res.ok) {
-        return { ok: false as const, error: `Reverse ${res.status}` };
+        return { ok: false as const, error: await gatewayError("Reverse", res) };
       }
       const json = (await res.json()) as {
         status: string;
