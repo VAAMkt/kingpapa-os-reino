@@ -91,28 +91,18 @@ async function syncSedeMenu(
     return { categorias: 0, productos: 0 };
   }
 
-  // 1) Upsert categorias_master por rp_id.
-  //    - Filas NUEVAS: nombre + orden viene del POS.
-  //    - Filas EXISTENTES: NO pisamos nombre (el admin puede haberlo renombrado),
-  //      solo refrescamos updated_at para que conste la sync.
+  // 1) Upsert categorias_master por rp_id. Filas homogéneas para que
+  //    PostgREST genere un INSERT con todas las columnas presentes en cada
+  //    fila (si mezclamos shapes, las columnas omitidas viajan como NULL y
+  //    revientan el NOT NULL de `nombre`). El override del admin vive en
+  //    `nombre_override`, así que es seguro refrescar `nombre` desde el POS.
   const catIdByRpId = new Map<number, string>();
   if (categorias.length > 0) {
-    const rpIds = categorias.map((c) => c.rp_id);
-    const { data: existingCats } = await supabase
-      .from("categorias_master")
-      .select("rp_id")
-      .in("rp_id", rpIds);
-    const existing = new Set((existingCats ?? []).map((r: { rp_id: number }) => r.rp_id));
-    const rows = categorias.map((c) => {
-      const base: Record<string, unknown> = { rp_id: c.rp_id };
-      if (!existing.has(c.rp_id)) {
-        base.nombre = c.nombre;
-        base.orden = c.orden;
-      } else {
-        base.updated_at = new Date().toISOString();
-      }
-      return base;
-    });
+    const rows = categorias.map((c) => ({
+      rp_id: c.rp_id,
+      nombre: c.nombre,
+      orden: c.orden,
+    }));
     const { data: upsertedCats, error: catErr } = await supabase
       .from("categorias_master")
       .upsert(rows as never, { onConflict: "rp_id" })
@@ -123,39 +113,27 @@ async function syncSedeMenu(
     }
   }
 
-  // 2) Upsert productos_master por rp_id.
-  //    - Filas NUEVAS: TODO viene del POS (nombre, descripcion, precio, imagen, ...).
-  //    - Filas EXISTENTES: NO pisamos nombre/descripcion/orden/disponible (los edita el admin).
-  //      SÍ refrescamos campos que vienen del POS: precio, imagen_url, modificadores, almacen_id, categoria.
+  // 2) Upsert productos_master por rp_id. Mismo principio: filas homogéneas.
+  //    Las ediciones del admin viven en `nombre_override` / `descripcion_override`,
+  //    y `disponible` se omite del upsert para respetar el toggle manual
+  //    (filas nuevas usan el DEFAULT true del schema).
   const prodIdByRpId = new Map<number, string>();
   if (productos.length > 0) {
-    const rpIds = productos.map((p) => p.rp_id);
-    const { data: existingProds } = await supabase
-      .from("productos_master")
-      .select("rp_id")
-      .in("rp_id", rpIds);
-    const existing = new Set((existingProds ?? []).map((r: { rp_id: number }) => r.rp_id));
-    const rows = productos.map((p) => {
-      const base: Record<string, unknown> = {
-        rp_id: p.rp_id,
-        categoria_id:
-          p.rp_categoria_id != null
-            ? catIdByRpId.get(p.rp_categoria_id) ?? null
-            : null,
-        precio: p.precio,
-        imagen_url: p.imagen_url,
-        modificadores: p.modificadores,
-        modificadores_raw: p.modificadores_raw,
-        almacen_id: p.almacen_id,
-      };
-      if (!existing.has(p.rp_id)) {
-        base.nombre = p.nombre;
-        base.descripcion = p.descripcion;
-        base.orden = p.orden;
-        base.disponible = p.disponible;
-      }
-      return base;
-    });
+    const rows = productos.map((p) => ({
+      rp_id: p.rp_id,
+      categoria_id:
+        p.rp_categoria_id != null
+          ? catIdByRpId.get(p.rp_categoria_id) ?? null
+          : null,
+      nombre: p.nombre,
+      descripcion: p.descripcion,
+      precio: p.precio,
+      imagen_url: p.imagen_url,
+      modificadores: p.modificadores,
+      modificadores_raw: p.modificadores_raw,
+      almacen_id: p.almacen_id,
+      orden: p.orden,
+    }));
     const { data: upsertedProds, error: prodErr } = await supabase
       .from("productos_master")
       .upsert(rows as never, { onConflict: "rp_id" })
@@ -165,6 +143,7 @@ async function syncSedeMenu(
       prodIdByRpId.set(row.rp_id, row.id);
     }
   }
+
 
   // 3) Upsert overrides: una fila por (sede, producto) que vino en el catálogo.
   //    Solo seteamos `disponible=true` para filas NUEVAS — respetamos el toggle manual.
