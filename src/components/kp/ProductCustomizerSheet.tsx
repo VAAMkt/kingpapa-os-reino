@@ -230,6 +230,8 @@ function CustomizerBody({
             </div>
           );
         })}
+
+        <UpsellSection currentId={producto.id} />
       </div>
 
       {/* Footer sticky */}
