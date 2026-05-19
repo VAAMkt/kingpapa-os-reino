@@ -8,12 +8,25 @@ import type {
   RpModificadorGrupo,
 } from "@/types/restaurantpe";
 
-const RP_IMG_BASE = "https://restaurant.pe/archivos/";
+// CDN real de Restaurant.pe (confirmada en su panel oficial: RESTPE_IMG.URL_BASE).
+// `restaurant.pe/archivos/...` y `api.restaurant.pe/archivos/...` devuelven HTML/404,
+// no imágenes. La buena es `https://img.restpe.com/<path>`.
+const RP_IMG_BASE = "https://img.restpe.com/";
+
+// Hosts viejos que hay que reescribir a la CDN buena (incluye URLs que ya
+// quedaron guardadas en la base con el host incorrecto).
+const BAD_HOSTS = [
+  /^https?:\/\/(www\.)?restaurant\.pe\/archivos\//i,
+  /^https?:\/\/api\.restaurant\.pe\/archivos\//i,
+];
 
 export function resolveRpImage(url: unknown): string | null {
   if (url == null) return null;
   const s = String(url).trim();
   if (!s) return null;
+  for (const bad of BAD_HOSTS) {
+    if (bad.test(s)) return s.replace(bad, RP_IMG_BASE);
+  }
   if (/^https?:\/\//i.test(s)) return s;
   return RP_IMG_BASE + s.replace(/^\/+/, "");
 }

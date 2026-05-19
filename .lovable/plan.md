@@ -1,39 +1,55 @@
-# Fix: las fotos del menú no cargan
+## Diagnóstico real
 
-## Causa raíz (confirmada con curl)
+El problema no es la card ni el `<img>`: el navegador sí intenta cargar `producto.imagen`.
 
-Las imágenes están bien guardadas en la base de datos. El problema es el **host** que estamos usando para componerlas.
+La causa raíz confirmada es que las URLs guardadas apuntan a `https://restaurant.pe/archivos/...`, pero ese dominio devuelve una página HTML de Restaurant.pe, no una imagen:
 
-- Lo que generamos hoy: `https://api.restaurant.pe/archivos/...` → **404 Not Found**
-- Host correcto: `https://restaurant.pe/archivos/...` → **200 OK** ✅
-
-Restaurant.pe sirve la API desde `api.restaurant.pe` pero los archivos estáticos desde el dominio raíz `restaurant.pe`. Por eso las cards muestran el placeholder roto: el `<img>` tiene `src` válido pero el servidor devuelve 404.
-
-## Cambio
-
-Una sola línea en `src/lib/restaurantpe-normalize.ts`:
-
-```ts
-const RP_IMG_BASE = "https://restaurant.pe/archivos/";
+```text
+https://restaurant.pe/archivos/... -> 200 text/html
 ```
 
-(antes: `https://api.restaurant.pe/archivos/`)
+Por eso “parece que existe” pero no se muestra: el navegador recibe HTML donde espera JPEG/PNG.
 
-Esto arregla **todas las fotos** automáticamente, sin re-sincronizar — porque la URL final se compone en el cliente cada vez que se pinta la card. Lo que está en `productos_master.imagen_url` ya quedó como URL absoluta con el host viejo en algunos casos; para esos voy a:
+Inspeccioné el JavaScript oficial del panel de Restaurant.pe (`kingpapa.restaurant.pe/restaurant/scripts/scripts...js`) y ahí aparece la constante real:
 
-1. Cambiar `RP_IMG_BASE` (efecto inmediato para próximas sincronizaciones y para el path relativo guardado).
-2. Correr una sentencia que reemplace `api.restaurant.pe/archivos` por `restaurant.pe/archivos` en las filas ya guardadas:
-   ```sql
-   UPDATE productos_master
-   SET imagen_url = REPLACE(imagen_url, 'https://api.restaurant.pe/archivos/', 'https://restaurant.pe/archivos/')
-   WHERE imagen_url LIKE 'https://api.restaurant.pe/archivos/%';
+```text
+RESTPE_IMG.URL_BASE = https://img.restpe.com
+```
+
+Probé las mismas rutas contra esa CDN y sí devuelven imágenes reales:
+
+```text
+https://img.restpe.com/kingpaparestaurantpe/productos/...jpg -> 200 image/jpeg
+https://img.restpe.com/kingpaparestaurantpe/productos/...png -> 200 image/png
+https://img.restpe.com/kingpaparestaurantpe/products/... -> 200 image/jpeg
+```
+
+## Plan de corrección
+
+1. Cambiar el normalizador de imágenes de Restaurant.pe:
+   - De: `https://restaurant.pe/archivos/`
+   - A: `https://img.restpe.com/`
+
+2. Hacer `resolveRpImage` más defensivo para que también repare URLs absolutas ya guardadas con hosts incorrectos:
+   - `https://restaurant.pe/archivos/...`
+   - `https://api.restaurant.pe/archivos/...`
+   - `http://restaurant.pe/archivos/...`
+   - `http://api.restaurant.pe/archivos/...`
+
+   Todas deben quedar como:
+
+   ```text
+   https://img.restpe.com/...
    ```
 
-## Verificación
+3. Actualizar las filas existentes en `productos_master.imagen_url` para reemplazar los hosts malos por `https://img.restpe.com/`.
 
-- Recargar `/menu` y confirmar que se ven Clasiking, Costiking y Desvare con foto.
-- Tab Combos: revisar que los combos con foto desde `lista_productobase` también carguen.
+4. Validar en navegador que las requests de imagen ya salgan a `img.restpe.com` y respondan como `Image 200`, no como error/HTML.
 
-## Fuera de alcance
+## Archivos a tocar
 
-No tocar lógica de extracción (`normalizeProduct`), ni el flujo de modificadores, ni el checkout. Solo el host.
+- `src/lib/restaurantpe-normalize.ts`
+
+## Base de datos
+
+Ejecutar una actualización de URLs existentes en `productos_master`, sin tocar productos, precios, categorías, modificadores ni disponibilidad.
