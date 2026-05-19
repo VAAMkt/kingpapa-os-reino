@@ -1,6 +1,5 @@
 // Capa de adaptación: rp_productos (Supabase) -> tipo `Producto` que usa la UI.
 import type { Producto, Categoria, ModificadorGrupo } from "@/types/kp";
-import placeholder from "@/assets/hero-salchipapa.jpg";
 
 export type RpProductoRow = {
   id: string;
@@ -74,7 +73,7 @@ export function rpProductoToProducto(
     id: row.id,
     nombre: row.nombre,
     descripcion: row.descripcion ?? "",
-    imagen: row.imagen_url || placeholder,
+    imagen: row.imagen_url ?? "",
     pesoAprox: "",
     precioDesde: Number(row.precio) || 0,
     nivelHambre: 3,

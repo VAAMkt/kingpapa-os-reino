@@ -1,55 +1,28 @@
-## Diagnóstico real
+## Problema
 
-El problema no es la card ni el `<img>`: el navegador sí intenta cargar `producto.imagen`.
+Algunos productos muestran la imagen IA `src/assets/hero-salchipapa.jpg` (la que vino con el diseño) cuando no tienen `imagen_url` real desde Restaurant.pe. El origen es `src/lib/menu.ts:77`:
 
-La causa raíz confirmada es que las URLs guardadas apuntan a `https://restaurant.pe/archivos/...`, pero ese dominio devuelve una página HTML de Restaurant.pe, no una imagen:
-
-```text
-https://restaurant.pe/archivos/... -> 200 text/html
+```ts
+imagen: row.imagen_url || placeholder,
 ```
 
-Por eso “parece que existe” pero no se muestra: el navegador recibe HTML donde espera JPEG/PNG.
+## Cambios
 
-Inspeccioné el JavaScript oficial del panel de Restaurant.pe (`kingpapa.restaurant.pe/restaurant/scripts/scripts...js`) y ahí aparece la constante real:
+1. **`src/lib/menu.ts`**
+   - Quitar `import placeholder from "@/assets/hero-salchipapa.jpg"`.
+   - Cambiar a `imagen: row.imagen_url ?? ""` (string vacío = sin imagen real).
 
-```text
-RESTPE_IMG.URL_BASE = https://img.restpe.com
-```
+2. **`src/components/kp/ProductCard.tsx`**
+   - Renderizar `<img>` solo si `producto.imagen` no está vacía. El contenedor ya tiene `bg-kp-ink` (negro), así que sin imagen queda el fondo negro pedido. Badges y resto del layout intactos.
 
-Probé las mismas rutas contra esa CDN y sí devuelven imágenes reales:
+3. **`src/components/kp/ProductCustomizerSheet.tsx`**
+   - Mismo guard: render condicional del `<img>` del hero del sheet. Mantener el `bg-kp-ink` como fondo negro.
 
-```text
-https://img.restpe.com/kingpaparestaurantpe/productos/...jpg -> 200 image/jpeg
-https://img.restpe.com/kingpaparestaurantpe/productos/...png -> 200 image/png
-https://img.restpe.com/kingpaparestaurantpe/products/... -> 200 image/jpeg
-```
+4. **`src/components/kp/CartDrawer.tsx`**
+   - Ya tiene `{i.imagen && (...)}`, no se toca.
 
-## Plan de corrección
+No se toca el hero de la home (`src/routes/index.tsx`), ni `src/data/productos.ts` (datos de ejemplo no usados en `/menu`), ni la lógica de Restaurant.pe ni base de datos. Solo presentación.
 
-1. Cambiar el normalizador de imágenes de Restaurant.pe:
-   - De: `https://restaurant.pe/archivos/`
-   - A: `https://img.restpe.com/`
+## Verificación
 
-2. Hacer `resolveRpImage` más defensivo para que también repare URLs absolutas ya guardadas con hosts incorrectos:
-   - `https://restaurant.pe/archivos/...`
-   - `https://api.restaurant.pe/archivos/...`
-   - `http://restaurant.pe/archivos/...`
-   - `http://api.restaurant.pe/archivos/...`
-
-   Todas deben quedar como:
-
-   ```text
-   https://img.restpe.com/...
-   ```
-
-3. Actualizar las filas existentes en `productos_master.imagen_url` para reemplazar los hosts malos por `https://img.restpe.com/`.
-
-4. Validar en navegador que las requests de imagen ya salgan a `img.restpe.com` y respondan como `Image 200`, no como error/HTML.
-
-## Archivos a tocar
-
-- `src/lib/restaurantpe-normalize.ts`
-
-## Base de datos
-
-Ejecutar una actualización de URLs existentes en `productos_master`, sin tocar productos, precios, categorías, modificadores ni disponibilidad.
+- Recargar `/menu`: productos con `imagen_url` real siguen mostrando la foto de Restaurant.pe; los que no tienen, muestran cuadro negro sin la imagen IA.
