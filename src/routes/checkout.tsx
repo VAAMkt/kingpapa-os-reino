@@ -264,6 +264,10 @@ function CheckoutPage() {
               <span className="font-display uppercase">Total</span>
               <span className="font-display text-2xl">{cop(total)}</span>
             </div>
+            <div className="mt-3 border-2 border-kp-ink bg-kp-yellow px-3 py-2 font-display uppercase text-xs flex items-center justify-between">
+              <span>👑 Sumas al confirmar</span>
+              <span className="text-base">+{puntos} pts</span>
+            </div>
           </BrutalCard>
         </aside>
       </div>
