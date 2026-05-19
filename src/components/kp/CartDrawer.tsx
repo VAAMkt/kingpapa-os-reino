@@ -12,6 +12,9 @@ import { useActiveSede } from "@/lib/active-sede";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
+// TODO: parametrizar por sede cuando exista config de envíos
+const FREE_SHIPPING_THRESHOLD = 40000;
+
 export function CartDrawer() {
   const [open, setOpen] = useState(false);
   const { items, count, subtotal } = useCart();
