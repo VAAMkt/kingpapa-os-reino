@@ -1,29 +1,42 @@
-## Problema
+## Diagnóstico
 
-Al oprimir "📍 Usar mi GPS" el pin cae bien en el mapa, pero el recuadro **Dirección** queda vacío (solo el placeholder). El usuario espera que la dirección detectada aparezca ahí para luego escribir los **Detalles** y confirmar.
+El GPS sí funciona: el mapa recibe lat/lng correctos y centra el pin. El fallo está después, en la llamada servidor `reverseGeocode`.
 
-## Causa
+La evidencia directa es la respuesta de red:
 
-En `src/lib/active-sede.ts` el input ya está enlazado con `value={pinLabel}`, así que el autollenado funcionaría si `pinLabel` tuviera valor. El problema real está en `src/lib/geocode.functions.ts > reverseGeocode`:
+```text
+reverseGeocode -> ok: false, error: "Reverse 401"
+```
 
-- Llama directamente a `https://maps.googleapis.com/maps/api/geocode/json` usando `process.env.GOOGLE_MAPS_API_KEY`.
-- En este proyecto Google Maps está integrado vía el **conector gestionado de Lovable**, cuya key tiene restricción por *referrer* y **no está autorizada para Geocoding API llamada directa**. Devuelve `REQUEST_DENIED` y el handler retorna `{ ok: false }` en silencio (sin toast), por eso `pinLabel` se queda en string vacío y el input se ve "vacío".
-- La documentación del conector exige enrutar Geocoding **a través del gateway** (`https://connector-gateway.lovable.dev/google_maps/...`) con headers `Authorization: Bearer ${LOVABLE_API_KEY}` y `X-Connection-Api-Key: ${GOOGLE_MAPS_API_KEY}`.
+Revisé las credenciales disponibles sin exponer valores:
 
-## Cambios
+```text
+GOOGLE_MAPS_API_KEY   -> 401 unauthorized
+GOOGLE_MAPS_API_KEY_1 -> 200 skipped/valid
+```
 
-1. **`src/lib/geocode.functions.ts`**
-   - Reemplazar la llamada directa a `maps.googleapis.com` por la ruta del gateway en **ambas** funciones (`geocodeAddress` y `reverseGeocode`), enviando los headers `Authorization` y `X-Connection-Api-Key`. La key se obtiene de `process.env.GOOGLE_MAPS_API_KEY` y `process.env.LOVABLE_API_KEY`.
-   - Si falta alguna credencial → `{ ok: false, error: "Google Maps no configurado" }` (igual que hoy).
-   - El shape de la respuesta JSON de Geocoding API se mantiene, así que el resto del código no cambia.
+Causa real: `src/lib/geocode.functions.ts` está usando `process.env.GOOGLE_MAPS_API_KEY`, pero la conexión válida del gateway quedó inyectada como `GOOGLE_MAPS_API_KEY_1`. Por eso Google Maps JS del navegador posiciona bien el mapa, pero el reverse geocode del servidor falla con 401 y nunca llena “Dirección detectada”.
 
-2. **`src/components/kp/LocationGate.tsx`** (mejora UX pequeña para que el usuario sepa qué pasó)
-   - En `updatePin`, si `reverseFn` devuelve `ok: false`, mostrar un `toast.error("No pudimos detectar la dirección, escríbela manualmente")` y dejar el input vacío para que la pueda tipear. Hoy falla en silencio.
+## Plan de implementación
 
-No se toca el layout ni el orden visual: el flujo sigue siendo **GPS → mapa → Dirección (autollenada) → Detalles (usuario) → Confirmar ubicación**, que es exactamente lo que pide el usuario.
+1. Actualizar `src/lib/geocode.functions.ts`
+   - Cambiar `getCreds()` para tomar la primera credencial válida disponible:
+     - `GOOGLE_MAPS_API_KEY_1`
+     - fallback a `GOOGLE_MAPS_API_KEY`
+   - Mantener `LOVABLE_API_KEY` como autorización del gateway.
+   - No exponer ninguna clave al frontend.
 
-## Verificación
+2. Mejorar el error interno sin cambiar la UI
+   - Cuando el gateway devuelva 401/403, retornar un error específico tipo “credencial no autorizada” para que sea diagnosticable.
+   - Mantener el toast actual para el cliente: “No pudimos detectar la dirección, escríbela manualmente”.
 
-- En `/menu`, abrir el gate, oprimir "Usar mi GPS".
-- Esperado: el recuadro **Dirección** se llena con la dirección detectada (p. ej. "Carrera 63 #..., Cali"). El usuario escribe en **Detalles** y oprime **Confirmar ubicación**.
-- Si por algún motivo el gateway falla, aparece un toast claro y el input queda editable.
+3. Verificación
+   - Probar una llamada de reverse geocode con coordenadas como las del GPS actual.
+   - Confirmar que devuelve `ok: true` y `label` con dirección formateada.
+   - Luego el input “Dirección detectada” quedará lleno automáticamente y el usuario solo ingresa “Detalles” y confirma ubicación.
+
+## Archivos a tocar
+
+- `src/lib/geocode.functions.ts`
+
+No tocaré el mapa, el diseño ni el flujo de confirmación.
