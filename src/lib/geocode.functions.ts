@@ -1,13 +1,21 @@
-// Server functions: geocoding + reverse geocoding con Google Maps.
+// Server functions: geocoding + reverse geocoding via Lovable Google Maps gateway.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-function getKey(): string | null {
-  return (
-    process.env.GOOGLE_MAPS_API_KEY ||
-    process.env.GOOGLE_MAPS_API_KEY_1 ||
-    null
-  );
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_maps";
+
+function getCreds(): { lovable: string; conn: string } | null {
+  const lovable = process.env.LOVABLE_API_KEY;
+  const conn = process.env.GOOGLE_MAPS_API_KEY;
+  if (!lovable || !conn) return null;
+  return { lovable, conn };
+}
+
+function authHeaders(c: { lovable: string; conn: string }) {
+  return {
+    Authorization: `Bearer ${c.lovable}`,
+    "X-Connection-Api-Key": c.conn,
+  };
 }
 
 export const geocodeAddress = createServerFn({ method: "POST" })
@@ -15,17 +23,14 @@ export const geocodeAddress = createServerFn({ method: "POST" })
     z.object({ address: z.string().min(3).max(255) }).parse(input),
   )
   .handler(async ({ data }) => {
-    const key = getKey();
-    if (!key) {
-      return { ok: false as const, error: "Google Maps no configurado" };
-    }
-    const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+    const c = getCreds();
+    if (!c) return { ok: false as const, error: "Google Maps no configurado" };
+    const url = new URL(`${GATEWAY_URL}/maps/api/geocode/json`);
     url.searchParams.set("address", data.address);
     url.searchParams.set("region", "co");
     url.searchParams.set("language", "es");
-    url.searchParams.set("key", key);
     try {
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { headers: authHeaders(c) });
       if (!res.ok) {
         return { ok: false as const, error: `Geocoding ${res.status}` };
       }
@@ -64,17 +69,14 @@ export const reverseGeocode = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
-    const key = getKey();
-    if (!key) {
-      return { ok: false as const, error: "Google Maps no configurado" };
-    }
-    const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+    const c = getCreds();
+    if (!c) return { ok: false as const, error: "Google Maps no configurado" };
+    const url = new URL(`${GATEWAY_URL}/maps/api/geocode/json`);
     url.searchParams.set("latlng", `${data.lat},${data.lng}`);
     url.searchParams.set("language", "es");
     url.searchParams.set("region", "co");
-    url.searchParams.set("key", key);
     try {
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { headers: authHeaders(c) });
       if (!res.ok) {
         return { ok: false as const, error: `Reverse ${res.status}` };
       }
