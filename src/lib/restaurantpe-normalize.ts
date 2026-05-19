@@ -8,7 +8,7 @@ import type {
   RpModificadorGrupo,
 } from "@/types/restaurantpe";
 
-const RP_IMG_BASE = "https://api.restaurant.pe/archivos/";
+const RP_IMG_BASE = "https://restaurant.pe/archivos/";
 
 export function resolveRpImage(url: unknown): string | null {
   if (url == null) return null;
