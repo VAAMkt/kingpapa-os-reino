@@ -1,12 +1,48 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { addItem, type CartModifier } from "@/lib/cart";
+import { useActiveSede } from "@/lib/active-sede";
+import { rpProductoToProducto, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
 import type { Producto } from "@/types/kp";
 import { toast } from "sonner";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
+
+const UPSELL_CAT_KEYWORDS = ["bebida", "postre", "adicional", "acompan"];
+
+function useUpsellSuggestions(currentId: string): Producto[] {
+  const qc = useQueryClient();
+  const sede = useActiveSede();
+  return useMemo(() => {
+    if (!sede?.slug) return [];
+    const data = qc.getQueryData<{ categorias: RpCategoriaRow[]; productos: RpProductoRow[] }>([
+      "menu",
+      sede.slug,
+    ]);
+    if (!data) return [];
+    const catsById = new Map(data.categorias.map((c) => [c.id, c]));
+    const matchSlugs = new Set(
+      data.categorias
+        .filter((c) => {
+          const n = (c.nombre ?? "").toLowerCase();
+          return UPSELL_CAT_KEYWORDS.some((k) => n.includes(k));
+        })
+        .map((c) => c.id),
+    );
+    const list: Producto[] = [];
+    for (const row of data.productos) {
+      if (!row.categoria_id || !matchSlugs.has(row.categoria_id)) continue;
+      const p = rpProductoToProducto(row, catsById);
+      if (p.id === currentId) continue;
+      list.push(p);
+      if (list.length >= 3) break;
+    }
+    return list;
+  }, [qc, sede?.slug, currentId]);
+}
 
 export function ProductCustomizerSheet({
   producto,
@@ -194,6 +230,8 @@ function CustomizerBody({
             </div>
           );
         })}
+
+        <UpsellSection currentId={producto.id} />
       </div>
 
       {/* Footer sticky */}
@@ -227,6 +265,62 @@ function CustomizerBody({
           {valido ? `Agregar por ${cop(total)}` : faltantes[0] ?? "Completa las opciones"}
         </BrutalButton>
       </div>
+    </div>
+  );
+}
+
+function UpsellSection({ currentId }: { currentId: string }) {
+  const sugeridos = useUpsellSuggestions(currentId);
+  if (sugeridos.length === 0) return null;
+  return (
+    <div className="border-2 border-kp-ink bg-kp-purple/20 p-3 space-y-2">
+      <h3 className="font-display uppercase text-lg leading-none">
+        A tu corona le falta…
+      </h3>
+      <p className="text-[11px] font-display uppercase opacity-70">
+        Súmale uno y coróname el pedido
+      </p>
+      <ul className="space-y-2">
+        {sugeridos.map((p) => (
+          <li
+            key={p.id}
+            className="flex items-center gap-3 bg-kp-cheese border-2 border-kp-ink p-2"
+          >
+            {p.imagen ? (
+              <img
+                src={p.imagen}
+                alt=""
+                className="w-14 h-14 object-cover border-2 border-kp-ink shrink-0"
+              />
+            ) : (
+              <div className="w-14 h-14 bg-kp-ink shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="font-display uppercase text-sm leading-tight truncate">
+                {p.nombre}
+              </p>
+              <p className="font-display text-base">{cop(p.precioDesde)}</p>
+            </div>
+            <BrutalButton
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                addItem({
+                  productoId: p.id,
+                  nombre: p.nombre,
+                  precio: p.precioDesde,
+                  imagen: p.imagen,
+                  silent: true,
+                });
+                toast.success(`${p.nombre} sumado`);
+              }}
+            >
+              + Agregar
+            </BrutalButton>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

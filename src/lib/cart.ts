@@ -92,7 +92,7 @@ export function useCart() {
 }
 
 export function addItem(
-  input: Omit<CartItem, "key" | "cantidad"> & { cantidad?: number },
+  input: Omit<CartItem, "key" | "cantidad"> & { cantidad?: number; silent?: boolean },
 ) {
   const key = input.productoId + modKey(input.modificadores);
   const state = read();
@@ -112,7 +112,7 @@ export function addItem(
     });
   }
   write({ ...state, items });
-  openCart();
+  if (!input.silent) openCart();
 }
 
 export function incItem(key: string) {

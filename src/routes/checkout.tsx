@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { useCart, clearCart, setOrderType, type OrderType } from "@/lib/cart";
@@ -43,7 +43,16 @@ function CheckoutPage() {
   const tipo: OrderType = orderType ?? (sede?.enCobertura ? "delivery" : "pickup");
   const esRecoger = tipo === "pickup";
 
+  // Si la dirección quedó fuera de cobertura, forzar pickup automáticamente.
+  useEffect(() => {
+    if (sede && !sede.enCobertura && tipo === "delivery") {
+      setOrderType("pickup");
+      toast.message("Tu dirección está fuera de cobertura — solo recogida en sede");
+    }
+  }, [sede, tipo]);
+
   const total = useMemo(() => subtotal, [subtotal]);
+  const puntos = Math.floor(subtotal / 1000) * 10;
 
   if (count === 0) {
     return (
@@ -254,6 +263,10 @@ function CheckoutPage() {
             <div className="flex items-center justify-between mt-3 pt-3 border-t-2 border-kp-ink">
               <span className="font-display uppercase">Total</span>
               <span className="font-display text-2xl">{cop(total)}</span>
+            </div>
+            <div className="mt-3 border-2 border-kp-ink bg-kp-yellow px-3 py-2 font-display uppercase text-xs flex items-center justify-between">
+              <span>👑 Sumas al confirmar</span>
+              <span className="text-base">+{puntos} pts</span>
             </div>
           </BrutalCard>
         </aside>

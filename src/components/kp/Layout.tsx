@@ -19,7 +19,7 @@ function LocationPill({ className = "" }: { className?: string }) {
   const hasReal = !!sede && sede.source !== "exploring";
   const label = hasReal
     ? (sede!.direccionTexto || sede!.label)
-    : "Ingresa tu ubicación";
+    : "Selecciona tu ubicación";
   return (
     <button
       onClick={openLocationGate}

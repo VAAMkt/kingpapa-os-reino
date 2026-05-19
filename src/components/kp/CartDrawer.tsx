@@ -12,6 +12,9 @@ import { useActiveSede } from "@/lib/active-sede";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
+// TODO: parametrizar por sede cuando exista config de envíos
+const FREE_SHIPPING_THRESHOLD = 40000;
+
 export function CartDrawer() {
   const [open, setOpen] = useState(false);
   const { items, count, subtotal } = useCart();
@@ -94,6 +97,21 @@ export function CartDrawer() {
                 <span className="font-display uppercase">Subtotal</span>
                 <span className="font-display text-3xl">{cop(subtotal)}</span>
               </div>
+
+              {/* Gamificación: puntos del Reino */}
+              <div className="mt-3 border-2 border-kp-ink bg-kp-yellow px-3 py-2 font-display uppercase text-xs flex items-center justify-between gap-2">
+                <span>👑 Ganarás</span>
+                <span className="text-lg">
+                  +{Math.floor(subtotal / 1000) * 10} pts
+                </span>
+              </div>
+
+              {/* FOMO: envío gratis (umbral provisional $40.000) */}
+              {subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD && (
+                <div className="mt-2 border-2 border-dashed border-kp-ink/60 px-3 py-2 text-xs font-display uppercase">
+                  Te faltan <strong>{cop(FREE_SHIPPING_THRESHOLD - subtotal)}</strong> para envío gratis
+                </div>
+              )}
 
               <BrutalButton
                 variant="fire"
