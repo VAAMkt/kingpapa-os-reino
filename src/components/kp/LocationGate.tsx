@@ -134,7 +134,11 @@ function GateBody({ onDone }: { onDone: () => void }) {
     setReversing(true);
     try {
       const r = await reverseFn({ data: p });
-      if (r.ok) setPinLabel(r.label);
+      if (r.ok) {
+        setPinLabel(r.label);
+      } else {
+        toast.error("No pudimos detectar la dirección, escríbela manualmente");
+      }
     } finally {
       setReversing(false);
     }
