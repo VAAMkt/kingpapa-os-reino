@@ -26,17 +26,19 @@ export function OrderIntentDialog() {
 
   useEffect(() => setMounted(true), []);
 
-  // Auto-open: hay sede real + no hay orderType.
+  // Auto-pick: hay sede real + no hay orderType.
+  // 98% de pedidos web son a domicilio → preseleccionamos delivery cuando
+  // hay cobertura, sin abrir el diálogo. Solo forzamos pickup si la sede
+  // está fuera de cobertura. El usuario puede cambiar con "openOrderIntent()".
   useEffect(() => {
     if (!mounted) return;
     const haySedeReal = !!sede && sede.source !== "exploring";
     if (haySedeReal && !orderType) {
-      // Si no está en cobertura, asumimos pickup automáticamente.
       if (sede && !sede.enCobertura) {
         setOrderType("pickup");
-        return;
+      } else {
+        setOrderType("delivery");
       }
-      setOpen(true);
     }
   }, [mounted, sede, orderType]);
 

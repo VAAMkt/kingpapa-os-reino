@@ -1,10 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { useCart, clearCart, setOrderType, type OrderType } from "@/lib/cart";
 import { useActiveSede } from "@/lib/active-sede";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
+import { submitCheckoutOrder } from "@/lib/orders.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/checkout")({
@@ -20,14 +22,8 @@ export const Route = createFileRoute("/checkout")({
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 type PagoMetodo = "efectivo" | "datafono" | "online";
 
-function newOrderId() {
-  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  let s = "";
-  for (let i = 0; i < 8; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return "KP-" + s;
-}
-
 function CheckoutPage() {
+  const submitOrder = useServerFn(submitCheckoutOrder);
   const { items, count, subtotal, orderType } = useCart();
   const sede = useActiveSede();
   const navigate = useNavigate();
@@ -77,36 +73,68 @@ function CheckoutPage() {
     return null;
   }
 
-  function confirmar(e: React.FormEvent) {
+  async function confirmar(e: React.FormEvent) {
     e.preventDefault();
     const err = validar();
     if (err) {
       toast.error(err);
       return;
     }
-    setEnviando(true);
-    const orderId = newOrderId();
-    const payload = {
-      orderId,
-      createdAt: Date.now(),
-      tipo,
-      pago,
-      cliente: { nombre, telefono, direccion: esRecoger ? null : direccion, detalles },
-      notas,
-      sede: sede
-        ? { id: sede.sedeId, slug: sede.slug, label: sede.label }
-        : null,
-      items,
-      subtotal,
-      total,
-    };
-    try {
-      localStorage.setItem("kp.lastOrder", JSON.stringify(payload));
-    } catch {
-      /* ignore */
+    if (!sede?.sedeId) {
+      toast.error("Selecciona una sede antes de continuar");
+      return;
     }
-    clearCart();
-    navigate({ to: "/gracias", search: { order_id: orderId } });
+    setEnviando(true);
+    try {
+      const result = await submitOrder({
+        data: {
+          sedeId: sede.sedeId,
+          tipo,
+          pago,
+          cliente: {
+            nombre,
+            telefono,
+            direccion: esRecoger ? null : direccion,
+            detalles: detalles || null,
+          },
+          notas: notas || null,
+          items: items.map((i) => ({
+            productoId: i.productoId,
+            cantidad: i.cantidad,
+            modificadores: (i.modificadores ?? []).map((m) => ({
+              grupoId: m.grupoId,
+              opcionId: m.opcionId,
+            })),
+          })),
+        },
+      });
+      const orderId = result.orderId;
+      const lastOrder = {
+        orderId,
+        createdAt: Date.now(),
+        tipo,
+        pago,
+        cliente: { nombre, telefono, direccion: esRecoger ? null : direccion, detalles },
+        notas,
+        sede: sede
+          ? { id: sede.sedeId, slug: sede.slug, label: sede.label }
+          : null,
+        items,
+        subtotal,
+        total: result.total,
+      };
+      try {
+        localStorage.setItem("kp.lastOrder", JSON.stringify(lastOrder));
+      } catch {
+        /* ignore */
+      }
+      clearCart();
+      navigate({ to: "/gracias", search: { order_id: orderId } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No pudimos enviar tu pedido";
+      toast.error(msg);
+      setEnviando(false);
+    }
   }
 
   return (
