@@ -9,6 +9,7 @@ import {
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { useCart, incItem, decItem, removeItem, onOpenCart, clearCart } from "@/lib/cart";
 import { useActiveSede } from "@/lib/active-sede";
+import { UpsellSection } from "@/components/kp/UpsellSection";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
@@ -92,6 +93,14 @@ export function CartDrawer() {
                   </li>
                 ))}
               </ul>
+
+              <div className="mt-4">
+                <UpsellSection
+                  excludeIds={items.map((i) => i.productoId)}
+                  title="A tu corona le falta…"
+                  subtitle="Súmale uno antes de pagar"
+                />
+              </div>
 
               <div className="flex items-center justify-between mt-4 pt-3 border-t-2 border-kp-ink">
                 <span className="font-display uppercase">Subtotal</span>

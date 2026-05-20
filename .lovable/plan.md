@@ -1,62 +1,38 @@
+## Diagnóstico
 
-## Diagnóstico rápido de lo que ya existe
+El módulo de upsell ("A tu corona le falta…") **sí está implementado** dentro del `ProductCustomizerSheet`, y los datos de Bebidas/Adiciones existen en todas las sedes (verificado en BD: 13 bebidas + 31 adiciones por sede). El problema es **dónde** se renderiza.
 
-Buena noticia: ya tenemos ~70% del andamiaje. El plan es **refinar y conectar**, no reescribir.
+En `ProductCard.tsx` (líneas 42–69), el flujo al tocar "Pedir" es:
 
-- ✅ Header con `LocationPill` y nada bloqueando al entrar (`Layout.tsx`).
-- ✅ `LocationGate` abre solo bajo demanda, con mapa + GPS + autocomplete.
-- ✅ `ProductCustomizerSheet` ya existe con Sheet de shadcn (bottom), hero, modificadores y CTA sticky.
-- ✅ `ProductCard` ya hace el flow correcto: sin mods → al carrito; con mods → abre Sheet; sin sede → abre gate y guarda pending intent.
-- ✅ `CartDrawer` lateral con suma/resta y CTA a `/checkout`.
-- ✅ `checkout.tsx` ya es una sola página con datos + resumen + pago.
+1. Si la sede es "exploring" (sin dirección real) → abre `LocationGate`. Customizer nunca aparece.
+2. Si el producto tiene modificadores → abre customizer (✅ ahí sí se ven los upsells).
+3. Si el producto **no** tiene modificadores → `addItem` directo al carrito. Customizer nunca se abre.
 
-Lo que falta es **inyectar la psicología de conversión** que pediste: upsell "A tu corona le falta…", gamificación de puntos en el carrito, bloqueo de domicilio por distancia, y un par de pulidas de fricción.
+La mayoría de productos del menú (Personales, KingKonos, Combos, Bowls) no tienen modificadores configurados, así que el cliente nunca ve la sección de sugeridos. Bebidas y Adiciones tampoco son "ofrecidas" en el momento clave.
 
-## Plan de implementación
+## Solución
 
-### Módulo 1 — Navegación "craving first" (ajustes finos)
-Estado: ya implementado. Sólo verificar:
-- Confirmar que `LocationPill` muestra "📍 Selecciona tu ubicación" cuando `source === "exploring"` (hoy dice "Ingresa tu ubicación" — alinear copy al pedido).
-- Verificar que `/menu` no auto-abre gate en mobile (hoy hace `setExploringSede` automático — ok).
+Mover/duplicar la sección de upsell al **CartDrawer**, que es el único punto que **siempre** se abre tras `addItem` (sin importar si el producto tiene mods o no). Esto garantiza que el cliente vea Bebidas/Adiciones antes de pagar — que es el momento de mayor intención de compra.
 
-### Módulo 2 — Upselling Sheet (el gatillo)
-Estado: base lista. Agregar la pieza de oro:
-- Nueva sección **"A tu corona le falta…"** al final del `ProductCustomizerSheet`, encima del footer sticky.
-  - Renderiza 2-3 productos sugeridos de categoría `Bebidas` o `Postres` del menú actual (lee del cache `["menu", sedeSlug]` con `useQueryClient`).
-  - Cada sugerencia es una mini-card horizontal con foto, nombre, precio y botón `+ Agregar`. Al tocar, se suma al carrito directo (sin cerrar el sheet) y dispara toast.
-  - Si la categoría no existe en el menú, la sección no renderiza (silencioso, no rompe).
-- Mantener el footer sticky con total dinámico ya existente.
+### Cambios
 
-### Módulo 3 — Carrito "FOMO" con puntos
-Editar `CartDrawer.tsx`:
-- Calcular puntos de lealtad estimados: `Math.floor(subtotal / 1000) * 10` (10 pts por cada $1.000 — regla simple, ajustable).
-- Mostrar bloque visual sobre el botón "Ir a pagar":
-  - Badge amarillo brutalista: `👑 Ganarás ~{puntos} PUNTOS con este pedido`.
-  - Línea opcional condicional si `subtotal < umbral` (ej. $40.000): `Te faltan ${cop(faltante)} para envío gratis` (umbral hardcoded por ahora, marcado como TODO sede-config).
-- Resto del drawer queda igual.
+1. **`src/components/kp/CartDrawer.tsx`**
+   - Agregar `UpsellSection` justo arriba del bloque de totales/puntos (después de la lista de items, antes del footer de pago).
+   - Reusar la misma lógica del hook `useUpsellSuggestions`: leer `qc.getQueryData(["menu", sede.slug])`, filtrar categorías que contengan `bebida`/`postre`/`adicion`/`acompan`, excluir productos que ya están en el carrito, mostrar máximo 3.
+   - Cada sugerencia: foto pequeña + nombre + precio + botón `+ Agregar` que llama `addItem({ silent: true })` y muestra toast.
+   - Título: "A tu corona le falta…" / subtítulo: "Súmale uno antes de pagar".
+   - Si no hay sugerencias disponibles, no renderizar la sección (silencioso).
 
-### Módulo 4 — Checkout one-page (refinamientos)
-Editar `checkout.tsx`:
-- **Forzar pickup si está fuera de cobertura:** `useEffect` que detecta `sede && !sede.enCobertura && tipo === "delivery"` y hace `setOrderType("pickup")` + toast informativo ("Tu dirección está a más de Xkm — solo recogida disponible"). Ya está el `disabled` en el botón delivery, falta el auto-switch.
-- **Heredar dirección del gate:** ya se hace via `useState(sede?.direccionTexto ?? "")`. Verificar que también herede `detalles`.
-- **Resumen:** agregar línea "👑 +{puntos} pts al confirmar" en el aside derecho.
-- **Post-confirmación:** ya redirige a `/gracias?order_id=...`. El prompt pide `/rastrear` — confirmar con el usuario si quiere renombrar la ruta o crear `/rastrear` como alias (ver pregunta abajo).
+2. **`src/components/kp/ProductCustomizerSheet.tsx`**
+   - Extraer `useUpsellSuggestions` + `UpsellSection` a un módulo compartido `src/components/kp/UpsellSection.tsx` para reusarlo desde el carrito.
+   - Mantener el render dentro del customizer (sigue siendo útil para productos con mods).
 
-### Archivos a tocar
+### Lo que NO se toca
 
-- `src/components/kp/Layout.tsx` — copy del pill.
-- `src/components/kp/ProductCustomizerSheet.tsx` — sección "A tu corona le falta…".
-- `src/components/kp/CartDrawer.tsx` — bloque de puntos + FOMO opcional.
-- `src/routes/checkout.tsx` — auto-switch a pickup, línea de puntos en resumen.
+- Lógica de carrito (`cart.ts`), checkout, menú, geocoding, autenticación.
+- Categorías ni datos de BD.
+- ProductCard sigue igual: no se fuerza abrir el customizer para productos sin mods (eso cambiaría el comportamiento de "1-tap add" pedido originalmente).
 
-### Lo que NO voy a tocar
-- Mapa, geocoding, autocomplete (recién estabilizado).
-- Sistema de auth / loyalty real (puntos quedan como cálculo visual; el POST a backend de loyalty queda como TODO).
-- Pasarela de pago online.
+## Resultado esperado
 
-## Preguntas para confirmar antes de implementar
-
-1. **Ruta post-compra:** ¿dejamos `/gracias?order_id=...` (ya existe) o creo `/rastrear` como nueva ruta tipo tracker?
-2. **Regla de puntos:** ¿10 pts por cada $1.000 está bien o tienes una fórmula oficial?
-3. **Umbral envío gratis:** ¿quieres que muestre el FOMO de "te faltan $X para envío gratis"? Si sí, ¿qué umbral fijo uso por ahora (ej. $40.000)?
-4. **Sugerencias upsell:** ¿priorizo categorías `Bebidas` y `Postres`, o prefieres marcar productos específicos como "sugeridos" desde el admin más adelante?
+Cualquier producto que el cliente agregue → el carrito se abre → ve 3 sugerencias de Bebidas/Adiciones → toca "+ Agregar" → se suman al pedido sin cerrar el drawer. Punto único de conversión que captura el 100% de los flujos.
