@@ -22,14 +22,8 @@ export const Route = createFileRoute("/checkout")({
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 type PagoMetodo = "efectivo" | "datafono" | "online";
 
-function newOrderId() {
-  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  let s = "";
-  for (let i = 0; i < 8; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return "KP-" + s;
-}
-
 function CheckoutPage() {
+  const submitOrder = useServerFn(submitCheckoutOrder);
   const { items, count, subtotal, orderType } = useCart();
   const sede = useActiveSede();
   const navigate = useNavigate();
