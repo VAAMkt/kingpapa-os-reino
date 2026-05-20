@@ -14,7 +14,7 @@ import { listPublicSedes } from "@/lib/sedes";
 import { listPublicPosts } from "@/lib/posts";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { rpProductoToProducto, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
-import heroImg from "@/assets/hero-salchipapa.jpg";
+import heroImg from "@/assets/hero-salchipapa.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
