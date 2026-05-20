@@ -197,7 +197,7 @@ function CustomizerBody({
           );
         })}
 
-        <UpsellSection currentId={producto.id} />
+        <UpsellSection excludeIds={[producto.id]} />
       </div>
 
       {/* Footer sticky */}
