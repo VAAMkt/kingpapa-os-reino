@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { addItem, useCart } from "@/lib/cart";
@@ -9,18 +9,52 @@ import { toast } from "sonner";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
-const UPSELL_CAT_KEYWORDS = ["bebida", "postre", "adicion", "acompan"];
+type UpsellGroupKey = "adicion" | "bebida" | "postre" | "acompan";
+
+const GROUP_ORDER: { key: UpsellGroupKey; keywords: string[]; title: string; subtitle: string }[] = [
+  {
+    key: "adicion",
+    keywords: ["adicion"],
+    title: "Súmale una adición",
+    subtitle: "Tocino, queso extra, salsas… arma tu corona.",
+  },
+  {
+    key: "bebida",
+    keywords: ["bebida"],
+    title: "¿Lo acompañas con bebida?",
+    subtitle: "Una fría siempre cae bien 👑",
+  },
+  {
+    key: "postre",
+    keywords: ["postre"],
+    title: "Cierra con un postre",
+    subtitle: "El final perfecto del reinado.",
+  },
+  {
+    key: "acompan",
+    keywords: ["acompan"],
+    title: "Pídele un acompañamiento",
+    subtitle: "Papas, aros, lo que se te antoje.",
+  },
+];
+
+export type UpsellGroup = {
+  key: UpsellGroupKey;
+  title: string;
+  subtitle: string;
+  productos: Producto[];
+};
 
 /**
- * Lee el menú cacheado por la sede activa y devuelve hasta `max` productos
- * de categorías "complementarias" (bebidas, postres, adiciones, acompañantes),
- * excluyendo IDs ya presentes en el contexto actual.
+ * Devuelve los grupos de upsell disponibles para la sede activa, en orden
+ * de prioridad fijo (adiciones → bebidas → postres → acompañamientos).
+ * Cada grupo trae hasta `maxPerGroup` productos y excluye los `excludeIds`.
  */
-export function useUpsellSuggestions(opts: {
+export function useUpsellGroups(opts: {
   excludeIds?: string[];
-  max?: number;
-} = {}): Producto[] {
-  const { excludeIds = [], max = 3 } = opts;
+  maxPerGroup?: number;
+} = {}): UpsellGroup[] {
+  const { excludeIds = [], maxPerGroup = 3 } = opts;
   const qc = useQueryClient();
   const sede = useActiveSede();
   return useMemo(() => {
@@ -31,46 +65,72 @@ export function useUpsellSuggestions(opts: {
     ]);
     if (!data) return [];
     const catsById = new Map(data.categorias.map((c) => [c.id, c]));
-    const matchIds = new Set(
-      data.categorias
-        .filter((c) => {
-          const n = (c.nombre ?? "").toLowerCase();
-          return UPSELL_CAT_KEYWORDS.some((k) => n.includes(k));
-        })
-        .map((c) => c.id),
-    );
     const excluded = new Set(excludeIds);
-    const list: Producto[] = [];
-    for (const row of data.productos) {
-      if (!row.categoria_id || !matchIds.has(row.categoria_id)) continue;
-      if (excluded.has(row.id)) continue;
-      list.push(rpProductoToProducto(row, catsById));
-      if (list.length >= max) break;
-    }
-    return list;
-  }, [qc, sede?.slug, excludeIds.join("|"), max]);
+
+    return GROUP_ORDER.map((grp) => {
+      const catIds = new Set(
+        data.categorias
+          .filter((c) => {
+            const n = (c.nombre ?? "").toLowerCase();
+            return grp.keywords.some((k) => n.includes(k));
+          })
+          .map((c) => c.id),
+      );
+      const productos: Producto[] = [];
+      for (const row of data.productos) {
+        if (!row.categoria_id || !catIds.has(row.categoria_id)) continue;
+        if (excluded.has(row.id)) continue;
+        productos.push(rpProductoToProducto(row, catsById));
+        if (productos.length >= maxPerGroup) break;
+      }
+      return { key: grp.key, title: grp.title, subtitle: grp.subtitle, productos };
+    }).filter((g) => g.productos.length > 0);
+  }, [qc, sede?.slug, excludeIds.join("|"), maxPerGroup]);
 }
 
 export function UpsellSection({
   excludeIds = [],
-  title = "A tu corona le falta…",
-  subtitle = "Súmale uno y coróname el pedido",
   tone = "purple",
 }: {
   excludeIds?: string[];
-  title?: string;
-  subtitle?: string;
+  title?: string; // legacy — ignorado, ahora el título viene del grupo
+  subtitle?: string; // legacy — ignorado
   tone?: "purple" | "yellow";
 }) {
-  const sugeridos = useUpsellSuggestions({ excludeIds });
-  if (sugeridos.length === 0) return null;
+  const groups = useUpsellGroups({ excludeIds });
+  const [dismissed, setDismissed] = useState<Set<UpsellGroupKey>>(new Set());
+
+  const active = useMemo(
+    () => groups.find((g) => !dismissed.has(g.key)) ?? null,
+    [groups, dismissed],
+  );
+
+  if (!active) return null;
+
   const bg = tone === "yellow" ? "bg-kp-yellow/40" : "bg-kp-purple/20";
+
+  const advance = () => {
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      next.add(active.key);
+      return next;
+    });
+  };
+
   return (
-    <div className={`border-2 border-kp-ink ${bg} p-3 space-y-2`}>
-      <h3 className="font-display uppercase text-lg leading-none">{title}</h3>
-      <p className="text-[11px] font-display uppercase opacity-70">{subtitle}</p>
+    <div className={`relative border-2 border-kp-ink ${bg} p-3 space-y-2`}>
+      <button
+        type="button"
+        onClick={advance}
+        aria-label="Saltar esta sugerencia"
+        className="absolute top-1.5 right-1.5 w-7 h-7 border-2 border-kp-ink bg-kp-cheese font-display text-sm leading-none flex items-center justify-center hover:bg-kp-yellow"
+      >
+        ✕
+      </button>
+      <h3 className="font-display uppercase text-lg leading-none pr-8">{active.title}</h3>
+      <p className="text-[11px] font-display uppercase opacity-70">{active.subtitle}</p>
       <ul className="space-y-2">
-        {sugeridos.map((p) => (
+        {active.productos.map((p) => (
           <li
             key={p.id}
             className="flex items-center gap-3 bg-kp-cheese border-2 border-kp-ink p-2"
@@ -103,6 +163,8 @@ export function UpsellSection({
                   silent: true,
                 });
                 toast.success(`${p.nombre} sumado`);
+                // auto-avanza al siguiente grupo (bebidas tras adiciones, etc.)
+                advance();
               }}
             >
               + Agregar
