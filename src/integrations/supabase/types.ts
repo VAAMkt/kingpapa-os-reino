@@ -50,6 +50,71 @@ export type Database = {
         }
         Relationships: []
       }
+      orders: {
+        Row: {
+          cliente: Json
+          created_at: string
+          id: string
+          items: Json
+          notas: string | null
+          pago: string
+          rp_payload: Json
+          rp_pedido_id: string | null
+          rp_response: Json | null
+          sede_id: string
+          status: string
+          subtotal: number
+          tipo: string
+          total: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cliente: Json
+          created_at?: string
+          id?: string
+          items: Json
+          notas?: string | null
+          pago: string
+          rp_payload: Json
+          rp_pedido_id?: string | null
+          rp_response?: Json | null
+          sede_id: string
+          status?: string
+          subtotal?: number
+          tipo: string
+          total?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cliente?: Json
+          created_at?: string
+          id?: string
+          items?: Json
+          notas?: string | null
+          pago?: string
+          rp_payload?: Json
+          rp_pedido_id?: string | null
+          rp_response?: Json | null
+          sede_id?: string
+          status?: string
+          subtotal?: number
+          tipo?: string
+          total?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_sede_id_fkey"
+            columns: ["sede_id"]
+            isOneToOne: false
+            referencedRelation: "sedes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           autor_id: string | null
