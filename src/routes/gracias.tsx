@@ -70,10 +70,13 @@ function GraciasPage() {
         <h1 className="font-display text-4xl md:text-6xl uppercase leading-none mt-3">
           👑 Tu corona se está forjando
         </h1>
-        <p className="mt-3 text-sm opacity-80">Guarda este código por si tu motorizado pregunta:</p>
+        <p className="mt-3 text-sm opacity-80">Tu Código de Remisión Web:</p>
         <div className="mt-3 border-2 border-kp-ink bg-kp-cheese px-4 py-3 inline-block">
           <span className="font-display text-3xl md:text-4xl tracking-widest">{order_id}</span>
         </div>
+        <p className="mt-3 text-xs opacity-70 max-w-md mx-auto">
+          El código interno en el ticket del local puede variar, pero este es tu comprobante oficial.
+        </p>
       </BrutalCard>
 
       {order_id ? <TrackerOperativo orderId={order_id} /> : null}
