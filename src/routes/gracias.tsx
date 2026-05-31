@@ -131,8 +131,21 @@ function GraciasPage() {
         </h1>
         <p className="mt-3 text-sm opacity-80">Guarda este código por si tu motorizado pregunta:</p>
         <div className="mt-3 border-2 border-kp-ink bg-kp-cheese px-4 py-3 inline-block">
-          <span className="font-display text-3xl md:text-4xl tracking-widest">{order_id}</span>
+          {comanda ? (
+            <span className="font-display text-3xl md:text-4xl tracking-widest">
+              {comanda.startsWith("#") ? comanda : `#${comanda}`}
+            </span>
+          ) : (
+            <span className="font-display text-lg md:text-xl tracking-wider opacity-70">
+              Asignando comanda…
+            </span>
+          )}
         </div>
+        {rpPedidoId || order_id ? (
+          <p className="mt-2 text-[11px] font-mono opacity-60">
+            ref interna: {rpPedidoId ?? order_id}
+          </p>
+        ) : null}
       </BrutalCard>
 
       {resolvedId ? <TrackerOperativo orderId={resolvedId} /> : null}
