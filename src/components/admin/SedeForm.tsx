@@ -15,6 +15,8 @@ import {
   type SedeRow,
 } from "@/lib/sedes";
 import { listRpLocales } from "@/lib/rp.functions";
+import { PlacesAutocomplete } from "@/components/kp/PlacesAutocomplete";
+import { GateMap } from "@/components/kp/GateMap";
 import { toast } from "sonner";
 
 const SedeSchema = z.object({
