@@ -52,12 +52,15 @@ export type Database = {
       }
       orders: {
         Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
           cliente: Json
           created_at: string
           id: string
           items: Json
           notas: string | null
           pago: string
+          rp_numero_comanda: string | null
           rp_payload: Json
           rp_pedido_id: string | null
           rp_response: Json | null
@@ -70,12 +73,15 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           cliente: Json
           created_at?: string
           id?: string
           items: Json
           notas?: string | null
           pago: string
+          rp_numero_comanda?: string | null
           rp_payload: Json
           rp_pedido_id?: string | null
           rp_response?: Json | null
@@ -88,12 +94,15 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           cliente?: Json
           created_at?: string
           id?: string
           items?: Json
           notas?: string | null
           pago?: string
+          rp_numero_comanda?: string | null
           rp_payload?: Json
           rp_pedido_id?: string | null
           rp_response?: Json | null

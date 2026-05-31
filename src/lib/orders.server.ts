@@ -1,7 +1,15 @@
 // SERVER-ONLY: arma el payload del checkout y lo manda a Restaurant.pe.
+//
+// Mapeo de métodos de pago (confirmado en producción contra el POS):
+//   delivery_tipopago: 1 = Efectivo (contra entrega)
+//                       2 = Datafono / tarjeta presencial (tarjeta_id=1)
+//                       5 = Pago online / web (sin pasarela integrada aún)
+// TODO(pasarela): cuando se integre la pasarela online (PSE, Mercado Pago, etc.)
+//   añadir al payload.delivery: delivery_montopagado (= total) y transaccion_id
+//   con el id devuelto por la pasarela, para que el arqueo del POS cuadre.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
-import { rpGetCatalogo, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
+import { rpGetCatalogo, rpObtenerPedido, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
 import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
 
 export type CheckoutInputItem = {
@@ -319,6 +327,8 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   // 2) Llamar a Restaurant.pe.
   let rpResponse: unknown = null;
   let rpPedidoId: string | null = null;
+  let rpNumeroComanda: string | null = null;
+  let rpCabecera: unknown = null;
   try {
     rpResponse = await rpRegistrarDelivery(payload);
     // FASE 1 — Restaurant.pe devuelve `data` como escalar (ej. 159235), no como objeto.
@@ -345,10 +355,42 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       }
     }
 
+    // El id que devuelve registrarDelivery es interno (ej. 159265). El número
+    // corto visible en el POS (ej. #158716) vive en la cabecera del pedido,
+    // que se consulta con un segundo GET. Tolerante a fallos.
+    if (rpPedidoId) {
+      try {
+        rpCabecera = await rpObtenerPedido(rpPedidoId);
+        if (rpCabecera && typeof rpCabecera === "object") {
+          const c = rpCabecera as Record<string, unknown>;
+          const inner = (c.data ?? c) as Record<string, unknown>;
+          const candidates = [
+            inner.pedido_numero,
+            inner.numero_comanda,
+            inner.comanda,
+            inner.ticket,
+            inner.correlativo,
+            inner.numero,
+            inner.delivery_numero,
+            inner.pedido_correlativo,
+          ];
+          for (const v of candidates) {
+            if (v != null && String(v).trim() !== "") {
+              rpNumeroComanda = String(v).trim();
+              break;
+            }
+          }
+        }
+      } catch {
+        // ignorar: no bloquea el pedido
+      }
+    }
+
     await supabaseAdmin
       .from("orders")
       .update({
         rp_pedido_id: rpPedidoId,
+        rp_numero_comanda: rpNumeroComanda,
         rp_response: rpResponse as Json,
         status: "enviado",
       })
@@ -357,9 +399,14 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "order",
       sede_id: sede.id,
-      payload: { request: payload, response: rpResponse, order_id: localId } as unknown as Json,
+      payload: {
+        request: payload,
+        response: rpResponse,
+        cabecera: rpCabecera,
+        order_id: localId,
+      } as unknown as Json,
       ok: true,
-      mensaje: `Pedido enviado a Restaurant.pe (rp_pedido_id=${rpPedidoId ?? "n/d"})`,
+      mensaje: `Pedido enviado a Restaurant.pe (rp_pedido_id=${rpPedidoId ?? "n/d"}, comanda=${rpNumeroComanda ?? "n/d"})`,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
