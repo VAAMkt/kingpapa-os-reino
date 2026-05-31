@@ -25,21 +25,81 @@ const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 type PagoMetodo = "efectivo" | "datafono" | "online";
 type FieldErrors = Partial<Record<"nombre" | "telefono" | "direccion", string>>;
 
+const FORM_KEY = "kp.checkoutForm";
+type PersistedForm = Partial<{
+  nombre: string;
+  telefono: string;
+  direccion: string;
+  detalles: string;
+  notas: string;
+  pago: PagoMetodo;
+}>;
+
+function loadPersistedForm(): PersistedForm {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(FORM_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function CheckoutPage() {
   const submitOrder = useServerFn(submitCheckoutOrder);
   const { items, count, subtotal, orderType } = useCart();
   const sede = useActiveSede();
   const navigate = useNavigate();
 
-  const [nombre, setNombre] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [direccion, setDireccion] = useState(sede?.direccionTexto ?? "");
-  const [detalles, setDetalles] = useState(sede?.detalles ?? "");
-  const [notas, setNotas] = useState("");
-  const [pago, setPago] = useState<PagoMetodo>("efectivo");
+  const persisted = useMemo(() => loadPersistedForm(), []);
+
+  const [nombre, setNombre] = useState(persisted.nombre ?? "");
+  const [telefono, setTelefono] = useState(persisted.telefono ?? "");
+  const [direccion, setDireccion] = useState(persisted.direccion ?? sede?.direccionTexto ?? "");
+  const [detalles, setDetalles] = useState(persisted.detalles ?? sede?.detalles ?? "");
+  const [notas, setNotas] = useState(persisted.notas ?? "");
+  const [pago, setPago] = useState<PagoMetodo>(persisted.pago ?? "efectivo");
   const [enviando, setEnviando] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [resumenAbierto, setResumenAbierto] = useState(false);
+
+  // Persiste el formulario en localStorage para que recargar la página
+  // o editar por error no borre lo que el usuario ya escribió.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        FORM_KEY,
+        JSON.stringify({ nombre, telefono, direccion, detalles, notas, pago }),
+      );
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [nombre, telefono, direccion, detalles, notas, pago]);
+
+  // Si la sede activa trae una dirección nueva (p.ej. el usuario reabrió
+  // el LocationGate y eligió otra) y el campo sigue vacío, la adoptamos.
+  useEffect(() => {
+    if (sede?.direccionTexto && !direccion) setDireccion(sede.direccionTexto);
+    if (sede?.detalles && !detalles) setDetalles(sede.detalles);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sede?.direccionTexto, sede?.detalles]);
+
+  // Sincroniza la edición manual del checkout hacia la sede activa para que
+  // el header y el resumen reflejen el texto más reciente.
+  useEffect(() => {
+    if (!sede) return;
+    const sameDir = (sede.direccionTexto ?? "") === direccion;
+    const sameDet = (sede.detalles ?? "") === (detalles || "");
+    if (sameDir && sameDet) return;
+    setActiveSede({
+      ...sede,
+      direccionTexto: direccion || sede.direccionTexto,
+      detalles: detalles || undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [direccion, detalles]);
 
   const tipo: OrderType = orderType ?? (sede?.enCobertura ? "delivery" : "pickup");
   const esRecoger = tipo === "pickup";
@@ -147,6 +207,7 @@ function CheckoutPage() {
       };
       try {
         localStorage.setItem("kp.lastOrder", JSON.stringify(lastOrder));
+        localStorage.removeItem(FORM_KEY);
       } catch {
         /* ignore */
       }
