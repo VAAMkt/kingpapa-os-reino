@@ -207,7 +207,7 @@ function CheckoutPage() {
                   onChange={(e) => setNombre(e.target.value)}
                   placeholder="Nombre"
                   autoComplete="name"
-                  className={errors.nombre ? "border-kp-fire" : ""}
+                  className={errors.nombre ? "border-kp-red" : ""}
                 />
               </Field>
               <Field error={errors.telefono}>
@@ -217,7 +217,7 @@ function CheckoutPage() {
                   placeholder="Teléfono / WhatsApp"
                   inputMode="tel"
                   autoComplete="tel"
-                  className={errors.telefono ? "border-kp-fire" : ""}
+                  className={errors.telefono ? "border-kp-red" : ""}
                 />
               </Field>
             </div>
@@ -229,7 +229,7 @@ function CheckoutPage() {
                     onChange={(e) => setDireccion(e.target.value)}
                     placeholder="Dirección de entrega"
                     autoComplete="street-address"
-                    className={errors.direccion ? "border-kp-fire" : ""}
+                    className={errors.direccion ? "border-kp-red" : ""}
                   />
                 </Field>
                 <BrutalInput
@@ -320,7 +320,7 @@ function Field({ error, children }: { error?: string; children: React.ReactNode 
   return (
     <div className="space-y-1">
       {children}
-      {error && <p className="text-xs text-kp-fire font-display uppercase">{error}</p>}
+      {error && <p className="text-xs text-kp-red font-display uppercase">{error}</p>}
     </div>
   );
 }
