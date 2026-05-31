@@ -1,5 +1,6 @@
 // SERVER-ONLY: arma el payload del checkout y lo manda a Restaurant.pe.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Json } from "@/integrations/supabase/types";
 import { rpGetCatalogo, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
 import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
 
@@ -348,34 +349,34 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       .from("orders")
       .update({
         rp_pedido_id: rpPedidoId,
-        rp_response: rpResponse as never,
+        rp_response: rpResponse as Json,
         status: "enviado",
-      } as never)
+      })
       .eq("id", localId);
 
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "order",
       sede_id: sede.id,
-      payload: { request: payload, response: rpResponse, order_id: localId } as never,
+      payload: { request: payload, response: rpResponse, order_id: localId } as unknown as Json,
       ok: true,
       mensaje: `Pedido enviado a Restaurant.pe (rp_pedido_id=${rpPedidoId ?? "n/d"})`,
-    } as never);
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await supabaseAdmin
       .from("orders")
       .update({
         status: "error",
-        rp_response: { error: msg } as never,
-      } as never)
+        rp_response: { error: msg } as Json,
+      })
       .eq("id", localId);
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "order",
       sede_id: sede.id,
-      payload: { request: payload, order_id: localId, error: msg } as never,
+      payload: { request: payload, order_id: localId, error: msg } as unknown as Json,
       ok: false,
       mensaje: `Fallo al enviar pedido a Restaurant.pe: ${msg}`,
-    } as never);
+    });
     throw new Error(
       "No pudimos enviar tu pedido al sistema de la sede. Intenta de nuevo o contáctanos por WhatsApp.",
     );
