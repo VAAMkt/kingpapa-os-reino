@@ -81,7 +81,7 @@ function AdminPedidosPage() {
     mutationFn: async ({ id, status }: { id: string; status: OrderStatus }) => {
       const { error } = await supabase
         .from("orders")
-        .update({ status } as never)
+        .update({ status })
         .eq("id", id);
       if (error) throw error;
     },
