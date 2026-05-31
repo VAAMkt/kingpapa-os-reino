@@ -31,14 +31,14 @@ type OrderRow = {
   sede_id: string;
 };
 
-const STATUS_OPTIONS: { value: OrderStatus; label: string; tone: "yellow" | "lime" | "cheese" | "black" }[] = [
+const STATUS_OPTIONS: { value: OrderStatus; label: string; tone: "yellow" | "lime" | "red" | "black" }[] = [
   { value: "enviado", label: "Enviado", tone: "yellow" },
   { value: "recibido", label: "Recibido", tone: "yellow" },
   { value: "en_preparacion", label: "En preparación", tone: "yellow" },
   { value: "en_camino", label: "En camino", tone: "lime" },
   { value: "entregado", label: "Entregado", tone: "lime" },
-  { value: "cancelado", label: "Cancelado", tone: "black" },
-  { value: "error", label: "Error", tone: "black" },
+  { value: "cancelado", label: "Cancelado", tone: "red" },
+  { value: "error", label: "Error", tone: "red" },
 ];
 
 const cop = (n: number) => "$" + Number(n).toLocaleString("es-CO");

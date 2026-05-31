@@ -34,6 +34,7 @@ import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 import { Route as AdminSincronizacionRouteImport } from './routes/admin.sincronizacion'
 import { Route as AdminSedesRouteImport } from './routes/admin.sedes'
+import { Route as AdminPedidosRouteImport } from './routes/admin.pedidos'
 import { Route as AdminMenuRouteImport } from './routes/admin.menu'
 import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
 import { Route as AdminSedesIndexRouteImport } from './routes/admin.sedes.index'
@@ -168,6 +169,11 @@ const AdminSedesRoute = AdminSedesRouteImport.update({
   path: '/sedes',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPedidosRoute = AdminPedidosRouteImport.update({
+  id: '/pedidos',
+  path: '/pedidos',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMenuRoute = AdminMenuRouteImport.update({
   id: '/menu',
   path: '/menu',
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/menu': typeof AdminMenuRoute
+  '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sedes': typeof AdminSedesRouteWithChildren
   '/admin/sincronizacion': typeof AdminSincronizacionRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/sedes': typeof SedesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/menu': typeof AdminMenuRoute
+  '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sincronizacion': typeof AdminSincronizacionRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/menu': typeof AdminMenuRoute
+  '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sedes': typeof AdminSedesRouteWithChildren
   '/admin/sincronizacion': typeof AdminSincronizacionRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
@@ -331,6 +340,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/admin/contenidos'
     | '/admin/menu'
+    | '/admin/pedidos'
     | '/admin/sedes'
     | '/admin/sincronizacion'
     | '/admin/usuarios'
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
     | '/sedes'
     | '/sitemap.xml'
     | '/admin/menu'
+    | '/admin/pedidos'
     | '/admin/sincronizacion'
     | '/admin/usuarios'
     | '/historias/$slug'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/admin/contenidos'
     | '/admin/menu'
+    | '/admin/pedidos'
     | '/admin/sedes'
     | '/admin/sincronizacion'
     | '/admin/usuarios'
@@ -610,6 +622,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSedesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/pedidos': {
+      id: '/admin/pedidos'
+      path: '/pedidos'
+      fullPath: '/admin/pedidos'
+      preLoaderRoute: typeof AdminPedidosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/menu': {
       id: '/admin/menu'
       path: '/menu'
@@ -704,6 +723,7 @@ const AdminSedesRouteWithChildren = AdminSedesRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminContenidosRoute: typeof AdminContenidosRouteWithChildren
   AdminMenuRoute: typeof AdminMenuRoute
+  AdminPedidosRoute: typeof AdminPedidosRoute
   AdminSedesRoute: typeof AdminSedesRouteWithChildren
   AdminSincronizacionRoute: typeof AdminSincronizacionRoute
   AdminUsuariosRoute: typeof AdminUsuariosRoute
@@ -713,6 +733,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminContenidosRoute: AdminContenidosRouteWithChildren,
   AdminMenuRoute: AdminMenuRoute,
+  AdminPedidosRoute: AdminPedidosRoute,
   AdminSedesRoute: AdminSedesRouteWithChildren,
   AdminSincronizacionRoute: AdminSincronizacionRoute,
   AdminUsuariosRoute: AdminUsuariosRoute,
