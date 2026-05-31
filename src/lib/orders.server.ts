@@ -173,7 +173,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   const payload = {
     local_id: sede.rp_local_id,
     tipo_entrega: input.tipo === "delivery" ? 1 : 2,
-    forma_pago: input.pago,
+    pago: input.pago,
     observaciones: input.notas ?? "",
     cliente: {
       nombres: input.cliente.nombre,
