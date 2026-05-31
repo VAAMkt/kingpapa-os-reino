@@ -173,23 +173,40 @@ export async function rpRegistrarDelivery(
 }
 
 /**
- * Lee la cabecera de un pedido por su id interno (el escalar que devuelve
- * registrarDelivery, ej. 159265). Intenta varios paths candidatos y devuelve
- * la PRIMERA respuesta cruda exitosa para que el caller extraiga el número
- * corto de comanda. NUNCA lanza: ante 404/error devuelve null.
- *
- * El endpoint exacto no está documentado en este repo; probamos candidatos
- * habituales del API v2/readonly de Restaurant.pe.
+ * Subdominio del tenant en Restaurant.pe (ej. "kingpapa").
+ * Distinto al id numérico de `RESTAURANT_PE_DOMINIO` (ej. "5272").
+ * Fallback a "kingpapa" porque hoy es el único tenant.
  */
-export async function rpObtenerPedido(pedidoId: number | string): Promise<unknown | null> {
+function getSubdominio(): string {
+  return (process.env.RESTAURANT_PE_SUBDOMINIO || "kingpapa").trim();
+}
+
+/**
+ * Endpoint descubierto vía DevTools del panel POS:
+ *   GET http://{sub}.restaurant.pe/restaurant/api/rest/pedido/getPedidoListByDelivery/{deliveryId}
+ *
+ * El `deliveryId` es el escalar que devuelve `registrarDelivery`. La respuesta
+ * lista los pedidos amarrados a ese delivery; el primer item trae el número
+ * corto de comanda (visible en el POS, ej. 158719) y el estado real.
+ *
+ * Estrategia:
+ *   1. Ruta interna del POS (la que vimos en network) — más probable que funcione.
+ *   2. Fallback a la base pública v2 por si la migran allí.
+ *
+ * NUNCA lanza: devuelve la primera respuesta exitosa o null.
+ */
+export async function rpGetPedidoListByDelivery(
+  deliveryId: number | string,
+): Promise<{ raw: unknown; firstItem: Record<string, unknown> | null } | null> {
+  const sub = getSubdominio();
   const dominioId = getDominioId();
-  const candidates = [
-    `/delivery/obtenerPedido/${dominioId}/${pedidoId}?quipupos=0`,
-    `/delivery/obtenerPedidoCabecera/${dominioId}/${pedidoId}?quipupos=0`,
-    `/delivery/consultarDelivery/${dominioId}/${pedidoId}?quipupos=0`,
+  const candidates: string[] = [
+    `http://${sub}.restaurant.pe/restaurant/api/rest/pedido/getPedidoListByDelivery/${deliveryId}`,
+    `${WRITE_BASE}/pedido/getPedidoListByDelivery/${dominioId}/${deliveryId}`,
   ];
-  for (const path of candidates) {
-    const url = `${READ_BASE}${path}`;
+
+  let lastStatus: number | null = null;
+  for (const url of candidates) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
@@ -201,14 +218,44 @@ export async function rpObtenerPedido(pedidoId: number | string): Promise<unknow
         },
       });
       clearTimeout(timeout);
+      lastStatus = res.status;
       if (!res.ok) continue;
-      const json = (await res.json()) as RpEnvelope<unknown> & Record<string, unknown>;
-      if (String(json.tipo) !== "1") continue;
-      return json.data ?? json;
+      const json = (await res.json()) as Record<string, unknown>;
+      // El envelope de Restaurant.pe normalmente es { tipo:"1", data:[...] }.
+      // Si tipo viene presente y no es "1", tratamos como fallo.
+      if (json.tipo != null && String(json.tipo) !== "1") continue;
+      const data = (json.data ?? json) as unknown;
+      const first = Array.isArray(data)
+        ? ((data[0] as Record<string, unknown>) ?? null)
+        : data && typeof data === "object"
+          ? (data as Record<string, unknown>)
+          : null;
+      return { raw: json, firstItem: first };
     } catch {
       clearTimeout(timeout);
       continue;
     }
   }
+
+  // Log de fallo (best-effort, no romper si tampoco se puede loguear).
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "poll_pedido",
+      ok: false,
+      mensaje: `getPedidoListByDelivery falló (lastStatus=${lastStatus ?? "n/d"})`,
+      payload: { delivery_id: String(deliveryId), candidates } as unknown as Record<string, unknown>,
+    });
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+/**
+ * @deprecated Reemplazado por `rpGetPedidoListByDelivery`. Mantenido como
+ * shim para que código antiguo siga compilando; siempre devuelve null.
+ */
+export async function rpObtenerPedido(_pedidoId: number | string): Promise<unknown | null> {
   return null;
 }
