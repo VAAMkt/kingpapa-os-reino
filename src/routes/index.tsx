@@ -6,7 +6,7 @@ import { BrutalCard, BrutalBadge, SectionHeading } from "@/components/ui-kp/Brut
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { OrderRouter } from "@/components/kp/OrderRouter";
 import { ProductCard } from "@/components/kp/ProductCard";
-import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
+
 import { LoyaltyModule } from "@/components/kp/LoyaltyModule";
 import { EventCard, LocationCard } from "@/components/kp/Cards";
 import { Testimonios } from "@/components/kp/Testimonios";
