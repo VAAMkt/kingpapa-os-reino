@@ -1,7 +1,15 @@
 // SERVER-ONLY: arma el payload del checkout y lo manda a Restaurant.pe.
+//
+// Mapeo de métodos de pago (confirmado en producción contra el POS):
+//   delivery_tipopago: 1 = Efectivo (contra entrega)
+//                       2 = Datafono / tarjeta presencial (tarjeta_id=1)
+//                       5 = Pago online / web (sin pasarela integrada aún)
+// TODO(pasarela): cuando se integre la pasarela online (PSE, Mercado Pago, etc.)
+//   añadir al payload.delivery: delivery_montopagado (= total) y transaccion_id
+//   con el id devuelto por la pasarela, para que el arqueo del POS cuadre.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
-import { rpGetCatalogo, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
+import { rpGetCatalogo, rpObtenerPedido, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
 import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
 
 export type CheckoutInputItem = {

@@ -171,3 +171,44 @@ export async function rpRegistrarDelivery(
     clearTimeout(timeout);
   }
 }
+
+/**
+ * Lee la cabecera de un pedido por su id interno (el escalar que devuelve
+ * registrarDelivery, ej. 159265). Intenta varios paths candidatos y devuelve
+ * la PRIMERA respuesta cruda exitosa para que el caller extraiga el número
+ * corto de comanda. NUNCA lanza: ante 404/error devuelve null.
+ *
+ * El endpoint exacto no está documentado en este repo; probamos candidatos
+ * habituales del API v2/readonly de Restaurant.pe.
+ */
+export async function rpObtenerPedido(pedidoId: number | string): Promise<unknown | null> {
+  const dominioId = getDominioId();
+  const candidates = [
+    `/delivery/obtenerPedido/${dominioId}/${pedidoId}?quipupos=0`,
+    `/delivery/obtenerPedidoCabecera/${dominioId}/${pedidoId}?quipupos=0`,
+    `/delivery/consultarDelivery/${dominioId}/${pedidoId}?quipupos=0`,
+  ];
+  for (const path of candidates) {
+    const url = `${READ_BASE}${path}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Authorization: authHeader(),
+          Accept: "application/json",
+        },
+      });
+      clearTimeout(timeout);
+      if (!res.ok) continue;
+      const json = (await res.json()) as RpEnvelope<unknown> & Record<string, unknown>;
+      if (String(json.tipo) !== "1") continue;
+      return json.data ?? json;
+    } catch {
+      clearTimeout(timeout);
+      continue;
+    }
+  }
+  return null;
+}
