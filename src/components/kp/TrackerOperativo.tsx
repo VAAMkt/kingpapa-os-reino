@@ -94,13 +94,16 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       )
       .subscribe();
 
-    // Polling de respaldo cada 15s. Se detiene en estados terminales para
-    // no recargar innecesariamente la tabla orders.
+    // Polling cada 20s al POS vía server fn. Si el POS cambió el estado
+    // (entregado, anulado, en reparto) o asignó número de comanda, la server
+    // fn actualiza la fila y Realtime propaga el UPDATE.
     const poll = setInterval(() => {
       const s = prevStatusRef.current;
       if (s === "entregado" || s === "cancelado" || s === "error") return;
-      fetchOrder();
-    }, 15_000);
+      pollFn({ data: { orderId } }).catch(() => {
+        // silencioso: el siguiente tick reintenta
+      });
+    }, 20_000);
 
     return () => {
       cancelled = true;
