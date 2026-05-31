@@ -15,6 +15,8 @@ const checkoutSchema = z.object({
     telefono: z.string().min(7).max(40),
     direccion: z.string().max(300).nullable().optional(),
     detalles: z.string().max(300).nullable().optional(),
+    lat: z.number().min(-90).max(90).nullable().optional(),
+    lng: z.number().min(-180).max(180).nullable().optional(),
   }),
   notas: z.string().max(500).nullable().optional(),
   items: z
