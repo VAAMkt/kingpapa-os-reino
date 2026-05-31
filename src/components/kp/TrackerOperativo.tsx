@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { supabase } from "@/integrations/supabase/client";
+import { pollOrderFromRp } from "@/lib/orders.poll.functions";
 
 type OrderStatus =
   | "enviado"
@@ -38,6 +40,7 @@ function stepIndex(status: OrderStatus): number {
 export function TrackerOperativo({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const pollFn = useServerFn(pollOrderFromRp);
 
   const prevStatusRef = useRef<OrderStatus | null>(null);
 
@@ -91,20 +94,23 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       )
       .subscribe();
 
-    // Polling de respaldo cada 15s. Se detiene en estados terminales para
-    // no recargar innecesariamente la tabla orders.
+    // Polling cada 20s al POS vía server fn. Si el POS cambió el estado
+    // (entregado, anulado, en reparto) o asignó número de comanda, la server
+    // fn actualiza la fila y Realtime propaga el UPDATE.
     const poll = setInterval(() => {
       const s = prevStatusRef.current;
       if (s === "entregado" || s === "cancelado" || s === "error") return;
-      fetchOrder();
-    }, 15_000);
+      pollFn({ data: { orderId } }).catch(() => {
+        // silencioso: el siguiente tick reintenta
+      });
+    }, 20_000);
 
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
       clearInterval(poll);
     };
-  }, [orderId]);
+  }, [orderId, pollFn]);
 
   const status: OrderStatus = order?.status ?? "enviado";
   const isError = status === "cancelado" || status === "error";

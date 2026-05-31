@@ -44,6 +44,81 @@ const toInt = (v: unknown): number => Math.trunc(toNum(v));
 
 const toBool01 = (v: unknown): boolean => String(v ?? "0") === "1";
 
+// ---------------------------------------------------------------------------
+// Helpers para sincronizar el estado/comanda del pedido desde Restaurant.pe.
+// ---------------------------------------------------------------------------
+
+export type RpOrderStatus =
+  | "enviado"
+  | "recibido"
+  | "en_preparacion"
+  | "en_camino"
+  | "entregado"
+  | "cancelado"
+  | "error";
+
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/**
+ * Mapea el estado textual que devuelve el POS al status local.
+ * Devuelve null si no reconoce el estado (no tocar el status actual).
+ */
+export function mapRpEstadoToStatus(estado: unknown): RpOrderStatus | null {
+  if (estado == null) return null;
+  const s = stripAccents(String(estado).toLowerCase()).trim();
+  if (!s) return null;
+  if (/(anulad|cancelad|rechazad)/.test(s)) return "cancelado";
+  if (/(entregad|finalizad|completad)/.test(s)) return "entregado";
+  if (/(reparto|en camino|despachad|salio)/.test(s)) return "en_camino";
+  if (/(preparac|cocina|elabor)/.test(s)) return "en_preparacion";
+  if (/(pendiente|registrad|recibid|nuev)/.test(s)) return "recibido";
+  return null;
+}
+
+/**
+ * Extrae el número corto de comanda visible en el POS desde un item crudo
+ * devuelto por getPedidoListByDelivery. Probamos varias claves comunes.
+ */
+export function extractComandaNumber(raw: Record<string, unknown> | null): string | null {
+  if (!raw) return null;
+  const inner = (raw.data ?? raw) as Record<string, unknown>;
+  const candidates = [
+    inner.pedido_numero,
+    inner.numero_comanda,
+    inner.comanda,
+    inner.numero,
+    inner.correlativo,
+    inner.pedido_correlativo,
+    inner.ticket,
+    inner.delivery_numero,
+  ];
+  for (const v of candidates) {
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
+  return null;
+}
+
+/**
+ * Extrae el estado textual desde un item crudo del POS.
+ */
+export function extractEstadoTexto(raw: Record<string, unknown> | null): string | null {
+  if (!raw) return null;
+  const inner = (raw.data ?? raw) as Record<string, unknown>;
+  const candidates = [
+    inner.estado_nombre,
+    inner.pedido_estado_nombre,
+    inner.estado,
+    inner.pedido_estado,
+    inner.estado_descripcion,
+  ];
+  for (const v of candidates) {
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
+  return null;
+}
+
 export type NormalizedLocal = {
   rp_local_id: number;
   nombre: string;

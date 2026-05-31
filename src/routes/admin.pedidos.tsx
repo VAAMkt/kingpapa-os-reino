@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { pollOrderFromRp } from "@/lib/orders.poll.functions";
 
 export const Route = createFileRoute("/admin/pedidos")({
   head: () => ({ meta: [{ title: "Pedidos — Admin" }] }),
@@ -67,9 +69,38 @@ const fmtTime = (iso: string) =>
 
 function AdminPedidosPage() {
   const queryClient = useQueryClient();
+  const pollFn = useServerFn(pollOrderFromRp);
   const [cancelTarget, setCancelTarget] = useState<OrderRow | null>(null);
   const [cancelPreset, setCancelPreset] = useState<string>(CANCEL_PRESETS[0]);
   const [cancelDetail, setCancelDetail] = useState<string>("");
+  const [pollingId, setPollingId] = useState<string | null>(null);
+
+  async function handlePollFromPos(o: OrderRow) {
+    if (!o.rp_pedido_id) {
+      toast.error("Este pedido no tiene id de Restaurant.pe");
+      return;
+    }
+    setPollingId(o.id);
+    try {
+      const res = await pollFn({ data: { orderId: o.id } });
+      if (!res.ok) {
+        toast.error(`POS: ${res.reason}${"message" in res && res.message ? ` — ${res.message}` : ""}`);
+      } else if ("terminal" in res && res.terminal) {
+        toast.info("El pedido ya está en estado terminal");
+      } else if ("changed" in res && res.changed) {
+        toast.success(
+          `Sincronizado: ${res.status}${res.rp_numero_comanda ? ` · #${res.rp_numero_comanda}` : ""}`,
+        );
+      } else {
+        toast.message("Sin cambios desde el POS");
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin", "pedidos"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al consultar el POS");
+    } finally {
+      setPollingId(null);
+    }
+  }
 
   const pedidosQuery = useQuery({
     queryKey: ["admin", "pedidos"],
@@ -234,6 +265,16 @@ function AdminPedidosPage() {
                         </option>
                       ))}
                     </select>
+                    {o.rp_pedido_id ? (
+                      <button
+                        type="button"
+                        onClick={() => handlePollFromPos(o)}
+                        disabled={pollingId === o.id}
+                        className="px-3 py-1.5 bg-kp-yellow border-2 border-kp-ink shadow-brutal-sm font-display uppercase text-[10px] disabled:opacity-60"
+                      >
+                        {pollingId === o.id ? "Consultando…" : "Actualizar desde POS"}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </BrutalCard>

@@ -9,7 +9,8 @@
 //   con el id devuelto por la pasarela, para que el arqueo del POS cuadre.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
-import { rpGetCatalogo, rpObtenerPedido, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
+import { rpGetCatalogo, rpGetPedidoListByDelivery, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
+import { extractComandaNumber } from "@/lib/restaurantpe-normalize";
 import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
 
 export type CheckoutInputItem = {
@@ -358,32 +359,15 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       }
     }
 
-    // El id que devuelve registrarDelivery es interno (ej. 159265). El número
-    // corto visible en el POS (ej. #158716) vive en la cabecera del pedido,
-    // que se consulta con un segundo GET. Tolerante a fallos.
+    // El id que devuelve registrarDelivery es interno (delivery_id, ej. 159268).
+    // El número corto visible en el POS (ej. #158719) se obtiene con un GET
+    // adicional al endpoint getPedidoListByDelivery. Tolerante a fallos: si
+    // no llega ahora, el polling en TrackerOperativo lo resolverá en ≤20s.
     if (rpPedidoId) {
       try {
-        rpCabecera = await rpObtenerPedido(rpPedidoId);
-        if (rpCabecera && typeof rpCabecera === "object") {
-          const c = rpCabecera as Record<string, unknown>;
-          const inner = (c.data ?? c) as Record<string, unknown>;
-          const candidates = [
-            inner.pedido_numero,
-            inner.numero_comanda,
-            inner.comanda,
-            inner.ticket,
-            inner.correlativo,
-            inner.numero,
-            inner.delivery_numero,
-            inner.pedido_correlativo,
-          ];
-          for (const v of candidates) {
-            if (v != null && String(v).trim() !== "") {
-              rpNumeroComanda = String(v).trim();
-              break;
-            }
-          }
-        }
+        const r = await rpGetPedidoListByDelivery(rpPedidoId);
+        rpCabecera = r?.raw ?? null;
+        rpNumeroComanda = extractComandaNumber(r?.firstItem ?? null);
       } catch {
         // ignorar: no bloquea el pedido
       }
