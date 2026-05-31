@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import type { SedeRow } from "@/lib/sedes";
 
 const STORAGE_KEY = "kp.activeSede";
-export const DEFAULT_COBERTURA_KM = 7;
+export const DEFAULT_COBERTURA_KM = 5;
 
 export type ActiveSedeSource = "gps" | "address" | "manual" | "exploring";
 
