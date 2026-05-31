@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrackingRouteImport } from './routes/tracking'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SedesRouteImport } from './routes/sedes'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -44,6 +45,11 @@ import { Route as AdminSedesIdRouteImport } from './routes/admin.sedes.$id'
 import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
 import { Route as AdminContenidosIdRouteImport } from './routes/admin.contenidos.$id'
 
+const TrackingRoute = TrackingRouteImport.update({
+  id: '/tracking',
+  path: '/tracking',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -231,6 +237,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tracking': typeof TrackingRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/menu': typeof AdminMenuRoute
   '/admin/pedidos': typeof AdminPedidosRoute
@@ -265,6 +272,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tracking': typeof TrackingRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sincronizacion': typeof AdminSincronizacionRoute
@@ -300,6 +308,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sedes': typeof SedesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tracking': typeof TrackingRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/menu': typeof AdminMenuRoute
   '/admin/pedidos': typeof AdminPedidosRoute
@@ -338,6 +347,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/sitemap.xml'
+    | '/tracking'
     | '/admin/contenidos'
     | '/admin/menu'
     | '/admin/pedidos'
@@ -372,6 +382,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/sitemap.xml'
+    | '/tracking'
     | '/admin/menu'
     | '/admin/pedidos'
     | '/admin/sincronizacion'
@@ -406,6 +417,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sedes'
     | '/sitemap.xml'
+    | '/tracking'
     | '/admin/contenidos'
     | '/admin/menu'
     | '/admin/pedidos'
@@ -443,10 +455,18 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SedesRoute: typeof SedesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TrackingRoute: typeof TrackingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tracking': {
+      id: '/tracking'
+      path: '/tracking'
+      fullPath: '/tracking'
+      preLoaderRoute: typeof TrackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -789,6 +809,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SedesRoute: SedesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TrackingRoute: TrackingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
