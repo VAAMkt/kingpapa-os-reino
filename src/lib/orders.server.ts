@@ -1,6 +1,7 @@
 // SERVER-ONLY: arma el payload del checkout y lo manda a Restaurant.pe.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { rpRegistrarDelivery } from "@/lib/restaurantpe.server";
+import { rpGetCatalogo, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
+import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
 
 export type CheckoutInputItem = {
   productoId: string; // productos_master.id (uuid)
@@ -45,6 +46,7 @@ type DetallePedido = {
   productoId: string;
   nombre: string;
   rp_id: number;
+  pedido_productoid: number;
   almacen_id: number | null;
   cantidad: number;
   precio_unitario: number; // ya incluye modificadores
@@ -56,6 +58,16 @@ function toNum(v: unknown, fallback = 0): number {
   if (v == null || v === "") return fallback;
   const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
   return Number.isFinite(n) ? n : fallback;
+}
+
+function resolvePedidoProductId(menu: RpMenuData, productogeneralId: number): number {
+  const productos = Array.isArray(menu.data) ? menu.data : [];
+  const raw = productos.find((p: RpProducto) => toNum(p.productogeneral_id ?? p.producto_id) === productogeneralId);
+  if (!raw) return productogeneralId;
+  const presentaciones = Array.isArray(raw.lista_presentacion)
+    ? (raw.lista_presentacion as Record<string, unknown>[])
+    : [];
+  return toNum(raw.producto_id ?? presentaciones[0]?.producto_id ?? raw.productogeneral_id, productogeneralId);
 }
 
 /**
@@ -113,6 +125,7 @@ async function resolveOrder(input: CheckoutInput): Promise<{
   }
 
   // 4) Armar detalle con precios recalculados
+  const catalogo = await rpGetCatalogo(sede.rp_local_id);
   let subtotal = 0;
   const detalle: DetallePedido[] = input.items.map((it) => {
     const p = prodMap.get(it.productoId)!;
@@ -142,6 +155,7 @@ async function resolveOrder(input: CheckoutInput): Promise<{
       productoId: p.id,
       nombre: p.nombre,
       rp_id: p.rp_id,
+      pedido_productoid: resolvePedidoProductId(catalogo, p.rp_id),
       almacen_id: p.almacen_id,
       cantidad: it.cantidad,
       precio_unitario,
