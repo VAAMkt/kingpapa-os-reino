@@ -45,7 +45,7 @@ function GraciasPage() {
     resolveFn({ data: { ref: order_id } })
       .then((r) => {
         if (cancelled) return;
-        if ("id" in r) setResolvedId(r.id);
+        if ("id" in r && typeof r.id === "string") setResolvedId(r.id);
       })
       .catch(() => {});
     return () => {
