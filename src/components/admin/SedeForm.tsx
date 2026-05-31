@@ -64,6 +64,16 @@ const SedeSchema = z.object({
 
 type FormState = z.input<typeof SedeSchema>;
 
+const DEFAULT_HORARIOS = {
+  lun: [{ abre: "12:00", cierra: "22:00" }],
+  mar: [{ abre: "12:00", cierra: "22:00" }],
+  mie: [{ abre: "12:00", cierra: "22:00" }],
+  jue: [{ abre: "12:00", cierra: "22:00" }],
+  vie: [{ abre: "12:00", cierra: "22:00" }],
+  sab: [{ abre: "12:00", cierra: "22:00" }],
+  dom: [{ abre: "12:00", cierra: "22:00" }],
+};
+
 const emptyState: FormState = {
   slug: "",
   nombre: "",
@@ -84,6 +94,9 @@ const emptyState: FormState = {
   lat: null,
   lng: null,
   cobertura_radio_km: 5,
+  tz: "America/Bogota",
+  kill_switch: false,
+  horarios: DEFAULT_HORARIOS,
 };
 
 const labelCls = "block font-display uppercase text-xs mb-1";
@@ -94,36 +107,55 @@ const inputBaseCls = cn(
   "focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-none",
 );
 
+const DIA_LABELS: Array<{ key: keyof typeof DEFAULT_HORARIOS; label: string }> = [
+  { key: "lun", label: "Lunes" },
+  { key: "mar", label: "Martes" },
+  { key: "mie", label: "Miércoles" },
+  { key: "jue", label: "Jueves" },
+  { key: "vie", label: "Viernes" },
+  { key: "sab", label: "Sábado" },
+  { key: "dom", label: "Domingo" },
+];
+
 export function SedeForm({ initial }: { initial?: SedeRow }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const editing = !!initial;
 
-  const [form, setForm] = useState<FormState>(
-    initial
-      ? {
-          slug: initial.slug,
-          nombre: initial.nombre,
-          ciudad: initial.ciudad,
-          direccion: initial.direccion,
-          barrio: initial.barrio ?? "",
-          mall: initial.mall ?? "",
-          horario: initial.horario,
-          abierta_ahora: initial.abierta_ahora,
-          delivery: initial.delivery,
-          pickup: initial.pickup,
-          qr_mesa: initial.qr_mesa,
-          whatsapp: initial.whatsapp ?? "",
-          maps_url: initial.maps_url ?? "",
-          orden: initial.orden,
-          publicado: initial.publicado,
-          rp_local_id: initial.rp_local_id ?? null,
-          lat: initial.lat != null ? Number(initial.lat) : null,
-          lng: initial.lng != null ? Number(initial.lng) : null,
-          cobertura_radio_km: initial.cobertura_radio_km != null ? Number(initial.cobertura_radio_km) : 5,
-        }
-      : emptyState,
-  );
+  const [form, setForm] = useState<FormState>(() => {
+    if (!initial) return emptyState;
+    const extra = initial as unknown as {
+      horarios?: typeof DEFAULT_HORARIOS;
+      tz?: string;
+      kill_switch?: boolean;
+    };
+    return {
+      slug: initial.slug,
+      nombre: initial.nombre,
+      ciudad: initial.ciudad,
+      direccion: initial.direccion,
+      barrio: initial.barrio ?? "",
+      mall: initial.mall ?? "",
+      horario: initial.horario,
+      abierta_ahora: initial.abierta_ahora,
+      delivery: initial.delivery,
+      pickup: initial.pickup,
+      qr_mesa: initial.qr_mesa,
+      whatsapp: initial.whatsapp ?? "",
+      maps_url: initial.maps_url ?? "",
+      orden: initial.orden,
+      publicado: initial.publicado,
+      rp_local_id: initial.rp_local_id ?? null,
+      lat: initial.lat != null ? Number(initial.lat) : null,
+      lng: initial.lng != null ? Number(initial.lng) : null,
+      cobertura_radio_km: initial.cobertura_radio_km != null ? Number(initial.cobertura_radio_km) : 5,
+      tz: extra.tz ?? "America/Bogota",
+      kill_switch: extra.kill_switch ?? false,
+      horarios: (extra.horarios && Object.keys(extra.horarios).length > 0)
+        ? { ...DEFAULT_HORARIOS, ...extra.horarios }
+        : DEFAULT_HORARIOS,
+    };
+  });
   const [slugTouched, setSlugTouched] = useState(editing);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
