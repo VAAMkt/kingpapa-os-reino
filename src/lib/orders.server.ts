@@ -185,28 +185,30 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   // Si el endpoint rechaza por nombres de campos, queda en rp_sync_log para
   // iterar el shape.
   const payload = {
-    local_id: sede.rp_local_id,
-    tipo_entrega: input.tipo === "delivery" ? 1 : 2,
-    pago: input.pago,
-    observaciones: input.notas ?? "",
-    cliente: {
-      nombres: input.cliente.nombre,
-      telefono: input.cliente.telefono,
-      direccion: input.cliente.direccion ?? "",
-      referencia: input.cliente.detalles ?? "",
+    delivery: {
+      local_id: sede.rp_local_id,
+      delivery_pagocon: input.pago === "efectivo" ? total : 0,
+      delivery_montodescuento: 0,
+      delivery_tipopago: input.pago === "efectivo" ? 1 : input.pago === "datafono" ? 2 : 5,
+      tarjeta_id: input.pago === "datafono" ? 1 : null,
+      delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
+      delivery_direccionenvio: input.cliente.direccion ?? "",
+      delivery_referencia: input.cliente.detalles ?? "",
+      delivery_observacion: input.notas ?? "",
     },
-    monto_total: total,
-    detalle: detalle.map((d) => ({
-      producto_id: d.rp_id,
-      almacen_id: d.almacen_id,
-      cantidad: d.cantidad,
-      precio_unitario: d.precio_unitario,
-      comentario: "",
-      modificadores: d.modificadores.map((m) => ({
-        grupo_id: m.grupoId,
-        modificador_id: m.opcionId,
-        precio: m.precio,
-      })),
+    cliente: {
+      cliente_nombres: input.cliente.nombre,
+      cliente_apellidos: "",
+      cliente_dniruc: "",
+      cliente_direccion: input.cliente.direccion ?? "",
+      cliente_telefono: input.cliente.telefono,
+      cliente_email: "",
+    },
+    listaPedidos: detalle.map((d) => ({
+      pedido_productoid: d.pedido_productoid,
+      pedido_cantidad: d.cantidad,
+      pedido_precio: d.precio_unitario.toFixed(2),
+      pedido_observacion: "",
     })),
   };
 
