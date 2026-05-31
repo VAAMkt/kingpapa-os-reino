@@ -353,13 +353,7 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
                     value={currentId ?? ""}
                     onChange={(e) => {
                       const v = e.target.value ? Number(e.target.value) : null;
-                      const local = locales.find((l) => l.rp_local_id === v);
-                      setForm((f) => ({
-                        ...f,
-                        rp_local_id: v,
-                        lat: f.lat == null && local?.lat != null ? local.lat : f.lat,
-                        lng: f.lng == null && local?.lng != null ? local.lng : f.lng,
-                      }));
+                      setForm((f) => ({ ...f, rp_local_id: v }));
                     }}
                     className={inputBaseCls}
                   >
