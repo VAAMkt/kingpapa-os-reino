@@ -72,7 +72,7 @@ export const pollOrderFromRp = createServerFn({ method: "POST" })
 
     const { error: updErr } = await supabaseAdmin
       .from("orders")
-      .update(updates)
+      .update(updates as never)
       .eq("id", row.id);
 
     if (updErr) {
