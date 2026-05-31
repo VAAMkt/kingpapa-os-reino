@@ -5,6 +5,7 @@ import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
 import { resolveOrderId } from "@/lib/orders.poll.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/gracias")({
   validateSearch: (s: Record<string, unknown>) => {
@@ -44,6 +45,8 @@ function GraciasPage() {
   const [order, setOrder] = useState<LastOrder | null>(null);
   const [sedeWa, setSedeWa] = useState<string | null>(null);
   const [resolvedId, setResolvedId] = useState<string | null>(null);
+  const [comanda, setComanda] = useState<string | null>(null);
+  const [rpPedidoId, setRpPedidoId] = useState<string | null>(null);
   const resolveFn = useServerFn(resolveOrderId);
 
   // Resolver UUID real de orders.id (acepta UUID o rp_pedido_id numérico).
@@ -60,6 +63,35 @@ function GraciasPage() {
       cancelled = true;
     };
   }, [order_id, resolveFn]);
+
+  // Suscripción a la fila orders para obtener rp_numero_comanda (POS) en vivo.
+  useEffect(() => {
+    if (!resolvedId) return;
+    let cancelled = false;
+    const apply = (row: { rp_numero_comanda: string | null; rp_pedido_id: string | null } | null) => {
+      if (!row || cancelled) return;
+      setComanda(row.rp_numero_comanda ?? null);
+      setRpPedidoId(row.rp_pedido_id ?? null);
+    };
+    supabase
+      .from("orders")
+      .select("rp_numero_comanda, rp_pedido_id")
+      .eq("id", resolvedId)
+      .maybeSingle()
+      .then(({ data }) => apply(data as never));
+    const channel = supabase
+      .channel(`gracias-${resolvedId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${resolvedId}` },
+        (payload) => apply(payload.new as never),
+      )
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [resolvedId]);
 
   useEffect(() => {
     try {
@@ -99,8 +131,21 @@ function GraciasPage() {
         </h1>
         <p className="mt-3 text-sm opacity-80">Guarda este código por si tu motorizado pregunta:</p>
         <div className="mt-3 border-2 border-kp-ink bg-kp-cheese px-4 py-3 inline-block">
-          <span className="font-display text-3xl md:text-4xl tracking-widest">{order_id}</span>
+          {comanda ? (
+            <span className="font-display text-3xl md:text-4xl tracking-widest">
+              {comanda.startsWith("#") ? comanda : `#${comanda}`}
+            </span>
+          ) : (
+            <span className="font-display text-lg md:text-xl tracking-wider opacity-70">
+              Asignando comanda…
+            </span>
+          )}
         </div>
+        {rpPedidoId || order_id ? (
+          <p className="mt-2 text-[11px] font-mono opacity-60">
+            ref interna: {rpPedidoId ?? order_id}
+          </p>
+        ) : null}
       </BrutalCard>
 
       {resolvedId ? <TrackerOperativo orderId={resolvedId} /> : null}
