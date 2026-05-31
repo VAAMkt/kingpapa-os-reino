@@ -9,7 +9,8 @@
 //   con el id devuelto por la pasarela, para que el arqueo del POS cuadre.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
-import { rpGetCatalogo, rpObtenerPedido, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
+import { rpGetCatalogo, rpGetPedidoListByDelivery, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
+import { extractComandaNumber } from "@/lib/restaurantpe-normalize";
 import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
 
 export type CheckoutInputItem = {
