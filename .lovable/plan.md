@@ -1,38 +1,86 @@
-## Causa raíz (auditoría)
+# Plan: Dirección con autocompletado + mapa en SedeForm
 
-1. **Stale cache en `localStorage`** (`kp.activeSede`). El label "Recoger en Kingpapa Limonar" de la captura es la firma de `pickupOnly()` en `src/components/kp/LocationGate.tsx:108-130`, que **fuerza** `enCobertura: false` y guarda `sedes[0]` como fallback — no recalcula nunca aunque la dirección sí tenga cobertura.
-2. **No hay recálculo en el checkout**: `src/routes/checkout.tsx:42` lee ciegamente `sede.enCobertura` del cache. Si está en `false`, el `tipo` se fuerza a `pickup` y el `useEffect` (línea 47) ni siquiera intenta lo contrario.
-3. **`OrderIntentDialog`** (línea 37) tiene la misma lógica: si `enCobertura === false`, vuelve a auto-elegir pickup → el botón "Cambiar" abre el diálogo pero el diálogo vuelve a forzar pickup. La interacción está "bloqueada" sin un `disabled` visible.
-4. **DB ya OK**: `sedes.cobertura_radio_km` es `numeric NOT NULL DEFAULT 5`. Esto cumple tu requisito de default estricto 5 km y configurabilidad por sede. No se necesita migración.
+Eliminar la fricción de escribir coordenadas a mano en el panel de sedes. El administrador escribe la dirección, elige una sugerencia de Google Places, y ajusta el pin arrastrándolo en un mini-mapa. Lat/lng se calculan solos y son la única fuente de verdad para el cálculo de cobertura del checkout.
 
-## Cambios
+## Alcance
 
-### 1. `src/lib/active-sede.ts`
-- Cambiar `DEFAULT_COBERTURA_KM = 7` → **`5`**.
-- Exportar nueva función `recomputeCoverage(active, sedes)` que toma el `ActiveSede` actual + la lista de sedes y recalcula `enCobertura`, `distanciaKm` y `sedeId/slug/label` usando `pickNearestSede(active.lat/lng, sedes)`. Si la activa no tiene `lat/lng`, retorna el original sin tocar. Devuelve `{ active, changed }`.
+Solo afecta `src/components/admin/SedeForm.tsx`. No se tocan tablas ni el cálculo de cobertura (`active-sede.ts`) — ese ya usa `sede.lat/lng` de la BD; lo que arreglamos es que esos valores ahora siempre serán precisos.
 
-### 2. `src/components/kp/LocationGate.tsx`
-- En `pickupOnly()`: en vez de hard-codear `sedes[0]`, usar `pickNearestSede(pin, sedes)?.sede ?? sedes[0]` para que la sede de "recoger" sea la más cercana real (no la primera de la lista).
-- Mantener `enCobertura: false` solo cuando realmente está fuera; si el `nearest` devolvió `enCobertura: true`, llamar a `confirm()` en lugar de `pickupOnly()` (consistencia).
+## Reutilización
 
-### 3. `src/routes/checkout.tsx` (auto-rehidratación + UX)
-- Al montar (con sede + `sedes` cargadas vía `useQuery(['sedes','public'])`): si `sede.lat/lng` están presentes, ejecutar `recomputeCoverage()` y, si el resultado cambió a `enCobertura: true`, llamar a `setActiveSede(updated)` + `setOrderType("delivery")`. Esto **arregla el stale cache automáticamente** sin que el usuario tenga que reabrir el LocationGate.
-- Quitar el `useEffect` que fuerza pickup silenciosamente (líneas 46-51). Reemplazar por: solo mostrar un **aviso amigable** ("Estás un poco lejos para nuestro domicilio (fuera de la zona de X km). Tu pedido quedó configurado para recoger en {sede}.") cuando `sede.enCobertura === false` y el orderType acabó en `pickup`. No bloquear UI; el pill "cambiar" sigue funcionando.
-- El pill nunca debe estar disabled. Si el usuario abre `OrderIntentDialog` y elige Delivery estando fuera de cobertura, dejarlo elegir y mostrar el aviso (no revertir).
+Los dos componentes que necesitamos ya existen y se usan en LocationGate:
 
-### 4. `src/components/kp/OrderIntentDialog.tsx`
-- Quitar el auto-pick que fuerza `pickup` cuando `!sede.enCobertura`. La nueva regla: si `orderType` ya está definido (default `"delivery"` del cart), no tocar nada. El auto-pick solo aplica en el caso de carrito vacío sin orderType — lo cual ya casi nunca pasa porque el default del cart es `"delivery"`.
-- En la elección manual (`pick(t)`): respetar siempre la elección del usuario. Si elige Delivery con `!sede.enCobertura`, mostrar un `toast.message` informativo en vez de revertir.
+- `PlacesAutocomplete` (`src/components/kp/PlacesAutocomplete.tsx`) — buscador con sugerencias de Places API (New), devuelve `{lat, lng, label}`.
+- `GateMap` (`src/components/kp/GateMap.tsx`) — mini-mapa con marker arrastrable, soporta click y dragend.
 
-### 5. Admin de sedes
-- Verificar que `src/components/admin/SedeForm.tsx` ya expone el campo `cobertura_radio_km`. Si no, añadir input numérico (paso 0.5, min 0.5) — la columna ya existe en BD.
+No hace falta crear componentes nuevos ni instalar paquetes. El loader de Google Maps (`lib/google-maps.ts`) ya está configurado con la API key correcta.
+
+## Cambios en `SedeForm.tsx`
+
+### 1. Reemplazar el campo "Dirección" actual
+
+Hoy es un `BrutalInput` simple. Cambiarlo por `PlacesAutocomplete`:
+
+- `onPick({ lat, lng, label })` actualiza `form.direccion = label`, `form.lat = lat`, `form.lng = lng` de una sola vez.
+- Mantener el `BrutalInput` como **fallback editable** debajo en modo solo-vista del texto seleccionado (para que el admin pueda corregir el string si Google devuelve "Cl 5 #66-25, Cali, Colombia" y prefiere "Cl. 5 #66-25"). Permitir editar el texto sin perder las coordenadas.
+
+### 2. Mini-mapa interactivo
+
+Debajo del autocompletado, renderizar `<GateMap>` solo cuando `form.lat != null && form.lng != null`. Antes de eso, mostrar un placeholder pequeño tipo "Selecciona una dirección para ver el mapa".
+
+- `center = { lat: form.lat, lng: form.lng }`
+- `onPinChange({ lat, lng })` → `setForm({ ...form, lat, lng })`
+
+El círculo de cobertura visual queda fuera de alcance (opcional futuro); solo el pin arrastrable.
+
+### 3. Convertir lat/lng a campos de solo lectura
+
+En la sección "Restaurant.pe & ubicación":
+
+- Quitar los dos `BrutalInput type="number"` editables para lat/lng.
+- Reemplazarlos por un bloque pequeño de solo lectura tipo "Coordenadas: 3.4516, -76.5320 · ajusta arrastrando el pin" (texto, no input). Si están vacías, mostrar "Sin ubicación aún".
+- Mantener el campo "Cobertura (km)" tal cual (sí debe seguir editable).
+
+### 4. Desacoplar de Restaurant.pe para lat/lng
+
+En el `onChange` del `<select>` de Restaurant.pe (líneas 264-274), hoy autocompleta `lat`/`lng` si están vacíos con los del local de RP. **Eliminar ese autocompletado de coordenadas** — el rp_local_id se sigue vinculando pero NO toca lat/lng. La única fuente queda Google Places + pin del mapa.
+
+### 5. Validación Zod
+
+`SedeSchema` ya valida lat/lng como nullable. Considerar (sin bloquear) agregar un refinement "si tiene rp_local_id o delivery=true, recomienda tener lat/lng" — solo como warning visual, no bloqueante, para no romper sedes existentes sin coordenadas.
+
+## Layout propuesto del bloque de ubicación
+
+```text
+┌─ Dirección ──────────────────────────────────┐
+│ [🔍 PlacesAutocomplete: "Av 9N #15-30..."]    │
+│ Texto editable: [Cl. 5 #66-25            ]    │
+├─ Ubicación en mapa ──────────────────────────┤
+│ ┌──────────────────────────────────────────┐ │
+│ │         [Mini-mapa con pin]              │ │
+│ │         (arrastrable)                    │ │
+│ └──────────────────────────────────────────┘ │
+│ Coordenadas: 3.4516, -76.5320                │
+│ Arrastra el pin para afinar la ubicación.    │
+└──────────────────────────────────────────────┘
+```
+
+## Fuera de alcance
+
+- Cambios en el cálculo de cobertura del checkout (ya quedó bien en la iteración anterior).
+- Dibujar el círculo de cobertura sobre el mapa.
+- Backfill de sedes existentes sin coordenadas (el admin las re-guarda manualmente cuando entre a editar).
+- Migrar la lógica del autocompletado de RP (solo se quita el side-effect sobre lat/lng).
 
 ## Verificación
 
-- Limpiar `localStorage.kp.activeSede`, re-elegir dirección "Cra 63A #3C-160 El Refugio": al entrar a checkout debe quedar en **Domicilio** automáticamente.
-- Cache stale existente con `enCobertura: false` pero dentro de 5 km: al abrir `/checkout`, recompute lo arregla y queda en Domicilio sin intervención.
-- Dirección a >5 km de toda sede: queda en Pickup pero con mensaje amigable; el pill "cambiar" sigue abriendo el diálogo y permite (con aviso) forzar Delivery.
+1. Crear sede nueva: escribir dirección → elegir sugerencia → ver pin en el mapa → arrastrar → guardar → confirmar en BD que lat/lng coinciden con el pin final.
+2. Editar sede existente con lat/lng: ver pin en posición correcta, arrastrar, guardar, confirmar update.
+3. Editar sede sin lat/lng: mapa oculto hasta seleccionar dirección.
+4. Cambiar el local de RP no debe pisar lat/lng cuando ya están seteadas.
 
-## Fuera de alcance
-- Polígonos por barrio (descartado por la respuesta del usuario).
-- Cambios al flujo de Restaurant.pe o a `submitOrder`.
+### Optimizaciones recomendadas para agregar al plan
+
+1. **Restricción de País (Location Bias):** En el punto 1 (`PlacesAutocomplete`), pídele que se asegure de que la búsqueda de Google Places esté restringida estrictamente a Colombia (`country: 'co'`). Esto evitará que al escribir una dirección genérica se autocompleten opciones de México o España por accidente.
+2. **Independencia del Input Editable:** En el punto 1, especifica que la edición del `BrutalInput` de respaldo actualice **únicamente** el string de la dirección, sin volver a disparar peticiones a la API de Google Maps ni alterar el pin que ya se había ajustado manualmente.
+3. **Manejo de Errores de API:** En el punto 2, indica que si por alguna razón la API de Google Maps falla o el script tarda en cargar, el componente no debe romper la pantalla, sino mostrar un mensaje discreto (ej. "Cargando mapa...").

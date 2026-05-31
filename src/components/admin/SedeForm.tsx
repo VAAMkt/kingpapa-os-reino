@@ -15,6 +15,8 @@ import {
   type SedeRow,
 } from "@/lib/sedes";
 import { listRpLocales } from "@/lib/rp.functions";
+import { PlacesAutocomplete } from "@/components/kp/PlacesAutocomplete";
+import { GateMap } from "@/components/kp/GateMap";
 import { toast } from "sonner";
 
 const SedeSchema = z.object({
@@ -238,13 +240,41 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
 
         <div className={fieldCls}>
           <label className={labelCls}>Dirección</label>
+          <PlacesAutocomplete
+            placeholder="Busca: Cl. 5 #66-25, Cali"
+            onPick={({ lat, lng, label }) =>
+              setForm((f) => ({ ...f, direccion: label, lat, lng }))
+            }
+          />
+          <p className="text-[11px] text-kp-ink/60 mt-1">
+            Busca y selecciona la dirección. Puedes ajustar el texto exacto abajo y mover el pin en el mapa.
+          </p>
           <BrutalInput
             value={form.direccion}
             onChange={(e) => setForm({ ...form, direccion: e.target.value })}
-            placeholder="Cl. 5 #66-25"
+            placeholder="Texto exacto de la dirección"
             required
           />
           {errors.direccion && <p className="text-xs text-kp-red">{errors.direccion}</p>}
+        </div>
+
+        <div className={fieldCls}>
+          <label className={labelCls}>Ubicación en el mapa</label>
+          {form.lat != null && form.lng != null ? (
+            <>
+              <GateMap
+                center={{ lat: Number(form.lat), lng: Number(form.lng) }}
+                onPinChange={({ lat, lng }) => setForm((f) => ({ ...f, lat, lng }))}
+              />
+              <p className="text-[11px] text-kp-ink/70 mt-1">
+                Coordenadas: {Number(form.lat).toFixed(5)}, {Number(form.lng).toFixed(5)} · arrastra el pin para afinar la ubicación exacta del local.
+              </p>
+            </>
+          ) : (
+            <div className="border-2 border-dashed border-kp-ink/30 bg-kp-cheese/50 px-4 py-6 text-center text-xs text-kp-ink/60">
+              Selecciona una dirección arriba para ver el mapa y ajustar la ubicación.
+            </div>
+          )}
         </div>
 
         <div className="grid md:grid-cols-2 gap-3">
@@ -323,13 +353,7 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
                     value={currentId ?? ""}
                     onChange={(e) => {
                       const v = e.target.value ? Number(e.target.value) : null;
-                      const local = locales.find((l) => l.rp_local_id === v);
-                      setForm((f) => ({
-                        ...f,
-                        rp_local_id: v,
-                        lat: f.lat == null && local?.lat != null ? local.lat : f.lat,
-                        lng: f.lng == null && local?.lng != null ? local.lng : f.lng,
-                      }));
+                      setForm((f) => ({ ...f, rp_local_id: v }));
                     }}
                     className={inputBaseCls}
                   >
@@ -364,30 +388,14 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           )}
           {errors.rp_local_id && <p className="text-xs text-kp-red">{errors.rp_local_id}</p>}
         </div>
-        <div className="grid md:grid-cols-3 gap-3">
+        <div className="grid md:grid-cols-2 gap-3 items-end">
           <div className={fieldCls}>
-            <label className={labelCls}>Latitud</label>
-            <BrutalInput
-              type="number"
-              step="any"
-              value={form.lat ?? ""}
-              onChange={(e) =>
-                setForm({ ...form, lat: e.target.value ? Number(e.target.value) : null })
-              }
-              placeholder="3.4516"
-            />
-          </div>
-          <div className={fieldCls}>
-            <label className={labelCls}>Longitud</label>
-            <BrutalInput
-              type="number"
-              step="any"
-              value={form.lng ?? ""}
-              onChange={(e) =>
-                setForm({ ...form, lng: e.target.value ? Number(e.target.value) : null })
-              }
-              placeholder="-76.5320"
-            />
+            <label className={labelCls}>Coordenadas (auto)</label>
+            <div className="px-4 py-3 bg-kp-cheese/60 border-2 border-kp-ink shadow-brutal-sm font-mono text-xs">
+              {form.lat != null && form.lng != null
+                ? `${Number(form.lat).toFixed(6)}, ${Number(form.lng).toFixed(6)}`
+                : "Sin ubicación · busca la dirección arriba"}
+            </div>
           </div>
           <div className={fieldCls}>
             <label className={labelCls}>Cobertura (km)</label>
@@ -402,9 +410,7 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           </div>
         </div>
         <p className="text-xs text-kp-ink/70">
-          Elige el local real de Restaurant.pe. Los que ya están asignados a otra sede
-          aparecen deshabilitados. Lat/Lng se usan para sugerir sede por ubicación; al
-          seleccionar un local se autocompletan si están vacíos.
+          Elige el local real de Restaurant.pe (solo para vincular el catálogo). Las coordenadas se toman exclusivamente del mapa de arriba para garantizar precisión en el cálculo de cobertura.
         </p>
       </BrutalCard>
 
