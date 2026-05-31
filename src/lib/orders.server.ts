@@ -268,20 +268,48 @@ export async function submitOrder(input: CheckoutInput): Promise<{
 }> {
   const { sede, detalle, subtotal, total } = await resolveOrder(input);
 
+  // Pre-generamos el id local para poder estamparlo como marcador visible
+  // (#WEB-XXXXXX) en la cabecera del POS ANTES de insertar y de llamar a RP.
+  const localId = crypto.randomUUID();
+
+  // Resumen de modificadores por línea para que la COCINA los vea en el ticket.
+  // El POS imprime `pedido_observacion` debajo de cada producto.
+  const buildPedidoObservacion = (d: DetallePedido): string => {
+    return d.modificadores.map((m) => `(1) ${m.nombre}`).join(", ");
+  };
+
+  // Mapeo de pago — alineado con el cuadre de caja del POS:
+  //   efectivo: el motorizado cobra → pendiente = total
+  //   datafono/online: ya está cobrado → montopagado = total, pendiente = 0
+  const esEfectivo = input.pago === "efectivo";
+  const tipoPago = esEfectivo ? 1 : input.pago === "datafono" ? 2 : 5;
+
   // Payload Restaurant.pe — basado en patrones de la API v2.
   // Si el endpoint rechaza por nombres de campos, queda en rp_sync_log para
   // iterar el shape.
   const payload = {
     delivery: {
       local_id: sede.rp_local_id,
-      delivery_pagocon: input.pago === "efectivo" ? total : 0,
+      // Identidad / origen — el POS muestra `#WEB-XXXXXX` en la cabecera
+      // hasta que Restaurant.pe le asigna su propio correlativo (rp_numero_comanda).
+      delivery_numero: `#WEB-${localId.slice(0, 6).toUpperCase()}`,
+      delivery_origentipo: 3, // 3 = API / Web
+      // Pago
+      delivery_pagocon: esEfectivo ? total : 0,
+      delivery_montopagado: esEfectivo ? 0 : total,
+      delivery_pago_pendiente: esEfectivo ? total : 0,
       delivery_montodescuento: 0,
-      delivery_tipopago: input.pago === "efectivo" ? 1 : input.pago === "datafono" ? 2 : 5,
+      delivery_tipopago: tipoPago,
       tarjeta_id: input.pago === "datafono" ? 1 : null,
+      // Logística
       delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
       delivery_direccionenvio: input.cliente.direccion ?? "",
+      // Indicaciones (Apto/Torre/portería) van EXCLUSIVAMENTE aquí.
+      // `delivery_direccionenvio` debe quedar con la dirección base limpia.
       delivery_referencia: input.cliente.detalles ?? "",
       delivery_observacion: input.notas ?? "",
+      delivery_lat: input.cliente.lat ?? null,
+      delivery_lng: input.cliente.lng ?? null,
     },
     cliente: {
       cliente_nombres: input.cliente.nombre,
@@ -291,14 +319,15 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       cliente_telefono: input.cliente.telefono,
       cliente_email: "",
       // Notas del checkout → "Ver notas del cliente" en el POS v2.
-      // delivery_observacion abajo se mantiene como respaldo (vista vieja).
+      // delivery_observacion arriba se mantiene como respaldo (vista vieja).
       cliente_observacion: input.notas ?? "",
     },
     listaPedidos: detalle.map((d) => ({
       pedido_productoid: d.pedido_productoid,
       pedido_cantidad: d.cantidad,
       pedido_precio: d.precio_unitario.toFixed(2),
-      pedido_observacion: "",
+      // Modificadores concatenados → la cocina ve qué eligió el cliente.
+      pedido_observacion: buildPedidoObservacion(d),
     })),
   };
 
@@ -310,9 +339,10 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     precio: d.precio_unitario,
     modificadores: d.modificadores,
   }));
-  const { data: orderRow, error: insErr } = await supabaseAdmin
+  const { error: insErr } = await supabaseAdmin
     .from("orders")
     .insert({
+      id: localId,
       user_id: input.userId ?? null,
       sede_id: sede.id,
       rp_payload: payload as unknown as Json,
@@ -324,11 +354,8 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       subtotal,
       total,
       notas: input.notas ?? null,
-    })
-    .select("id")
-    .single();
+    });
   if (insErr) throw new Error(`No se pudo guardar el pedido: ${insErr.message}`);
-  const localId = (orderRow as { id: string }).id;
 
   // 2) Llamar a Restaurant.pe.
   let rpResponse: unknown = null;
