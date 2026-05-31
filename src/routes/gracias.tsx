@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
+import { resolveOrderId } from "@/lib/orders.poll.functions";
 
 export const Route = createFileRoute("/gracias")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -33,6 +35,23 @@ function GraciasPage() {
   const { order_id } = Route.useSearch();
   const [order, setOrder] = useState<LastOrder | null>(null);
   const [sedeWa, setSedeWa] = useState<string | null>(null);
+  const [resolvedId, setResolvedId] = useState<string | null>(null);
+  const resolveFn = useServerFn(resolveOrderId);
+
+  // Resolver UUID real de orders.id (acepta UUID o rp_pedido_id numérico).
+  useEffect(() => {
+    if (!order_id) return;
+    let cancelled = false;
+    resolveFn({ data: { ref: order_id } })
+      .then((r) => {
+        if (cancelled) return;
+        if ("id" in r && typeof r.id === "string") setResolvedId(r.id);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [order_id, resolveFn]);
 
   useEffect(() => {
     try {
@@ -76,7 +95,7 @@ function GraciasPage() {
         </div>
       </BrutalCard>
 
-      {order_id ? <TrackerOperativo orderId={order_id} /> : null}
+      {resolvedId ? <TrackerOperativo orderId={resolvedId} /> : null}
 
       {order && (
         <BrutalCard tone="cheese" className="p-5">

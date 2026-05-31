@@ -78,30 +78,79 @@ export function mapRpEstadoToStatus(estado: unknown): RpOrderStatus | null {
 }
 
 /**
- * Extrae el número corto de comanda visible en el POS desde un item crudo
- * devuelto por getPedidoListByDelivery. Probamos varias claves comunes.
+ * Mapea el delivery_estado numérico que devuelve el endpoint público V2 de
+ * Restaurant.pe (confirmado por soporte + inspección del DOM del POS):
+ *   0 = pendiente, 1 = realizado/recibido, 2 = en preparación,
+ *   3 = en camino, 4 = anulado/cancelado.
+ * Devuelve null si el valor no se reconoce (no toca el status actual).
+ */
+export function mapDeliveryEstado(estado: unknown): RpOrderStatus | null {
+  if (estado == null || estado === "") return null;
+  const n = Number(estado);
+  if (!Number.isFinite(n)) return null;
+  switch (Math.trunc(n)) {
+    case 0:
+    case 1:
+      return "recibido";
+    case 2:
+      return "en_preparacion";
+    case 3:
+      return "en_camino";
+    case 4:
+      return "cancelado";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Extrae el número corto de comanda visible en el POS.
+ * Esquema confirmado por soporte de Restaurant.pe:
+ *   - `delivery_numero` (ej. "C10-12381")
+ *   - fallback: `venta.venta_seriedoc` + "-" + `venta.venta_numdoc`
  */
 export function extractComandaNumber(raw: Record<string, unknown> | null): string | null {
   if (!raw) return null;
   const inner = (raw.data ?? raw) as Record<string, unknown>;
-  const candidates = [
-    inner.pedido_numero,
-    inner.numero_comanda,
-    inner.comanda,
-    inner.numero,
-    inner.correlativo,
-    inner.pedido_correlativo,
-    inner.ticket,
-    inner.delivery_numero,
-  ];
-  for (const v of candidates) {
+  const directo = inner.delivery_numero;
+  if (directo != null && String(directo).trim() !== "") return String(directo).trim();
+  const venta = inner.venta as Record<string, unknown> | undefined;
+  if (venta) {
+    const serie = venta.venta_seriedoc;
+    const num = venta.venta_numdoc;
+    if (serie != null && num != null && String(num).trim() !== "") {
+      return `${String(serie).trim()}-${String(num).trim()}`;
+    }
+  }
+  // Legacy fallbacks (por si algún endpoint viejo sigue activo).
+  const legacy = [inner.pedido_numero, inner.numero_comanda, inner.comanda];
+  for (const v of legacy) {
     if (v != null && String(v).trim() !== "") return String(v).trim();
   }
   return null;
 }
 
+/** Nombre del motorizado asignado (ej. "Rappi App"). */
+export function extractMotorizado(raw: Record<string, unknown> | null): string | null {
+  if (!raw) return null;
+  const inner = (raw.data ?? raw) as Record<string, unknown>;
+  const v = inner.motorizado;
+  if (v != null && String(v).trim() !== "") return String(v).trim();
+  return null;
+}
+
+/** Estado numérico crudo (`delivery_estado`). */
+export function extractDeliveryEstado(raw: Record<string, unknown> | null): number | null {
+  if (!raw) return null;
+  const inner = (raw.data ?? raw) as Record<string, unknown>;
+  const v = inner.delivery_estado;
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
 /**
- * Extrae el estado textual desde un item crudo del POS.
+ * Extrae el estado textual desde un item crudo del POS (fallback legacy).
  */
 export function extractEstadoTexto(raw: Record<string, unknown> | null): string | null {
   if (!raw) return null;
