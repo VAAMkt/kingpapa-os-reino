@@ -23,7 +23,11 @@ const TERMINAL: RpOrderStatus[] = ["entregado", "cancelado", "error"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const Input = z.object({
-  orderId: z.string().min(1).max(64),
+  orderId: z
+    .string()
+    .min(1)
+    .max(64)
+    .transform((s) => s.replace(/^"+|"+$/g, "").trim()),
 });
 
 async function findOrderRow(orderId: string) {
