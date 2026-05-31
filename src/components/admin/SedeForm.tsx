@@ -495,6 +495,99 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         </div>
       </BrutalCard>
 
+      <BrutalCard tone="cheese" className="p-5 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h3 className="font-display uppercase text-lg">Horarios y operación</h3>
+          <label className="flex items-center gap-2 px-3 py-2 border-2 border-kp-ink bg-kp-cheese shadow-brutal-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.kill_switch}
+              onChange={(e) => setForm({ ...form, kill_switch: e.target.checked })}
+            />
+            <span className="font-display uppercase text-[11px]">Cerrar hoy (kill switch)</span>
+          </label>
+        </div>
+        <div className={fieldCls}>
+          <label className={labelCls}>Zona horaria</label>
+          <BrutalInput
+            value={form.tz}
+            onChange={(e) => setForm({ ...form, tz: e.target.value })}
+            placeholder="America/Bogota"
+          />
+        </div>
+        <div className="space-y-2">
+          {DIA_LABELS.map(({ key, label }) => {
+            const ventanas = form.horarios[key] ?? [];
+            const cerrado = ventanas.length === 0;
+            return (
+              <div key={key} className="flex flex-wrap items-center gap-2 border-2 border-kp-ink/30 p-2">
+                <span className="font-display uppercase text-xs w-20">{label}</span>
+                {cerrado ? (
+                  <span className="text-xs text-kp-ink/60 flex-1">Cerrado</span>
+                ) : (
+                  ventanas.map((v, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <input
+                        type="time"
+                        value={v.abre}
+                        onChange={(e) => {
+                          const next = [...ventanas];
+                          next[i] = { ...v, abre: e.target.value };
+                          setForm({ ...form, horarios: { ...form.horarios, [key]: next } });
+                        }}
+                        className="px-2 py-1 border-2 border-kp-ink bg-kp-cheese text-sm"
+                      />
+                      <span className="text-xs">a</span>
+                      <input
+                        type="time"
+                        value={v.cierra}
+                        onChange={(e) => {
+                          const next = [...ventanas];
+                          next[i] = { ...v, cierra: e.target.value };
+                          setForm({ ...form, horarios: { ...form.horarios, [key]: next } });
+                        }}
+                        className="px-2 py-1 border-2 border-kp-ink bg-kp-cheese text-sm"
+                      />
+                    </div>
+                  ))
+                )}
+                <div className="ml-auto flex gap-1">
+                  <button
+                    type="button"
+                    className="px-2 py-1 border-2 border-kp-ink bg-kp-yellow font-display uppercase text-[10px]"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        horarios: {
+                          ...form.horarios,
+                          [key]: [...ventanas, { abre: "12:00", cierra: "22:00" }],
+                        },
+                      })
+                    }
+                  >
+                    + ventana
+                  </button>
+                  {!cerrado && (
+                    <button
+                      type="button"
+                      className="px-2 py-1 border-2 border-kp-ink bg-kp-cheese font-display uppercase text-[10px]"
+                      onClick={() =>
+                        setForm({ ...form, horarios: { ...form.horarios, [key]: [] } })
+                      }
+                    >
+                      Cerrar
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-kp-ink/60">
+          La validación bloquea pedidos fuera de horario antes de enviarlos al POS. Puedes definir múltiples ventanas por día (ej. almuerzo + cena).
+        </p>
+      </BrutalCard>
+
       <div className="flex items-center gap-3">
         <BrutalButton type="submit" variant="primary" disabled={upsert.isPending}>
           {upsert.isPending ? "Guardando…" : editing ? "Guardar cambios" : "Crear sede"}
