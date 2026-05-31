@@ -143,12 +143,6 @@ export async function rpRegistrarDelivery(
 ): Promise<unknown> {
   const dominioId = getDominioId();
   const url = `${WRITE_BASE}/delivery/registrarDelivery/${dominioId}`;
-  const form = new URLSearchParams();
-  for (const [k, v] of Object.entries(payload)) {
-    if (v == null) continue;
-    if (typeof v === "object") form.append(k, JSON.stringify(v));
-    else form.append(k, String(v));
-  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
