@@ -136,10 +136,7 @@ function HomePage() {
         </div>
       </section>
 
-      {/* TRACKER */}
-      <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
-        <TrackerOperativo />
-      </section>
+      {/* TRACKER eliminado: ahora aparece solo en /gracias con datos reales del pedido */}
 
       {/* RETOS / FESTIVALES */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
