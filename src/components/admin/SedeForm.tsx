@@ -409,22 +409,8 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
             />
           </div>
         </div>
-          <div className={fieldCls}>
-            <label className={labelCls}>Cobertura (km)</label>
-            <BrutalInput
-              type="number"
-              step="0.5"
-              value={form.cobertura_radio_km}
-              onChange={(e) =>
-                setForm({ ...form, cobertura_radio_km: Number(e.target.value) })
-              }
-            />
-          </div>
-        </div>
         <p className="text-xs text-kp-ink/70">
-          Elige el local real de Restaurant.pe. Los que ya están asignados a otra sede
-          aparecen deshabilitados. Lat/Lng se usan para sugerir sede por ubicación; al
-          seleccionar un local se autocompletan si están vacíos.
+          Elige el local real de Restaurant.pe (solo para vincular el catálogo). Las coordenadas se toman exclusivamente del mapa de arriba para garantizar precisión en el cálculo de cobertura.
         </p>
       </BrutalCard>
 
