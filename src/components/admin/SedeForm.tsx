@@ -240,13 +240,41 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
 
         <div className={fieldCls}>
           <label className={labelCls}>Dirección</label>
+          <PlacesAutocomplete
+            placeholder="Busca: Cl. 5 #66-25, Cali"
+            onPick={({ lat, lng, label }) =>
+              setForm((f) => ({ ...f, direccion: label, lat, lng }))
+            }
+          />
+          <p className="text-[11px] text-kp-ink/60 mt-1">
+            Busca y selecciona la dirección. Puedes ajustar el texto exacto abajo y mover el pin en el mapa.
+          </p>
           <BrutalInput
             value={form.direccion}
             onChange={(e) => setForm({ ...form, direccion: e.target.value })}
-            placeholder="Cl. 5 #66-25"
+            placeholder="Texto exacto de la dirección"
             required
           />
           {errors.direccion && <p className="text-xs text-kp-red">{errors.direccion}</p>}
+        </div>
+
+        <div className={fieldCls}>
+          <label className={labelCls}>Ubicación en el mapa</label>
+          {form.lat != null && form.lng != null ? (
+            <>
+              <GateMap
+                center={{ lat: Number(form.lat), lng: Number(form.lng) }}
+                onPinChange={({ lat, lng }) => setForm((f) => ({ ...f, lat, lng }))}
+              />
+              <p className="text-[11px] text-kp-ink/70 mt-1">
+                Coordenadas: {Number(form.lat).toFixed(5)}, {Number(form.lng).toFixed(5)} · arrastra el pin para afinar la ubicación exacta del local.
+              </p>
+            </>
+          ) : (
+            <div className="border-2 border-dashed border-kp-ink/30 bg-kp-cheese/50 px-4 py-6 text-center text-xs text-kp-ink/60">
+              Selecciona una dirección arriba para ver el mapa y ajustar la ubicación.
+            </div>
+          )}
         </div>
 
         <div className="grid md:grid-cols-2 gap-3">
