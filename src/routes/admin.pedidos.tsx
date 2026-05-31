@@ -69,9 +69,38 @@ const fmtTime = (iso: string) =>
 
 function AdminPedidosPage() {
   const queryClient = useQueryClient();
+  const pollFn = useServerFn(pollOrderFromRp);
   const [cancelTarget, setCancelTarget] = useState<OrderRow | null>(null);
   const [cancelPreset, setCancelPreset] = useState<string>(CANCEL_PRESETS[0]);
   const [cancelDetail, setCancelDetail] = useState<string>("");
+  const [pollingId, setPollingId] = useState<string | null>(null);
+
+  async function handlePollFromPos(o: OrderRow) {
+    if (!o.rp_pedido_id) {
+      toast.error("Este pedido no tiene id de Restaurant.pe");
+      return;
+    }
+    setPollingId(o.id);
+    try {
+      const res = await pollFn({ data: { orderId: o.id } });
+      if (!res.ok) {
+        toast.error(`POS: ${res.reason}${"message" in res && res.message ? ` — ${res.message}` : ""}`);
+      } else if ("terminal" in res && res.terminal) {
+        toast.info("El pedido ya está en estado terminal");
+      } else if ("changed" in res && res.changed) {
+        toast.success(
+          `Sincronizado: ${res.status}${res.rp_numero_comanda ? ` · #${res.rp_numero_comanda}` : ""}`,
+        );
+      } else {
+        toast.message("Sin cambios desde el POS");
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin", "pedidos"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al consultar el POS");
+    } finally {
+      setPollingId(null);
+    }
+  }
 
   const pedidosQuery = useQuery({
     queryKey: ["admin", "pedidos"],
