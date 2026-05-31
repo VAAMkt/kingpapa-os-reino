@@ -54,6 +54,70 @@ type DetallePedido = {
   modificadores: { grupoId: number; opcionId: number; nombre: string; precio: number }[];
 };
 
+// FASE 3 — horarios + banderas operativas
+export type Ventana = { abre: string; cierra: string };
+export type HorariosMap = Partial<Record<"lun" | "mar" | "mie" | "jue" | "vie" | "sab" | "dom", Ventana[]>>;
+
+const DIAS: Array<keyof HorariosMap> = ["dom", "lun", "mar", "mie", "jue", "vie", "sab"];
+
+function nowInTz(tz: string): { dia: keyof HorariosMap; hhmm: string } {
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz || "America/Bogota",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(new Date());
+  const wd = (parts.find((p) => p.type === "weekday")?.value ?? "Sun").toLowerCase();
+  const map: Record<string, keyof HorariosMap> = {
+    sun: "dom", mon: "lun", tue: "mar", wed: "mie", thu: "jue", fri: "vie", sat: "sab",
+  };
+  const dia = map[wd] ?? DIAS[new Date().getDay()];
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return { dia, hhmm: `${hour}:${minute}` };
+}
+
+function dentroDeVentana(hhmm: string, v: Ventana): boolean {
+  return hhmm >= v.abre && hhmm <= v.cierra;
+}
+
+function describeVentanas(vs: Ventana[]): string {
+  if (!vs || vs.length === 0) return "cerrada hoy";
+  return vs.map((v) => `${v.abre} a ${v.cierra}`).join(" y ");
+}
+
+function assertSedeOperativa(
+  sede: {
+    nombre: string;
+    horarios: HorariosMap | null;
+    tz: string | null;
+    kill_switch: boolean | null;
+    rp_local_estado: number | null;
+    rp_acepta_delivery: number | null;
+  },
+  tipo: "delivery" | "pickup",
+): void {
+  if (sede.kill_switch) {
+    throw new Error(`"${sede.nombre}" está temporalmente cerrada hoy. Intenta más tarde o contáctanos por WhatsApp.`);
+  }
+  // Banderas del POS (si están cacheadas). null = aún no sincronizado, no bloqueamos.
+  if (sede.rp_local_estado != null && sede.rp_local_estado !== 1) {
+    throw new Error(`"${sede.nombre}" no está activa en el sistema central. Contáctanos por WhatsApp.`);
+  }
+  if (tipo === "delivery" && sede.rp_acepta_delivery != null && sede.rp_acepta_delivery !== 1) {
+    throw new Error(`"${sede.nombre}" no acepta domicilios por ahora. Prueba la opción de recoger en sede.`);
+  }
+  // Horarios locales.
+  const horarios = (sede.horarios ?? {}) as HorariosMap;
+  const { dia, hhmm } = nowInTz(sede.tz ?? "America/Bogota");
+  const ventanas = horarios[dia] ?? [];
+  if (ventanas.length === 0 || !ventanas.some((v) => dentroDeVentana(hhmm, v))) {
+    throw new Error(`Estamos fuera de horario en "${sede.nombre}" (hoy: ${describeVentanas(ventanas)}). Vuelve más tarde o escríbenos por WhatsApp.`);
+  }
+}
+
 function toNum(v: unknown, fallback = 0): number {
   if (v == null || v === "") return fallback;
   const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
