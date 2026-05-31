@@ -21,6 +21,7 @@ export const Route = createFileRoute("/checkout")({
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 type PagoMetodo = "efectivo" | "datafono" | "online";
+type FieldErrors = Partial<Record<"nombre" | "telefono" | "direccion", string>>;
 
 function CheckoutPage() {
   const submitOrder = useServerFn(submitCheckoutOrder);
@@ -35,6 +36,8 @@ function CheckoutPage() {
   const [notas, setNotas] = useState("");
   const [pago, setPago] = useState<PagoMetodo>("efectivo");
   const [enviando, setEnviando] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [resumenAbierto, setResumenAbierto] = useState(false);
 
   const tipo: OrderType = orderType ?? (sede?.enCobertura ? "delivery" : "pickup");
   const esRecoger = tipo === "pickup";
@@ -66,18 +69,44 @@ function CheckoutPage() {
     );
   }
 
-  function validar(): string | null {
-    if (!nombre.trim()) return "Nombre obligatorio";
-    if (!/^\d{7,}$/.test(telefono.replace(/\D/g, ""))) return "Teléfono inválido";
-    if (!esRecoger && !direccion.trim()) return "Dirección obligatoria para domicilio";
-    return null;
+  function validar(): FieldErrors {
+    const errs: FieldErrors = {};
+    if (!nombre.trim()) errs.nombre = "¿Cómo te llamas?";
+    if (!/^\d{7,}$/.test(telefono.replace(/\D/g, ""))) errs.telefono = "Teléfono inválido";
+    if (!esRecoger && !direccion.trim()) errs.direccion = "Dirección obligatoria";
+    return errs;
+  }
+
+  function buildOrderPayload() {
+    return {
+      sedeId: sede!.sedeId!,
+      tipo,
+      pago,
+      cliente: {
+        nombre,
+        telefono,
+        direccion: esRecoger ? null : direccion,
+        detalles: detalles || null,
+      },
+      notas: notas || null,
+      items: items.map((i) => ({
+        productoId: i.productoId,
+        cantidad: i.cantidad,
+        modificadores: (i.modificadores ?? []).map((m) => ({
+          grupoId: m.grupoId,
+          opcionId: m.opcionId,
+        })),
+      })),
+    };
   }
 
   async function confirmar(e: React.FormEvent) {
     e.preventDefault();
-    const err = validar();
-    if (err) {
-      toast.error(err);
+    const errs = validar();
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      const first = Object.values(errs)[0];
+      if (first) toast.error(first);
       return;
     }
     if (!sede?.sedeId) {
@@ -86,28 +115,7 @@ function CheckoutPage() {
     }
     setEnviando(true);
     try {
-      const result = await submitOrder({
-        data: {
-          sedeId: sede.sedeId,
-          tipo,
-          pago,
-          cliente: {
-            nombre,
-            telefono,
-            direccion: esRecoger ? null : direccion,
-            detalles: detalles || null,
-          },
-          notas: notas || null,
-          items: items.map((i) => ({
-            productoId: i.productoId,
-            cantidad: i.cantidad,
-            modificadores: (i.modificadores ?? []).map((m) => ({
-              grupoId: m.grupoId,
-              opcionId: m.opcionId,
-            })),
-          })),
-        },
-      });
+      const result = await submitOrder({ data: buildOrderPayload() });
       const orderId = result.orderId;
       const lastOrder = {
         orderId,
@@ -137,110 +145,116 @@ function CheckoutPage() {
     }
   }
 
+  const ctaLabel = enviando
+    ? "Coronando…"
+    : esRecoger
+      ? `Confirmar recogida · ${cop(total)}`
+      : `Pedir a Domicilio · ${cop(total)}`;
+
+  const direccionResumen = esRecoger
+    ? sede?.label ?? "Sede"
+    : direccion || sede?.direccionTexto || "Tu dirección";
+
   return (
-    <section className="mx-auto max-w-6xl px-4 md:px-6 py-8 md:py-10 space-y-5">
+    <section className="mx-auto max-w-6xl px-4 md:px-6 py-6 md:py-10 space-y-4 pb-28 lg:pb-10">
       <BrutalBadge tone="black">Checkout</BrutalBadge>
-      <h1 className="font-display text-4xl md:text-5xl uppercase leading-none">
+      <h1 className="font-display text-3xl md:text-5xl uppercase leading-none">
         Confirma tu corona
       </h1>
+
+      {/* Pill discreto de tipo de entrega */}
+      <button
+        type="button"
+        onClick={openOrderIntent}
+        className="w-full md:w-auto inline-flex items-center gap-2 border-2 border-kp-ink bg-kp-cheese px-3 py-2 font-display uppercase text-xs hover:bg-kp-yellow transition"
+      >
+        <span className="text-base">{esRecoger ? "🏃" : "🛵"}</span>
+        <span className="truncate max-w-[60vw] md:max-w-none">
+          {esRecoger ? "Recoger en" : "Domicilio a"}: {direccionResumen}
+        </span>
+        <span className="opacity-60 underline ml-1">cambiar</span>
+      </button>
+
+      {/* Resumen colapsable en mobile */}
+      <div className="lg:hidden">
+        <button
+          type="button"
+          onClick={() => setResumenAbierto((v) => !v)}
+          className="w-full flex items-center justify-between border-2 border-kp-ink bg-kp-yellow px-3 py-2 font-display uppercase text-sm"
+        >
+          <span>
+            {resumenAbierto ? "Ocultar" : "Ver"} pedido · {count} ítem{count === 1 ? "" : "s"}
+          </span>
+          <span className="text-base">{cop(total)}</span>
+        </button>
+        {resumenAbierto && (
+          <div className="mt-2">
+            <ResumenPedido items={items} total={total} puntos={puntos} />
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
         {/* FORM */}
         <form onSubmit={confirmar} className="space-y-4">
-          {/* Tipo de pedido */}
-          <BrutalCard tone="cheese" className="p-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div>
-                <BrutalBadge tone={esRecoger ? "red" : "lime"}>
-                  {esRecoger ? "🏃 Recoger en sede" : "🛵 Domicilio"}
-                </BrutalBadge>
-                <p className="mt-2 font-display text-base">{sede?.label ?? "Sin sede"}</p>
-              </div>
-              <div className="flex gap-2">
-                <BrutalButton
-                  type="button"
-                  variant={tipo === "delivery" ? "fire" : "ghost"}
-                  size="sm"
-                  onClick={() => setOrderType("delivery")}
-                  disabled={sede ? !sede.enCobertura : true}
-                  title={sede && !sede.enCobertura ? "Tu dirección está fuera de cobertura" : undefined}
-                >
-                  🛵 Domicilio
-                </BrutalButton>
-                <BrutalButton
-                  type="button"
-                  variant={tipo === "pickup" ? "dark" : "ghost"}
-                  size="sm"
-                  onClick={() => setOrderType("pickup")}
-                >
-                  🏃 Recoger
-                </BrutalButton>
-                <BrutalButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={openOrderIntent}
-                >
-                  Cambiar
-                </BrutalButton>
-              </div>
-            </div>
-          </BrutalCard>
-
           {/* Datos cliente */}
           <BrutalCard tone="cheese" className="p-4 space-y-3">
-            <h2 className="font-display uppercase text-xl">Tus datos</h2>
+            <h2 className="font-display uppercase text-lg">Tus datos</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <BrutalInput
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Nombre"
-                autoComplete="name"
-              />
-              <BrutalInput
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                placeholder="Teléfono / WhatsApp"
-                inputMode="tel"
-                autoComplete="tel"
-              />
+              <Field error={errors.nombre}>
+                <BrutalInput
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  placeholder="Nombre"
+                  autoComplete="name"
+                  className={errors.nombre ? "border-kp-fire" : ""}
+                />
+              </Field>
+              <Field error={errors.telefono}>
+                <BrutalInput
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  placeholder="Teléfono / WhatsApp"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  className={errors.telefono ? "border-kp-fire" : ""}
+                />
+              </Field>
             </div>
             {!esRecoger && (
               <>
-                <BrutalInput
-                  value={direccion}
-                  onChange={(e) => setDireccion(e.target.value)}
-                  placeholder="Dirección de entrega"
-                  autoComplete="street-address"
-                />
+                <Field error={errors.direccion}>
+                  <BrutalInput
+                    value={direccion}
+                    onChange={(e) => setDireccion(e.target.value)}
+                    placeholder="Dirección de entrega"
+                    autoComplete="street-address"
+                    className={errors.direccion ? "border-kp-fire" : ""}
+                  />
+                </Field>
                 <BrutalInput
                   value={detalles}
                   onChange={(e) => setDetalles(e.target.value)}
-                  placeholder="Detalles (Apto, torre, puntos de referencia)"
+                  placeholder="Apto, torre, referencias (opcional)"
                 />
               </>
             )}
-            <BrutalInput
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
-              placeholder="Notas para la cocina (opcional)"
-            />
           </BrutalCard>
 
-          {/* Pago */}
-          <BrutalCard tone="cheese" className="p-4 space-y-3">
-            <h2 className="font-display uppercase text-xl">Método de pago</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {/* Pago compacto */}
+          <BrutalCard tone="cheese" className="p-4 space-y-2">
+            <h2 className="font-display uppercase text-lg">Método de pago</h2>
+            <div className="flex flex-wrap gap-2">
               {([
                 { id: "efectivo", label: "💵 Efectivo" },
-                { id: "datafono", label: "💳 Datáfono al recibir" },
-                { id: "online", label: "🌐 Pago en línea" },
+                { id: "datafono", label: "💳 Datáfono" },
+                { id: "online", label: "🌐 Online" },
               ] as { id: PagoMetodo; label: string }[]).map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   onClick={() => setPago(opt.id)}
-                  className={`px-3 py-3 border-2 font-display uppercase text-sm ${
+                  className={`px-3 py-2 border-2 font-display uppercase text-xs ${
                     pago === opt.id
                       ? "bg-kp-ink text-kp-cheese border-kp-ink"
                       : "bg-kp-cheese text-kp-ink border-kp-ink/40 hover:border-kp-ink"
@@ -257,48 +271,102 @@ function CheckoutPage() {
             )}
           </BrutalCard>
 
-          <BrutalButton type="submit" variant="fire" size="lg" block disabled={enviando}>
-            {enviando ? "Coronando…" : `Confirmar pedido · ${cop(total)}`}
-          </BrutalButton>
+          {/* Notas colapsadas */}
+          <details className="border-2 border-kp-ink/30 bg-kp-cheese px-3 py-2">
+            <summary className="font-display uppercase text-xs cursor-pointer">
+              + Agregar nota para la cocina
+            </summary>
+            <div className="mt-2">
+              <BrutalInput
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                placeholder="Ej: sin cebolla, extra crispy…"
+              />
+            </div>
+          </details>
+
+          {/* CTA desktop */}
+          <div className="hidden lg:block">
+            <BrutalButton type="submit" variant="fire" size="lg" block disabled={enviando}>
+              {ctaLabel}
+            </BrutalButton>
+          </div>
         </form>
 
-        {/* RESUMEN */}
-        <aside className="lg:sticky lg:top-4 self-start space-y-3">
-          <BrutalCard tone="yellow" className="p-4">
-            <h2 className="font-display uppercase text-xl mb-3">Tu pedido</h2>
-            <ul className="divide-y-2 divide-kp-ink/20">
-              {items.map((i) => (
-                <li key={i.key} className="py-2">
-                  <div className="flex justify-between gap-3">
-                    <span className="font-display uppercase text-sm">
-                      {i.cantidad}× {i.nombre}
-                    </span>
-                    <span className="font-display text-sm">{cop(i.precio * i.cantidad)}</span>
-                  </div>
-                  {i.modificadores && i.modificadores.length > 0 && (
-                    <ul className="text-[11px] opacity-70 mt-1 pl-3 list-disc">
-                      {i.modificadores.map((m) => (
-                        <li key={`${m.grupoId}-${m.opcionId}`}>
-                          {m.nombre}
-                          {m.precio > 0 && ` (+${cop(m.precio)})`}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t-2 border-kp-ink">
-              <span className="font-display uppercase">Total</span>
-              <span className="font-display text-2xl">{cop(total)}</span>
-            </div>
-            <div className="mt-3 border-2 border-kp-ink bg-kp-yellow px-3 py-2 font-display uppercase text-xs flex items-center justify-between">
-              <span>👑 Sumas al confirmar</span>
-              <span className="text-base">+{puntos} pts</span>
-            </div>
-          </BrutalCard>
+        {/* RESUMEN desktop */}
+        <aside className="hidden lg:block lg:sticky lg:top-4 self-start">
+          <ResumenPedido items={items} total={total} puntos={puntos} />
         </aside>
       </div>
+
+      {/* CTA sticky mobile */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t-2 border-kp-ink bg-kp-cheese p-3">
+        <BrutalButton
+          type="button"
+          variant="fire"
+          size="lg"
+          block
+          disabled={enviando}
+          onClick={(e) => confirmar(e as unknown as React.FormEvent)}
+        >
+          {ctaLabel}
+        </BrutalButton>
+      </div>
     </section>
+  );
+}
+
+function Field({ error, children }: { error?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      {children}
+      {error && <p className="text-xs text-kp-fire font-display uppercase">{error}</p>}
+    </div>
+  );
+}
+
+function ResumenPedido({
+  items,
+  total,
+  puntos,
+}: {
+  items: ReturnType<typeof useCart>["items"];
+  total: number;
+  puntos: number;
+}) {
+  return (
+    <BrutalCard tone="yellow" className="p-4">
+      <h2 className="font-display uppercase text-lg mb-2">Tu pedido</h2>
+      <ul className="divide-y-2 divide-kp-ink/20">
+        {items.map((i) => (
+          <li key={i.key} className="py-2">
+            <div className="flex justify-between gap-3">
+              <span className="font-display uppercase text-sm">
+                {i.cantidad}× {i.nombre}
+              </span>
+              <span className="font-display text-sm">{cop(i.precio * i.cantidad)}</span>
+            </div>
+            {i.modificadores && i.modificadores.length > 0 && (
+              <ul className="text-[11px] opacity-70 mt-1 pl-3 list-disc">
+                {i.modificadores.map((m) => (
+                  <li key={`${m.grupoId}-${m.opcionId}`}>
+                    {m.nombre}
+                    {m.precio > 0 && ` (+${cop(m.precio)})`}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center justify-between mt-3 pt-3 border-t-2 border-kp-ink">
+        <span className="font-display uppercase">Total</span>
+        <span className="font-display text-2xl">{cop(total)}</span>
+      </div>
+      <div className="mt-3 border-2 border-kp-ink bg-kp-yellow px-3 py-2 font-display uppercase text-xs flex items-center justify-between">
+        <span>👑 Sumas al confirmar</span>
+        <span className="text-base">+{puntos} pts</span>
+      </div>
+    </BrutalCard>
   );
 }
