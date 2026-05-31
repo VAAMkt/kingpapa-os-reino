@@ -137,3 +137,42 @@ export function pickNearestSede(
   }
   return best;
 }
+
+/**
+ * Recalcula `enCobertura` y la sede más cercana para un ActiveSede que ya tiene
+ * lat/lng. Útil para resolver caches stale (ej. usuario marcado como "pickup"
+ * pero su dirección sí está dentro del radio de alguna sede).
+ *
+ * Retorna `{ active, changed }` — `changed=true` cuando alguno de
+ * `enCobertura | sedeId | distanciaKm` se actualizó.
+ */
+export function recomputeCoverage(
+  active: ActiveSede | null,
+  sedes: SedeRow[],
+): { active: ActiveSede | null; changed: boolean } {
+  if (!active || active.lat == null || active.lng == null || sedes.length === 0) {
+    return { active, changed: false };
+  }
+  const r = pickNearestSede({ lat: active.lat, lng: active.lng }, sedes);
+  if (!r) return { active, changed: false };
+  const newDist = Math.round(r.distanciaKm * 10) / 10;
+  const changed =
+    active.enCobertura !== r.enCobertura ||
+    active.sedeId !== r.sede.id ||
+    active.distanciaKm !== newDist;
+  if (!changed) return { active, changed: false };
+  const next: ActiveSede = {
+    ...active,
+    sedeId: r.sede.id,
+    slug: r.sede.slug,
+    // Si recuperamos cobertura, limpiamos el label "Recoger en X" stale.
+    label:
+      r.enCobertura && active.label.toLowerCase().startsWith("recoger en")
+        ? active.direccionTexto || r.sede.nombre
+        : active.label,
+    enCobertura: r.enCobertura,
+    distanciaKm: newDist,
+    ts: Date.now(),
+  };
+  return { active: next, changed: true };
+}
