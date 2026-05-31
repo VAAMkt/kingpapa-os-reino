@@ -19,6 +19,20 @@ import { PlacesAutocomplete } from "@/components/kp/PlacesAutocomplete";
 import { GateMap } from "@/components/kp/GateMap";
 import { toast } from "sonner";
 
+const VentanaSchema = z.object({
+  abre: z.string().regex(/^\d{2}:\d{2}$/, "HH:MM"),
+  cierra: z.string().regex(/^\d{2}:\d{2}$/, "HH:MM"),
+});
+const HorariosSchema = z.object({
+  lun: z.array(VentanaSchema).default([]),
+  mar: z.array(VentanaSchema).default([]),
+  mie: z.array(VentanaSchema).default([]),
+  jue: z.array(VentanaSchema).default([]),
+  vie: z.array(VentanaSchema).default([]),
+  sab: z.array(VentanaSchema).default([]),
+  dom: z.array(VentanaSchema).default([]),
+});
+
 const SedeSchema = z.object({
   slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones"),
   nombre: z.string().min(2).max(120),
@@ -43,6 +57,9 @@ const SedeSchema = z.object({
   lat: z.number().min(-90).max(90).nullable().optional(),
   lng: z.number().min(-180).max(180).nullable().optional(),
   cobertura_radio_km: z.number().min(0).max(50),
+  tz: z.string().min(3).max(60),
+  kill_switch: z.boolean(),
+  horarios: HorariosSchema,
 });
 
 type FormState = z.input<typeof SedeSchema>;
