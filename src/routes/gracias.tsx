@@ -95,7 +95,7 @@ function GraciasPage() {
         </div>
       </BrutalCard>
 
-      {order_id ? <TrackerOperativo orderId={order_id} /> : null}
+      {resolvedId ? <TrackerOperativo orderId={resolvedId} /> : null}
 
       {order && (
         <BrutalCard tone="cheese" className="p-5">
