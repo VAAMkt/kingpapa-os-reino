@@ -207,6 +207,7 @@ function CheckoutPage() {
       };
       try {
         localStorage.setItem("kp.lastOrder", JSON.stringify(lastOrder));
+        localStorage.removeItem(FORM_KEY);
       } catch {
         /* ignore */
       }
