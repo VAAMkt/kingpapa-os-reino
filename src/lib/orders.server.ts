@@ -300,16 +300,16 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     .insert({
       user_id: input.userId ?? null,
       sede_id: sede.id,
-      rp_payload: payload as never,
+      rp_payload: payload as unknown as Json,
       status: "enviado",
       tipo: input.tipo,
       pago: input.pago,
-      cliente: input.cliente as never,
-      items: itemsSnapshot as never,
+      cliente: input.cliente as unknown as Json,
+      items: itemsSnapshot as unknown as Json,
       subtotal,
       total,
       notas: input.notas ?? null,
-    } as never)
+    })
     .select("id")
     .single();
   if (insErr) throw new Error(`No se pudo guardar el pedido: ${insErr.message}`);
