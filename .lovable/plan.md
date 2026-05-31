@@ -1,90 +1,96 @@
-# Plan definitivo: 4 ajustes de última milla
+## Plan revisado (alertas de arquitectura incorporadas)
 
-## 1. Cancelaciones con motivo (Admin → Cliente en vivo)
+Fases B y C aprobadas para ejecución. Fase A se reemplaza por una **sonda de descubrimiento aislada** — sin tocar producción ni añadir polling ciego.
 
-**Migración**
-```sql
-ALTER TABLE public.orders ADD COLUMN cancel_reason text;
-ALTER TABLE public.orders ADD COLUMN cancelled_at timestamptz;
+---
+
+### Fase B — Notas del cliente al POS
+
+**Archivo:** `src/lib/orders.server.ts`
+
+Cambio único en el payload enviado a `rpRegistrarDelivery`:
+
+```diff
+ cliente: {
+   cliente_nombres: input.cliente.nombre,
+   cliente_apellidos: "",
+   cliente_dniruc: "",
+   cliente_direccion: input.cliente.direccion ?? "",
+   cliente_telefono: input.cliente.telefono,
+   cliente_email: "",
++  cliente_observacion: input.notas ?? "",
+ },
+ ...
+ delivery: {
+   ...
+-  delivery_observacion: input.notas ?? "",
++  delivery_observacion: input.notas ?? "",   // se mantiene como respaldo
+ }
 ```
 
-**Admin (`src/routes/admin.pedidos.tsx`)**
-- Interceptar el `onChange` del `<select>`: si el nuevo valor es `cancelado`, abrir `Dialog` con `Textarea` "Motivo" + presets: `Fuera de zona`, `Sin stock`, `Local cerrado`, `Cliente no contesta`, `Otro`.
-- Confirmar → `UPDATE orders SET status='cancelado', cancel_reason=<motivo>, cancelled_at=now()`. Cancelar el diálogo revierte el `<select>` al valor anterior (estado local controlado).
-- Mostrar `cancel_reason` como pie en cards canceladas.
+Doble inserción intencionada: `cliente_observacion` alimenta "Ver notas del cliente" en el POS de Restaurant.pe v2, y mantenemos `delivery_observacion` por si una sede tiene la vista vieja. Sin migraciones.
 
-**Tracker (`src/components/kp/TrackerOperativo.tsx`)**
-- Añadir `cancel_reason` al SELECT y al tipo `OrderRow`.
-- En la rama `isError`/`cancelado`: render `Motivo: {cancel_reason ?? "no especificado"}`. Realtime ya propaga el UPDATE.
+---
 
-## 2. Número corto de comanda (doble llamada API)
+### Fase C — UX de cancelación robusta en `TrackerOperativo`
 
-**Hallazgo confirmado en producción:** `registrarDelivery` devuelve un ID interno escalar (ej. `159265`) distinto del número de comanda visual del POS (ej. `#158716`).
+**Archivo:** `src/components/kp/TrackerOperativo.tsx`
 
-**Migración**
-```sql
-ALTER TABLE public.orders ADD COLUMN rp_numero_comanda text;
-```
+- Cuando llega un UPDATE por Realtime con `status === "cancelado"` y el estado anterior NO era cancelado → disparar `toast.error("Tu pedido fue cancelado. Mira el motivo abajo.")`.
+- En la rama `isError` con status `cancelado`:
+  - Si `cancel_reason` existe → mostrar `Motivo: {cancel_reason}` (ya implementado).
+  - Si `cancel_reason` es `null` → mostrar mensaje genérico: *"Tu pedido fue cancelado desde el local. Contáctanos por WhatsApp para más detalles."*
+- Detener el `setInterval` de fetch (no recargar más una vez en estado terminal).
 
-**`src/lib/restaurantpe.server.ts`**
-- Añadir helper `rpObtenerPedido(pedidoId: number)` que pegue al endpoint de lectura de Restaurant.pe v2 (`obtenerPedido` / `consultarDelivery` / variante real). Como el shape exacto no está documentado en el código, primero loguear la respuesta cruda en `rp_sync_log` para inspeccionar campos. La función debe ser tolerante: devolver `null` ante 404/error y NO romper el flujo del pedido.
+Sin polling al POS, sin nuevos endpoints, sin migraciones. La cancelación desde el POS llegará a la web solo cuando exista el endpoint correcto descubierto en la sonda (Fase A diferida).
 
-**`src/lib/orders.server.ts` — bloque post-`rpRegistrarDelivery`**
-1. Capturar `rpPedidoId` (ya implementado).
-2. Si `rpPedidoId` existe, invocar `rpObtenerPedido(rpPedidoId)` dentro de try/catch silencioso.
-3. Extraer el número corto desde candidatos: `pedido_numero`, `numero_comanda`, `comanda`, `ticket`, `correlativo`, `numero`. Si la respuesta envuelve en `data`, mirar también ahí.
-4. Guardar `rp_numero_comanda` en el mismo `UPDATE` que ya escribe `rp_pedido_id` / `rp_response`. Loguear ambas respuestas crudas en `rp_sync_log.payload` para auditoría.
-5. Si la doble llamada falla, dejar `rp_numero_comanda = null` — NO bloquear el pedido.
+---
 
-**UI (`TrackerOperativo.tsx`, `admin.pedidos.tsx`, `gracias.tsx`)**
-- Badge principal: `#{rp_numero_comanda ?? rp_pedido_id}`.
-- ID largo (rp_pedido_id) como subtítulo pequeño o tooltip para soporte técnico.
+### Fase A (diferida) — Sonda de descubrimiento aislada
 
-## 3. Buscador de pedidos `/tracking`
+**Sin código de producción.** Ejecutar un único script one-shot en el sandbox (`/tmp/probe_rp.ts`) que:
 
-**Server fn (`src/lib/orders.functions.ts`) → `findRecentOrder`**
-- Input zod: `{ query: z.string().min(4).max(60) }`.
-- Lógica con `supabaseAdmin` (ventana 24h):
-  - Strip a dígitos. Si `query` matchea UUID → buscar por `id`.
-  - Si todo dígitos y longitud 4–10 → buscar `rp_pedido_id = q OR rp_numero_comanda = q`.
-  - Si dígitos y longitud ≥ 7 → fallback a `cliente->>'telefono' = q` (tomar últimos 10 dígitos para tolerar prefijos).
-- Filtro siempre: `created_at > now() - interval '24 hours'`, `ORDER BY created_at DESC LIMIT 1`.
-- Devolver solo `{ orderId }` o `{ notFound: true }` (no datos de cliente).
+1. Lee `RESTAURANT_PE_TOKEN` y `RESTAURANT_PE_DOMINIO` del entorno.
+2. Hace **una sola pasada** (no loop, no retry) contra una lista cerrada de 5 candidatos, usando como ID el último pedido conocido (`159267`):
+   ```
+   GET  {READ_BASE}/delivery/{dominio}/{id}
+   GET  {READ_BASE}/pedido/{dominio}/{id}
+   GET  {WRITE_BASE}/delivery/{dominio}/{id}
+   GET  {WRITE_BASE}/pedido/{dominio}/{id}
+   POST {WRITE_BASE}/delivery/obtenerDelivery/{dominio}   body: { pedido_id: id }
+   ```
+3. Para cada candidato imprime: método, URL, status HTTP, primeros 400 chars de body.
+4. **Sin reintentos, sin recursión, sin paralelismo**: 5 requests totales y termina.
 
-**Ruta `src/routes/tracking.tsx` (pública)**
-- Form con un input + botón. Al éxito: `navigate({ to: "/gracias", search: { order_id } })`. Al fallo: `toast.error("No encontramos un pedido reciente con esos datos.")`.
+**Entregable de la fase A:** pegar en el chat el resultado para que tú confirmes cuál endpoint devolvió 200 y qué clave contiene el número visible (`#158718`). Solo entonces diseñaremos juntos la arquitectura de sincronización (probablemente un cronjob server-side, no polling por cliente).
 
-**Navegación**
-- Link "Rastrear pedido" en el header (`src/components/kp/Layout.tsx`) y en `/menu` (banner sutil).
+**Hasta entonces:** la UI sigue mostrando `rp_pedido_id` como fallback del badge (cosmético, sin riesgo).
 
-## 4. Verificación de métodos de pago
+---
 
-- Confirmado en producción: `efectivo=1` → "Pago contra entrega" en POS.
-- Añadir comentario-cabecera en `orders.server.ts` documentando:
-  ```
-  // delivery_tipopago: 1=Efectivo (contra entrega), 2=Datafono, 5=Online (pago web)
-  // tarjeta_id: 1 cuando datafono. Online actualmente sin pasarela.
-  // TODO(pasarela): cuando se integre, enviar también delivery_montopagado
-  //   y transaccion_id en el payload de delivery.
-  ```
-- Sin cambios de mapeo.
-
-## Orden de ejecución
+### Orden de ejecución
 
 ```text
-1. Migración SQL (cancel_reason, cancelled_at, rp_numero_comanda)
-2. Admin: Dialog de cancelación + persistencia del motivo
-3. Tracker: render del motivo
-4. restaurantpe.server: helper rpObtenerPedido + log crudo
-5. orders.server: doble llamada + rp_numero_comanda + UI badges
-6. /tracking: server fn findRecentOrder + ruta + links header/menu
-7. Doc inline de pagos
-8. Build limpio + smoke test (cancelar y crear pedido)
+1. Fase B (1 archivo, ~2 líneas)
+2. Fase C (1 archivo, toast + mensaje genérico)
+3. Build limpio
+4. Sonda A one-shot → pegar resultado en chat
+5. STOP. Esperar tu visto bueno con el endpoint correcto antes de tocar nada más.
 ```
 
-## Notas técnicas
+### Lo que explícitamente NO se hace en este turno
 
-- **RLS**: `findRecentOrder` corre con `supabaseAdmin`; input estricto (4–60 chars), respuesta minimizada a `id`.
-- **Realtime**: ya activo en `orders`; cubre `cancel_reason` y `rp_numero_comanda` sin cambios.
-- **Tipos**: tras la migración los types se regeneran solos; sin `as never` nuevos.
-- **Tolerancia a fallos en doble llamada**: el pedido NUNCA debe fallar por no obtener el número corto — solo afecta cosmética del badge.
+- ❌ No se añade `pollOrderFromRp` ni `setInterval` que llame al POS.
+- ❌ No se añaden más candidatos a `rpObtenerPedido` en producción.
+- ❌ No se hace fallback con `listarDeliveries` bajo ninguna circunstancia.
+- ❌ No se loguea contra `rp_sync_log` desde la sonda (es one-shot en sandbox, no producción).
+
+### Archivos a tocar
+
+```text
+src/lib/orders.server.ts                  ← Fase B
+src/components/kp/TrackerOperativo.tsx    ← Fase C
+/tmp/probe_rp.ts                          ← Fase A (efímero, no se commitea)
+```
+
+Sin migraciones. Sin secrets nuevos. Sin nuevas rutas.
