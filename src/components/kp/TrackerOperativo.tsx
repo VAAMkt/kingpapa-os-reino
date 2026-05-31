@@ -40,6 +40,7 @@ function stepIndex(status: OrderStatus): number {
 export function TrackerOperativo({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const pollFn = useServerFn(pollOrderFromRp);
 
   const prevStatusRef = useRef<OrderStatus | null>(null);
 
