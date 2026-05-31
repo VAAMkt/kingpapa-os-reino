@@ -244,7 +244,7 @@ export async function rpGetPedidoListByDelivery(
       tipo: "poll_pedido",
       ok: false,
       mensaje: `getPedidoListByDelivery falló (lastStatus=${lastStatus ?? "n/d"})`,
-      payload: { delivery_id: String(deliveryId), candidates } as unknown as Record<string, unknown>,
+      payload: { delivery_id: String(deliveryId), candidates } as never,
     });
   } catch {
     // ignore
