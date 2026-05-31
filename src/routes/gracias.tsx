@@ -7,9 +7,17 @@ import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
 import { resolveOrderId } from "@/lib/orders.poll.functions";
 
 export const Route = createFileRoute("/gracias")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    order_id: typeof s.order_id === "string" ? s.order_id : "",
-  }),
+  validateSearch: (s: Record<string, unknown>) => {
+    const raw =
+      typeof s.order_id === "string"
+        ? s.order_id
+        : typeof s.order_id === "number"
+          ? String(s.order_id)
+          : "";
+    // Defensive: strip JSON-encoded surrounding quotes (e.g. `"159276"`).
+    const clean = raw.replace(/^"+|"+$/g, "").trim();
+    return { order_id: clean };
+  },
   head: () => ({
     meta: [
       { title: "¡Tu corona se está forjando! — KINGPAPA" },
