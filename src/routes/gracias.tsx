@@ -35,6 +35,23 @@ function GraciasPage() {
   const { order_id } = Route.useSearch();
   const [order, setOrder] = useState<LastOrder | null>(null);
   const [sedeWa, setSedeWa] = useState<string | null>(null);
+  const [resolvedId, setResolvedId] = useState<string | null>(null);
+  const resolveFn = useServerFn(resolveOrderId);
+
+  // Resolver UUID real de orders.id (acepta UUID o rp_pedido_id numérico).
+  useEffect(() => {
+    if (!order_id) return;
+    let cancelled = false;
+    resolveFn({ data: { ref: order_id } })
+      .then((r) => {
+        if (cancelled) return;
+        if ("id" in r) setResolvedId(r.id);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [order_id, resolveFn]);
 
   useEffect(() => {
     try {
