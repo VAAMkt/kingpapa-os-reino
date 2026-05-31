@@ -34,7 +34,8 @@ const listeners = new Set<Listener>();
 const emit = () => listeners.forEach((l) => l());
 
 let cache: CartState | null = null;
-const EMPTY_STATE: CartState = { items: [], orderType: null };
+// 98% de pedidos web son a domicilio → default = delivery.
+const EMPTY_STATE: CartState = { items: [], orderType: "delivery" };
 
 function read(): CartState {
   if (typeof window === "undefined") return EMPTY_STATE;
@@ -45,16 +46,18 @@ function read(): CartState {
       const parsed = JSON.parse(raw) as Partial<CartState>;
       cache = {
         items: Array.isArray(parsed.items) ? parsed.items : [],
-        orderType: parsed.orderType ?? null,
+        orderType: parsed.orderType ?? "delivery",
       };
     } else {
-      // Migración suave del store antiguo.
       const legacy = window.localStorage.getItem(LEGACY_KEY);
       const legacyItems = legacy ? (JSON.parse(legacy) as CartItem[]) : [];
-      cache = { items: Array.isArray(legacyItems) ? legacyItems : [], orderType: null };
+      cache = {
+        items: Array.isArray(legacyItems) ? legacyItems : [],
+        orderType: "delivery",
+      };
     }
   } catch {
-    cache = { items: [], orderType: null };
+    cache = { items: [], orderType: "delivery" };
   }
   return cache;
 }
