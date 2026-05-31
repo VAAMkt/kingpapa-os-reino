@@ -141,9 +141,15 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
             {status === "cancelado" ? "Pedido cancelado" : "Hubo un problema con tu pedido"}
           </p>
           {status === "cancelado" ? (
-            <p className="text-xs text-kp-cheese/90 mt-1">
-              Motivo: <strong>{order?.cancel_reason ?? "no especificado"}</strong>
-            </p>
+            order?.cancel_reason ? (
+              <p className="text-xs text-kp-cheese/90 mt-1">
+                Motivo: <strong>{order.cancel_reason}</strong>
+              </p>
+            ) : (
+              <p className="text-xs text-kp-cheese/90 mt-1">
+                Tu pedido fue cancelado desde el local. Contáctanos por WhatsApp para más detalles.
+              </p>
+            )
           ) : null}
           <p className="text-xs text-kp-cheese/80 mt-1">
             Escríbenos por WhatsApp para resolverlo de inmediato.
