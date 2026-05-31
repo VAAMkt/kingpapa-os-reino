@@ -320,21 +320,27 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   let rpPedidoId: string | null = null;
   try {
     rpResponse = await rpRegistrarDelivery(payload);
-    // Extraer pedido_id de cualquier forma típica que devuelva la API.
-    const r = (rpResponse ?? {}) as Record<string, unknown>;
-    const candidates = [
-      r.pedido_id,
-      r.id,
-      r.comanda,
-      r.numero,
-      r.numero_pedido,
-      (r.data as Record<string, unknown> | undefined)?.pedido_id,
-      (r.data as Record<string, unknown> | undefined)?.id,
-    ];
-    for (const c of candidates) {
-      if (c != null && String(c).trim() !== "") {
-        rpPedidoId = String(c);
-        break;
+    // FASE 1 — Restaurant.pe devuelve `data` como escalar (ej. 159235), no como objeto.
+    if (typeof rpResponse === "number" || typeof rpResponse === "string") {
+      const s = String(rpResponse).trim();
+      if (s) rpPedidoId = s;
+    } else {
+      // Fallback por si en el futuro cambia el shape a objeto.
+      const r = (rpResponse ?? {}) as Record<string, unknown>;
+      const candidates = [
+        r.pedido_id,
+        r.id,
+        r.comanda,
+        r.numero,
+        r.numero_pedido,
+        (r.data as Record<string, unknown> | undefined)?.pedido_id,
+        (r.data as Record<string, unknown> | undefined)?.id,
+      ];
+      for (const c of candidates) {
+        if (c != null && String(c).trim() !== "") {
+          rpPedidoId = String(c);
+          break;
+        }
       }
     }
 
