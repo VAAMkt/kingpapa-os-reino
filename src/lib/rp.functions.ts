@@ -190,7 +190,12 @@ export const syncBranches = createServerFn({ method: "POST" })
 
     const log: { matched: number; missing: number[] } = { matched: 0, missing: [] };
 
-    for (const local of locales) {
+    for (let idx = 0; idx < locales.length; idx++) {
+      const local = locales[idx];
+      const rawLocal = (data.locales ?? [])[idx] as Record<string, unknown> | undefined;
+      const rpLocalEstado = rawLocal?.local_estado != null ? Number(rawLocal.local_estado) : null;
+      const rpAceptaDelivery = rawLocal?.local_aceptadelivery != null ? Number(rawLocal.local_aceptadelivery) : null;
+
       const { data: existing } = await supabase
         .from("sedes")
         .select("id, rp_local_id")
@@ -205,7 +210,9 @@ export const syncBranches = createServerFn({ method: "POST" })
             lng: local.lng ?? undefined,
             delivery: local.delivery,
             pickup: local.pickup,
-          })
+            rp_local_estado: rpLocalEstado,
+            rp_acepta_delivery: rpAceptaDelivery,
+          } as never)
           .eq("id", existing.id);
         if (updErr) throw new Error(`Sede ${local.rp_local_id}: ${updErr.message}`);
         log.matched += 1;

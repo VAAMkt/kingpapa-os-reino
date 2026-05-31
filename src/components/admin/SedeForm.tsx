@@ -19,6 +19,20 @@ import { PlacesAutocomplete } from "@/components/kp/PlacesAutocomplete";
 import { GateMap } from "@/components/kp/GateMap";
 import { toast } from "sonner";
 
+const VentanaSchema = z.object({
+  abre: z.string().regex(/^\d{2}:\d{2}$/, "HH:MM"),
+  cierra: z.string().regex(/^\d{2}:\d{2}$/, "HH:MM"),
+});
+const HorariosSchema = z.object({
+  lun: z.array(VentanaSchema).default([]),
+  mar: z.array(VentanaSchema).default([]),
+  mie: z.array(VentanaSchema).default([]),
+  jue: z.array(VentanaSchema).default([]),
+  vie: z.array(VentanaSchema).default([]),
+  sab: z.array(VentanaSchema).default([]),
+  dom: z.array(VentanaSchema).default([]),
+});
+
 const SedeSchema = z.object({
   slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones"),
   nombre: z.string().min(2).max(120),
@@ -43,9 +57,22 @@ const SedeSchema = z.object({
   lat: z.number().min(-90).max(90).nullable().optional(),
   lng: z.number().min(-180).max(180).nullable().optional(),
   cobertura_radio_km: z.number().min(0).max(50),
+  tz: z.string().min(3).max(60),
+  kill_switch: z.boolean(),
+  horarios: HorariosSchema,
 });
 
 type FormState = z.input<typeof SedeSchema>;
+
+const DEFAULT_HORARIOS = {
+  lun: [{ abre: "12:00", cierra: "22:00" }],
+  mar: [{ abre: "12:00", cierra: "22:00" }],
+  mie: [{ abre: "12:00", cierra: "22:00" }],
+  jue: [{ abre: "12:00", cierra: "22:00" }],
+  vie: [{ abre: "12:00", cierra: "22:00" }],
+  sab: [{ abre: "12:00", cierra: "22:00" }],
+  dom: [{ abre: "12:00", cierra: "22:00" }],
+};
 
 const emptyState: FormState = {
   slug: "",
@@ -67,6 +94,9 @@ const emptyState: FormState = {
   lat: null,
   lng: null,
   cobertura_radio_km: 5,
+  tz: "America/Bogota",
+  kill_switch: false,
+  horarios: DEFAULT_HORARIOS,
 };
 
 const labelCls = "block font-display uppercase text-xs mb-1";
@@ -77,36 +107,55 @@ const inputBaseCls = cn(
   "focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-none",
 );
 
+const DIA_LABELS: Array<{ key: keyof typeof DEFAULT_HORARIOS; label: string }> = [
+  { key: "lun", label: "Lunes" },
+  { key: "mar", label: "Martes" },
+  { key: "mie", label: "Miércoles" },
+  { key: "jue", label: "Jueves" },
+  { key: "vie", label: "Viernes" },
+  { key: "sab", label: "Sábado" },
+  { key: "dom", label: "Domingo" },
+];
+
 export function SedeForm({ initial }: { initial?: SedeRow }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const editing = !!initial;
 
-  const [form, setForm] = useState<FormState>(
-    initial
-      ? {
-          slug: initial.slug,
-          nombre: initial.nombre,
-          ciudad: initial.ciudad,
-          direccion: initial.direccion,
-          barrio: initial.barrio ?? "",
-          mall: initial.mall ?? "",
-          horario: initial.horario,
-          abierta_ahora: initial.abierta_ahora,
-          delivery: initial.delivery,
-          pickup: initial.pickup,
-          qr_mesa: initial.qr_mesa,
-          whatsapp: initial.whatsapp ?? "",
-          maps_url: initial.maps_url ?? "",
-          orden: initial.orden,
-          publicado: initial.publicado,
-          rp_local_id: initial.rp_local_id ?? null,
-          lat: initial.lat != null ? Number(initial.lat) : null,
-          lng: initial.lng != null ? Number(initial.lng) : null,
-          cobertura_radio_km: initial.cobertura_radio_km != null ? Number(initial.cobertura_radio_km) : 5,
-        }
-      : emptyState,
-  );
+  const [form, setForm] = useState<FormState>(() => {
+    if (!initial) return emptyState;
+    const extra = initial as unknown as {
+      horarios?: typeof DEFAULT_HORARIOS;
+      tz?: string;
+      kill_switch?: boolean;
+    };
+    return {
+      slug: initial.slug,
+      nombre: initial.nombre,
+      ciudad: initial.ciudad,
+      direccion: initial.direccion,
+      barrio: initial.barrio ?? "",
+      mall: initial.mall ?? "",
+      horario: initial.horario,
+      abierta_ahora: initial.abierta_ahora,
+      delivery: initial.delivery,
+      pickup: initial.pickup,
+      qr_mesa: initial.qr_mesa,
+      whatsapp: initial.whatsapp ?? "",
+      maps_url: initial.maps_url ?? "",
+      orden: initial.orden,
+      publicado: initial.publicado,
+      rp_local_id: initial.rp_local_id ?? null,
+      lat: initial.lat != null ? Number(initial.lat) : null,
+      lng: initial.lng != null ? Number(initial.lng) : null,
+      cobertura_radio_km: initial.cobertura_radio_km != null ? Number(initial.cobertura_radio_km) : 5,
+      tz: extra.tz ?? "America/Bogota",
+      kill_switch: extra.kill_switch ?? false,
+      horarios: (extra.horarios && Object.keys(extra.horarios).length > 0)
+        ? { ...DEFAULT_HORARIOS, ...extra.horarios }
+        : DEFAULT_HORARIOS,
+    };
+  });
   const [slugTouched, setSlugTouched] = useState(editing);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -160,8 +209,8 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         throw new Error("Revisa los campos marcados");
       }
       setErrors({});
-      if (editing && initial) return updateSede(initial.id, parsed.data);
-      return createSede(parsed.data);
+      if (editing && initial) return updateSede(initial.id, parsed.data as never);
+      return createSede(parsed.data as never);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sedes"] });
@@ -444,6 +493,99 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
             <BrutalBadge tone="black">oculta</BrutalBadge>
           )}
         </div>
+      </BrutalCard>
+
+      <BrutalCard tone="cheese" className="p-5 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h3 className="font-display uppercase text-lg">Horarios y operación</h3>
+          <label className="flex items-center gap-2 px-3 py-2 border-2 border-kp-ink bg-kp-cheese shadow-brutal-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.kill_switch}
+              onChange={(e) => setForm({ ...form, kill_switch: e.target.checked })}
+            />
+            <span className="font-display uppercase text-[11px]">Cerrar hoy (kill switch)</span>
+          </label>
+        </div>
+        <div className={fieldCls}>
+          <label className={labelCls}>Zona horaria</label>
+          <BrutalInput
+            value={form.tz}
+            onChange={(e) => setForm({ ...form, tz: e.target.value })}
+            placeholder="America/Bogota"
+          />
+        </div>
+        <div className="space-y-2">
+          {DIA_LABELS.map(({ key, label }) => {
+            const ventanas = form.horarios[key] ?? [];
+            const cerrado = ventanas.length === 0;
+            return (
+              <div key={key} className="flex flex-wrap items-center gap-2 border-2 border-kp-ink/30 p-2">
+                <span className="font-display uppercase text-xs w-20">{label}</span>
+                {cerrado ? (
+                  <span className="text-xs text-kp-ink/60 flex-1">Cerrado</span>
+                ) : (
+                  ventanas.map((v, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <input
+                        type="time"
+                        value={v.abre}
+                        onChange={(e) => {
+                          const next = [...ventanas];
+                          next[i] = { ...v, abre: e.target.value };
+                          setForm({ ...form, horarios: { ...form.horarios, [key]: next } });
+                        }}
+                        className="px-2 py-1 border-2 border-kp-ink bg-kp-cheese text-sm"
+                      />
+                      <span className="text-xs">a</span>
+                      <input
+                        type="time"
+                        value={v.cierra}
+                        onChange={(e) => {
+                          const next = [...ventanas];
+                          next[i] = { ...v, cierra: e.target.value };
+                          setForm({ ...form, horarios: { ...form.horarios, [key]: next } });
+                        }}
+                        className="px-2 py-1 border-2 border-kp-ink bg-kp-cheese text-sm"
+                      />
+                    </div>
+                  ))
+                )}
+                <div className="ml-auto flex gap-1">
+                  <button
+                    type="button"
+                    className="px-2 py-1 border-2 border-kp-ink bg-kp-yellow font-display uppercase text-[10px]"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        horarios: {
+                          ...form.horarios,
+                          [key]: [...ventanas, { abre: "12:00", cierra: "22:00" }],
+                        },
+                      })
+                    }
+                  >
+                    + ventana
+                  </button>
+                  {!cerrado && (
+                    <button
+                      type="button"
+                      className="px-2 py-1 border-2 border-kp-ink bg-kp-cheese font-display uppercase text-[10px]"
+                      onClick={() =>
+                        setForm({ ...form, horarios: { ...form.horarios, [key]: [] } })
+                      }
+                    >
+                      Cerrar
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-kp-ink/60">
+          La validación bloquea pedidos fuera de horario antes de enviarlos al POS. Puedes definir múltiples ventanas por día (ej. almuerzo + cena).
+        </p>
       </BrutalCard>
 
       <div className="flex items-center gap-3">

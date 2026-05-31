@@ -6,7 +6,7 @@ import { BrutalCard, BrutalBadge, SectionHeading } from "@/components/ui-kp/Brut
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { OrderRouter } from "@/components/kp/OrderRouter";
 import { ProductCard } from "@/components/kp/ProductCard";
-import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
+
 import { LoyaltyModule } from "@/components/kp/LoyaltyModule";
 import { EventCard, LocationCard } from "@/components/kp/Cards";
 import { Testimonios } from "@/components/kp/Testimonios";
@@ -136,10 +136,7 @@ function HomePage() {
         </div>
       </section>
 
-      {/* TRACKER */}
-      <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
-        <TrackerOperativo />
-      </section>
+      {/* TRACKER eliminado: ahora aparece solo en /gracias con datos reales del pedido */}
 
       {/* RETOS / FESTIVALES */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
