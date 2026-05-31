@@ -50,7 +50,17 @@ export function OrderIntentDialog() {
   function pick(t: OrderType) {
     setOrderType(t);
     setOpen(false);
-    toast.success(t === "delivery" ? "Te lo llevamos 🛵" : "Te esperamos en la sede 🏃");
+    if (t === "delivery") {
+      if (sede && !sede.enCobertura) {
+        toast.message(
+          `Estás un poco lejos para nuestro domicilio (fuera de la zona de ${sede.distanciaKm ? sede.distanciaKm.toFixed(1) + " km" : "cobertura"}). Confirmaremos por WhatsApp.`,
+        );
+      } else {
+        toast.success("Te lo llevamos 🛵");
+      }
+    } else {
+      toast.success("Te esperamos en la sede 🏃");
+    }
   }
 
   return (
