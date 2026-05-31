@@ -189,6 +189,15 @@ function CheckoutPage() {
         <span className="opacity-60 underline ml-1">cambiar</span>
       </button>
 
+      {/* Aviso amigable si está fuera de cobertura y quedó en pickup */}
+      {esRecoger && sede && !sede.enCobertura && sede.lat != null && (
+        <div className="border-2 border-kp-ink bg-kp-yellow/60 px-3 py-2 text-xs">
+          Estás un poco lejos para nuestro domicilio
+          {sede.distanciaKm ? ` (${sede.distanciaKm.toFixed(1)} km de ${sede.label.replace(/^Recoger en\s+/i, "")})` : ""}.
+          Tu pedido quedó configurado para recoger en tienda. Puedes cambiarlo si prefieres intentar domicilio.
+        </div>
+      )}
+
       {/* Resumen colapsable en mobile */}
       <div className="lg:hidden">
         <button
