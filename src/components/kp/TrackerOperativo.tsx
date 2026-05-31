@@ -15,6 +15,8 @@ type OrderRow = {
   id: string;
   status: OrderStatus;
   rp_pedido_id: string | null;
+  rp_numero_comanda: string | null;
+  cancel_reason: string | null;
   tipo: "delivery" | "pickup";
 };
 
@@ -46,7 +48,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     async function fetchOrder() {
       const { data } = await supabase
         .from("orders")
-        .select("id, status, rp_pedido_id, tipo")
+        .select("id, status, rp_pedido_id, rp_numero_comanda, cancel_reason, tipo")
         .eq("id", orderId)
         .maybeSingle();
       if (!cancelled) {
@@ -57,7 +59,6 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
 
     fetchOrder();
 
-    // Suscripción realtime + polling de respaldo cada 15s.
     const channel = supabase
       .channel(`order-${orderId}`)
       .on(
@@ -83,15 +84,26 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
   const isError = status === "cancelado" || status === "error";
   const step = isError ? 0 : stepIndex(status);
   const progreso = Math.min((step / PASOS.length) * 100, 100);
+  const comandaCorta = order?.rp_numero_comanda ?? null;
+  const idLargo = order?.rp_pedido_id ?? null;
 
   return (
     <BrutalCard tone="black" className="p-5 md:p-7">
-      <div className="flex items-center justify-between mb-4 gap-3">
+      <div className="flex items-start justify-between mb-4 gap-3">
         <h3 className="font-display text-2xl md:text-3xl text-kp-yellow uppercase">
           Tu Reino en camino
         </h3>
-        {order?.rp_pedido_id ? (
-          <BrutalBadge tone="yellow">Comanda #{order.rp_pedido_id}</BrutalBadge>
+        {comandaCorta ? (
+          <div className="flex flex-col items-end gap-1">
+            <BrutalBadge tone="yellow">Comanda #{comandaCorta}</BrutalBadge>
+            {idLargo ? (
+              <span className="text-[10px] font-mono text-kp-cheese/60" title="ID interno (soporte)">
+                ref: {idLargo}
+              </span>
+            ) : null}
+          </div>
+        ) : idLargo ? (
+          <BrutalBadge tone="yellow">Comanda #{idLargo}</BrutalBadge>
         ) : loading ? (
           <span className="text-xs font-display uppercase text-kp-cheese/70">conectando…</span>
         ) : null}
@@ -102,6 +114,11 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
           <p className="font-display uppercase text-kp-red text-sm">
             {status === "cancelado" ? "Pedido cancelado" : "Hubo un problema con tu pedido"}
           </p>
+          {status === "cancelado" ? (
+            <p className="text-xs text-kp-cheese/90 mt-1">
+              Motivo: <strong>{order?.cancel_reason ?? "no especificado"}</strong>
+            </p>
+          ) : null}
           <p className="text-xs text-kp-cheese/80 mt-1">
             Escríbenos por WhatsApp para resolverlo de inmediato.
           </p>
