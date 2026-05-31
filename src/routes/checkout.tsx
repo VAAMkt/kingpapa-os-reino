@@ -1,10 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { useCart, clearCart, setOrderType, type OrderType } from "@/lib/cart";
-import { useActiveSede } from "@/lib/active-sede";
+import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-sede";
+import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
 import { submitCheckoutOrder } from "@/lib/orders.functions";
 import { toast } from "sonner";
