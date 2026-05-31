@@ -138,21 +138,11 @@ export async function rpGetStock(input: {
   );
 }
 
-// Restaurant.pe `registrarDelivery` espera form-urlencoded con `pago` y
-// `local_id` en el cuerpo plano + `detalle`/`cliente` como JSON string.
-// Si se envía JSON el endpoint responde "No se ha encontrado el campo pago
-// o el local_id".
 export async function rpRegistrarDelivery(
   payload: Record<string, unknown>,
 ): Promise<unknown> {
   const dominioId = getDominioId();
   const url = `${WRITE_BASE}/delivery/registrarDelivery/${dominioId}`;
-  const form = new URLSearchParams();
-  for (const [k, v] of Object.entries(payload)) {
-    if (v == null) continue;
-    if (typeof v === "object") form.append(k, JSON.stringify(v));
-    else form.append(k, String(v));
-  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -161,10 +151,10 @@ export async function rpRegistrarDelivery(
       signal: controller.signal,
       headers: {
         Authorization: authHeader(),
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: form.toString(),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       throw new Error(
