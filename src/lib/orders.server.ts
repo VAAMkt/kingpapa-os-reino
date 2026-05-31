@@ -80,16 +80,27 @@ async function resolveOrder(input: CheckoutInput): Promise<{
   subtotal: number;
   total: number;
 }> {
-  // 1) Sede
-  const { data: sede, error: sedeErr } = await supabaseAdmin
+  // 1) Sede + validación de horarios y banderas RP (FASE 3)
+  const { data: sedeRaw, error: sedeErr } = await supabaseAdmin
     .from("sedes")
-    .select("id, nombre, rp_local_id")
+    .select(
+      "id, nombre, rp_local_id, horarios, tz, kill_switch, rp_local_estado, rp_acepta_delivery",
+    )
     .eq("id", input.sedeId)
     .maybeSingle();
   if (sedeErr) throw new Error(sedeErr.message);
-  if (!sede) throw new Error("Sede no encontrada");
+  if (!sedeRaw) throw new Error("Sede no encontrada");
+  const sede = sedeRaw as SedeRow & {
+    horarios: HorariosMap | null;
+    tz: string | null;
+    kill_switch: boolean | null;
+    rp_local_estado: number | null;
+    rp_acepta_delivery: number | null;
+  };
   if (!sede.rp_local_id)
     throw new Error(`La sede "${sede.nombre}" no tiene rp_local_id asignado`);
+
+  assertSedeOperativa(sede, input.tipo);
 
   // 2) Productos master
   const productIds = Array.from(new Set(input.items.map((i) => i.productoId)));
