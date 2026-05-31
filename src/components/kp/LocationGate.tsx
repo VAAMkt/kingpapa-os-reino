@@ -110,12 +110,14 @@ function GateBody({ onDone }: { onDone: () => void }) {
       toast.error("No hay sedes disponibles");
       return;
     }
-    const fallback = sedes[0];
+    const nearest = pickNearestSede(pinPos, sedes);
+    const fallback = nearest?.sede ?? sedes[0];
     setActiveSede({
       sedeId: fallback.id,
       slug: fallback.slug,
       label: `Recoger en ${fallback.nombre}`,
       source,
+      distanciaKm: nearest ? Math.round(nearest.distanciaKm * 10) / 10 : undefined,
       enCobertura: false,
       ts: Date.now(),
       lat: pinPos.lat,

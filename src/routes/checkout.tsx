@@ -1,10 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { useCart, clearCart, setOrderType, type OrderType } from "@/lib/cart";
-import { useActiveSede } from "@/lib/active-sede";
+import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-sede";
+import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
 import { submitCheckoutOrder } from "@/lib/orders.functions";
 import { toast } from "sonner";
@@ -42,13 +44,25 @@ function CheckoutPage() {
   const tipo: OrderType = orderType ?? (sede?.enCobertura ? "delivery" : "pickup");
   const esRecoger = tipo === "pickup";
 
-  // Si la dirección quedó fuera de cobertura, forzar pickup automáticamente.
+  // Auto-rehidratación de cobertura: si el cache tiene enCobertura=false pero
+  // la dirección sí cae dentro del radio de alguna sede, lo arreglamos solos
+  // sin obligar al usuario a reabrir el LocationGate.
+  const sedesQ = useQuery({
+    queryKey: ["sedes", "public"],
+    queryFn: listPublicSedes,
+    staleTime: 60_000,
+  });
   useEffect(() => {
-    if (sede && !sede.enCobertura && tipo === "delivery") {
-      setOrderType("pickup");
-      toast.message("Tu dirección está fuera de cobertura — solo recogida en sede");
+    if (!sede || !sedesQ.data) return;
+    const { active: updated, changed } = recomputeCoverage(sede, sedesQ.data);
+    if (changed && updated) {
+      setActiveSede(updated);
+      if (updated.enCobertura && tipo === "pickup") {
+        setOrderType("delivery");
+        toast.success("¡Buenas noticias! Tu dirección sí tiene cobertura 🛵");
+      }
     }
-  }, [sede, tipo]);
+  }, [sede, sedesQ.data, tipo]);
 
   const total = useMemo(() => subtotal, [subtotal]);
   const puntos = Math.floor(subtotal / 1000) * 10;
@@ -174,6 +188,15 @@ function CheckoutPage() {
         </span>
         <span className="opacity-60 underline ml-1">cambiar</span>
       </button>
+
+      {/* Aviso amigable si está fuera de cobertura y quedó en pickup */}
+      {esRecoger && sede && !sede.enCobertura && sede.lat != null && (
+        <div className="border-2 border-kp-ink bg-kp-yellow/60 px-3 py-2 text-xs">
+          Estás un poco lejos para nuestro domicilio
+          {sede.distanciaKm ? ` (${sede.distanciaKm.toFixed(1)} km de ${sede.label.replace(/^Recoger en\s+/i, "")})` : ""}.
+          Tu pedido quedó configurado para recoger en tienda. Puedes cambiarlo si prefieres intentar domicilio.
+        </div>
+      )}
 
       {/* Resumen colapsable en mobile */}
       <div className="lg:hidden">
