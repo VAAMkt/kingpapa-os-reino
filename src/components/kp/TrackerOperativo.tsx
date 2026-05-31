@@ -39,6 +39,8 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const prevStatusRef = useRef<OrderStatus | null>(null);
+
   useEffect(() => {
     if (!orderId) {
       setLoading(false);
@@ -52,10 +54,19 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         .select("id, status, rp_pedido_id, rp_numero_comanda, cancel_reason, tipo")
         .eq("id", orderId)
         .maybeSingle();
-      if (!cancelled) {
-        setOrder((data as OrderRow | null) ?? null);
-        setLoading(false);
+      if (cancelled) return;
+      const next = (data as OrderRow | null) ?? null;
+      setOrder(next);
+      setLoading(false);
+      if (
+        next &&
+        next.status === "cancelado" &&
+        prevStatusRef.current &&
+        prevStatusRef.current !== "cancelado"
+      ) {
+        toast.error("Tu pedido fue cancelado. Mira el motivo abajo.");
       }
+      if (next) prevStatusRef.current = next.status;
     }
 
     fetchOrder();
@@ -68,11 +79,25 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         (payload) => {
           const next = payload.new as OrderRow;
           setOrder(next);
+          if (
+            next.status === "cancelado" &&
+            prevStatusRef.current &&
+            prevStatusRef.current !== "cancelado"
+          ) {
+            toast.error("Tu pedido fue cancelado. Mira el motivo abajo.");
+          }
+          prevStatusRef.current = next.status;
         },
       )
       .subscribe();
 
-    const poll = setInterval(fetchOrder, 15_000);
+    // Polling de respaldo cada 15s. Se detiene en estados terminales para
+    // no recargar innecesariamente la tabla orders.
+    const poll = setInterval(() => {
+      const s = prevStatusRef.current;
+      if (s === "entregado" || s === "cancelado" || s === "error") return;
+      fetchOrder();
+    }, 15_000);
 
     return () => {
       cancelled = true;
