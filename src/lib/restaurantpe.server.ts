@@ -138,12 +138,46 @@ export async function rpGetStock(input: {
   );
 }
 
-// Preparado para el flujo de checkout (commits siguientes).
-export async function rpRegistrarDelivery(payload: unknown): Promise<unknown> {
+// Restaurant.pe `registrarDelivery` espera form-urlencoded con `pago` y
+// `local_id` en el cuerpo plano + `detalle`/`cliente` como JSON string.
+// Si se envía JSON el endpoint responde "No se ha encontrado el campo pago
+// o el local_id".
+export async function rpRegistrarDelivery(
+  payload: Record<string, unknown>,
+): Promise<unknown> {
   const dominioId = getDominioId();
-  return rpFetch<unknown>(`/delivery/registrarDelivery/${dominioId}`, {
-    base: "write",
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  const url = `${WRITE_BASE}/delivery/registrarDelivery/${dominioId}`;
+  const form = new URLSearchParams();
+  for (const [k, v] of Object.entries(payload)) {
+    if (v == null) continue;
+    if (typeof v === "object") form.append(k, JSON.stringify(v));
+    else form.append(k, String(v));
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: authHeader(),
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: form.toString(),
+    });
+    if (!res.ok) {
+      throw new Error(
+        `Restaurant.pe ${res.status} ${res.statusText} en registrarDelivery`,
+      );
+    }
+    const json = (await res.json()) as RpEnvelope<unknown>;
+    if (String(json.tipo) !== "1") {
+      const msg = json.mensajes?.join("; ") || `Error tipo=${json.tipo}`;
+      throw new Error(`Restaurant.pe: ${msg}`);
+    }
+    return json.data;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
