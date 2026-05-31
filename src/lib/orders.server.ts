@@ -28,6 +28,8 @@ export type CheckoutInput = {
     telefono: string;
     direccion?: string | null;
     detalles?: string | null;
+    lat?: number | null;
+    lng?: number | null;
   };
   notas?: string | null;
   items: CheckoutInputItem[];
