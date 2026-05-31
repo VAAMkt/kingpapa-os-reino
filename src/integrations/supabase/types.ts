@@ -378,7 +378,9 @@ export type Database = {
           delivery: boolean
           direccion: string
           horario: string
+          horarios: Json
           id: string
+          kill_switch: boolean
           lat: number | null
           lng: number | null
           mall: string | null
@@ -388,8 +390,11 @@ export type Database = {
           pickup: boolean
           publicado: boolean
           qr_mesa: boolean
+          rp_acepta_delivery: number | null
+          rp_local_estado: number | null
           rp_local_id: number | null
           slug: string
+          tz: string
           updated_at: string
           whatsapp: string | null
         }
@@ -402,7 +407,9 @@ export type Database = {
           delivery?: boolean
           direccion: string
           horario?: string
+          horarios?: Json
           id?: string
+          kill_switch?: boolean
           lat?: number | null
           lng?: number | null
           mall?: string | null
@@ -412,8 +419,11 @@ export type Database = {
           pickup?: boolean
           publicado?: boolean
           qr_mesa?: boolean
+          rp_acepta_delivery?: number | null
+          rp_local_estado?: number | null
           rp_local_id?: number | null
           slug: string
+          tz?: string
           updated_at?: string
           whatsapp?: string | null
         }
@@ -426,7 +436,9 @@ export type Database = {
           delivery?: boolean
           direccion?: string
           horario?: string
+          horarios?: Json
           id?: string
+          kill_switch?: boolean
           lat?: number | null
           lng?: number | null
           mall?: string | null
@@ -436,8 +448,11 @@ export type Database = {
           pickup?: boolean
           publicado?: boolean
           qr_mesa?: boolean
+          rp_acepta_delivery?: number | null
+          rp_local_estado?: number | null
           rp_local_id?: number | null
           slug?: string
+          tz?: string
           updated_at?: string
           whatsapp?: string | null
         }
