@@ -127,18 +127,27 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         </h3>
         {comandaCorta ? (
           <div className="flex flex-col items-end gap-1">
-            <BrutalBadge tone="yellow">Comanda #{comandaCorta}</BrutalBadge>
+            <BrutalBadge tone="yellow">
+              Comanda {comandaCorta.startsWith("#") ? comandaCorta : `#${comandaCorta}`}
+            </BrutalBadge>
             {idLargo ? (
               <span className="text-[10px] font-mono text-kp-cheese/60" title="ID interno (soporte)">
                 ref: {idLargo}
               </span>
             ) : null}
           </div>
-        ) : idLargo ? (
-          <BrutalBadge tone="yellow">Comanda #{idLargo}</BrutalBadge>
-        ) : loading ? (
-          <span className="text-xs font-display uppercase text-kp-cheese/70">conectando…</span>
-        ) : null}
+        ) : (
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-xs font-display uppercase text-kp-cheese/70">
+              {loading ? "conectando…" : "asignando comanda…"}
+            </span>
+            {idLargo ? (
+              <span className="text-[10px] font-mono text-kp-cheese/60" title="ID interno (soporte)">
+                ref: {idLargo}
+              </span>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {isError ? (
