@@ -388,31 +388,27 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           )}
           {errors.rp_local_id && <p className="text-xs text-kp-red">{errors.rp_local_id}</p>}
         </div>
-        <div className="grid md:grid-cols-3 gap-3">
+        <div className="grid md:grid-cols-2 gap-3 items-end">
           <div className={fieldCls}>
-            <label className={labelCls}>Latitud</label>
-            <BrutalInput
-              type="number"
-              step="any"
-              value={form.lat ?? ""}
-              onChange={(e) =>
-                setForm({ ...form, lat: e.target.value ? Number(e.target.value) : null })
-              }
-              placeholder="3.4516"
-            />
+            <label className={labelCls}>Coordenadas (auto)</label>
+            <div className="px-4 py-3 bg-kp-cheese/60 border-2 border-kp-ink shadow-brutal-sm font-mono text-xs">
+              {form.lat != null && form.lng != null
+                ? `${Number(form.lat).toFixed(6)}, ${Number(form.lng).toFixed(6)}`
+                : "Sin ubicación · busca la dirección arriba"}
+            </div>
           </div>
           <div className={fieldCls}>
-            <label className={labelCls}>Longitud</label>
+            <label className={labelCls}>Cobertura (km)</label>
             <BrutalInput
               type="number"
-              step="any"
-              value={form.lng ?? ""}
+              step="0.5"
+              value={form.cobertura_radio_km}
               onChange={(e) =>
-                setForm({ ...form, lng: e.target.value ? Number(e.target.value) : null })
+                setForm({ ...form, cobertura_radio_km: Number(e.target.value) })
               }
-              placeholder="-76.5320"
             />
           </div>
+        </div>
           <div className={fieldCls}>
             <label className={labelCls}>Cobertura (km)</label>
             <BrutalInput
