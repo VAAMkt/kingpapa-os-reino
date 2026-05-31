@@ -209,8 +209,8 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         throw new Error("Revisa los campos marcados");
       }
       setErrors({});
-      if (editing && initial) return updateSede(initial.id, parsed.data);
-      return createSede(parsed.data);
+      if (editing && initial) return updateSede(initial.id, parsed.data as never);
+      return createSede(parsed.data as never);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sedes"] });
