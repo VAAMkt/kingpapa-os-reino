@@ -287,6 +287,9 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       cliente_direccion: input.cliente.direccion ?? "",
       cliente_telefono: input.cliente.telefono,
       cliente_email: "",
+      // Notas del checkout → "Ver notas del cliente" en el POS v2.
+      // delivery_observacion abajo se mantiene como respaldo (vista vieja).
+      cliente_observacion: input.notas ?? "",
     },
     listaPedidos: detalle.map((d) => ({
       pedido_productoid: d.pedido_productoid,

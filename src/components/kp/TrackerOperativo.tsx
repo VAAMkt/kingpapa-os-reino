@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -38,6 +39,8 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const prevStatusRef = useRef<OrderStatus | null>(null);
+
   useEffect(() => {
     if (!orderId) {
       setLoading(false);
@@ -51,10 +54,19 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         .select("id, status, rp_pedido_id, rp_numero_comanda, cancel_reason, tipo")
         .eq("id", orderId)
         .maybeSingle();
-      if (!cancelled) {
-        setOrder((data as OrderRow | null) ?? null);
-        setLoading(false);
+      if (cancelled) return;
+      const next = (data as OrderRow | null) ?? null;
+      setOrder(next);
+      setLoading(false);
+      if (
+        next &&
+        next.status === "cancelado" &&
+        prevStatusRef.current &&
+        prevStatusRef.current !== "cancelado"
+      ) {
+        toast.error("Tu pedido fue cancelado. Mira el motivo abajo.");
       }
+      if (next) prevStatusRef.current = next.status;
     }
 
     fetchOrder();
@@ -67,11 +79,25 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         (payload) => {
           const next = payload.new as OrderRow;
           setOrder(next);
+          if (
+            next.status === "cancelado" &&
+            prevStatusRef.current &&
+            prevStatusRef.current !== "cancelado"
+          ) {
+            toast.error("Tu pedido fue cancelado. Mira el motivo abajo.");
+          }
+          prevStatusRef.current = next.status;
         },
       )
       .subscribe();
 
-    const poll = setInterval(fetchOrder, 15_000);
+    // Polling de respaldo cada 15s. Se detiene en estados terminales para
+    // no recargar innecesariamente la tabla orders.
+    const poll = setInterval(() => {
+      const s = prevStatusRef.current;
+      if (s === "entregado" || s === "cancelado" || s === "error") return;
+      fetchOrder();
+    }, 15_000);
 
     return () => {
       cancelled = true;
@@ -115,9 +141,15 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
             {status === "cancelado" ? "Pedido cancelado" : "Hubo un problema con tu pedido"}
           </p>
           {status === "cancelado" ? (
-            <p className="text-xs text-kp-cheese/90 mt-1">
-              Motivo: <strong>{order?.cancel_reason ?? "no especificado"}</strong>
-            </p>
+            order?.cancel_reason ? (
+              <p className="text-xs text-kp-cheese/90 mt-1">
+                Motivo: <strong>{order.cancel_reason}</strong>
+              </p>
+            ) : (
+              <p className="text-xs text-kp-cheese/90 mt-1">
+                Tu pedido fue cancelado desde el local. Contáctanos por WhatsApp para más detalles.
+              </p>
+            )
           ) : null}
           <p className="text-xs text-kp-cheese/80 mt-1">
             Escríbenos por WhatsApp para resolverlo de inmediato.
