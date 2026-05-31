@@ -1,46 +1,122 @@
 import { useEffect, useState } from "react";
-import { BrutalCard } from "@/components/ui-kp/Brutal";
+import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
+import { supabase } from "@/integrations/supabase/client";
 
-const pasos = [
-  { label: "Freímos tus papas", emoji: "🍟" },
-  { label: "Bañamos en queso", emoji: "🧀" },
-  { label: "Coronamos con chicharrón", emoji: "👑" },
-  { label: "El motorizado salió del Reino", emoji: "🛵" },
+type OrderStatus =
+  | "enviado"
+  | "recibido"
+  | "en_preparacion"
+  | "en_camino"
+  | "entregado"
+  | "cancelado"
+  | "error";
+
+type OrderRow = {
+  id: string;
+  status: OrderStatus;
+  rp_pedido_id: string | null;
+  tipo: "delivery" | "pickup";
+};
+
+const PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
+  { label: "Recibimos tu pedido", emoji: "📋", status: ["enviado", "recibido"] },
+  { label: "Coronando en cocina", emoji: "🧀", status: ["en_preparacion"] },
+  { label: "Motorizado en camino", emoji: "🛵", status: ["en_camino"] },
+  { label: "¡A disfrutarlo!", emoji: "👑", status: ["entregado"] },
 ];
 
-/**
- * TrackerOperativo — demo visual del Pizza Tracker style.
- * TODO: alimentar con estado real del pedido vía WS o polling.
- */
-export function TrackerOperativo() {
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    const i = setInterval(() => setStep((s) => (s + 1) % (pasos.length + 1)), 1800);
-    return () => clearInterval(i);
-  }, []);
+function stepIndex(status: OrderStatus): number {
+  for (let i = PASOS.length - 1; i >= 0; i--) {
+    if (PASOS[i].status.includes(status)) return i + 1;
+  }
+  return 0;
+}
 
-  const progreso = Math.min((step / pasos.length) * 100, 100);
+export function TrackerOperativo({ orderId }: { orderId: string }) {
+  const [order, setOrder] = useState<OrderRow | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+
+    async function fetchOrder() {
+      const { data } = await supabase
+        .from("orders")
+        .select("id, status, rp_pedido_id, tipo")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (!cancelled) {
+        setOrder((data as OrderRow | null) ?? null);
+        setLoading(false);
+      }
+    }
+
+    fetchOrder();
+
+    // Suscripción realtime + polling de respaldo cada 15s.
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
+        (payload) => {
+          const next = payload.new as OrderRow;
+          setOrder(next);
+        },
+      )
+      .subscribe();
+
+    const poll = setInterval(fetchOrder, 15_000);
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
+  }, [orderId]);
+
+  const status: OrderStatus = order?.status ?? "enviado";
+  const isError = status === "cancelado" || status === "error";
+  const step = isError ? 0 : stepIndex(status);
+  const progreso = Math.min((step / PASOS.length) * 100, 100);
 
   return (
     <BrutalCard tone="black" className="p-5 md:p-7">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <h3 className="font-display text-2xl md:text-3xl text-kp-yellow uppercase">
           Tu Reino en camino
         </h3>
-        <span className="text-xs font-display uppercase text-kp-cheese/70">
-          demo en vivo
-        </span>
+        {order?.rp_pedido_id ? (
+          <BrutalBadge tone="yellow">Comanda #{order.rp_pedido_id}</BrutalBadge>
+        ) : loading ? (
+          <span className="text-xs font-display uppercase text-kp-cheese/70">conectando…</span>
+        ) : null}
       </div>
 
-      <div className="h-4 bg-kp-cheese border-2 border-kp-cheese mb-5 overflow-hidden">
-        <div
-          className="h-full bg-kp-yellow transition-all duration-700"
-          style={{ width: `${progreso}%` }}
-        />
-      </div>
+      {isError ? (
+        <div className="border-2 border-kp-red bg-kp-red/10 p-4 mb-3">
+          <p className="font-display uppercase text-kp-red text-sm">
+            {status === "cancelado" ? "Pedido cancelado" : "Hubo un problema con tu pedido"}
+          </p>
+          <p className="text-xs text-kp-cheese/80 mt-1">
+            Escríbenos por WhatsApp para resolverlo de inmediato.
+          </p>
+        </div>
+      ) : (
+        <div className="h-4 bg-kp-cheese border-2 border-kp-cheese mb-5 overflow-hidden">
+          <div
+            className="h-full bg-kp-yellow transition-all duration-700"
+            style={{ width: `${progreso}%` }}
+          />
+        </div>
+      )}
 
       <ol className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {pasos.map((p, idx) => {
+        {PASOS.map((p, idx) => {
           const done = idx < step;
           const active = idx === step - 1;
           return (
@@ -62,7 +138,7 @@ export function TrackerOperativo() {
       </ol>
 
       <p className="text-xs text-kp-cheese/70 mt-4">
-        Tranquilo papi, el motorizado ya está coronando tu cuadra.
+        Se actualiza automáticamente. Si pasan 30 minutos sin novedad, escríbenos por WhatsApp.
       </p>
     </BrutalCard>
   );
