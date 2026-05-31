@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { supabase } from "@/integrations/supabase/client";
-import { pollOrderFromRp } from "@/lib/orders.poll.functions";
 
 type OrderStatus =
   | "enviado"
@@ -30,6 +28,8 @@ const PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
   { label: "¡A disfrutarlo!", emoji: "👑", status: ["entregado"] },
 ];
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function stepIndex(status: OrderStatus): number {
   for (let i = PASOS.length - 1; i >= 0; i--) {
     if (PASOS[i].status.includes(status)) return i + 1;
@@ -40,8 +40,6 @@ function stepIndex(status: OrderStatus): number {
 export function TrackerOperativo({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const pollFn = useServerFn(pollOrderFromRp);
-
   const prevStatusRef = useRef<OrderStatus | null>(null);
 
   useEffect(() => {
@@ -50,15 +48,12 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       return;
     }
     let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    async function fetchOrder() {
-      const { data } = await supabase
-        .from("orders")
-        .select("id, status, rp_pedido_id, rp_numero_comanda, cancel_reason, tipo")
-        .eq("id", orderId)
-        .maybeSingle();
+    const isUuid = UUID_RE.test(orderId);
+
+    function applyRow(next: OrderRow | null) {
       if (cancelled) return;
-      const next = (data as OrderRow | null) ?? null;
       setOrder(next);
       setLoading(false);
       if (
@@ -72,52 +67,44 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       if (next) prevStatusRef.current = next.status;
     }
 
-    fetchOrder();
+    async function init() {
+      const query = supabase
+        .from("orders")
+        .select("id, status, rp_pedido_id, rp_numero_comanda, cancel_reason, tipo");
+      const { data } = isUuid
+        ? await query.eq("id", orderId).maybeSingle()
+        : await query.eq("rp_pedido_id", orderId).maybeSingle();
 
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
-        (payload) => {
-          const next = payload.new as OrderRow;
-          setOrder(next);
-          if (
-            next.status === "cancelado" &&
-            prevStatusRef.current &&
-            prevStatusRef.current !== "cancelado"
-          ) {
-            toast.error("Tu pedido fue cancelado. Mira el motivo abajo.");
-          }
-          prevStatusRef.current = next.status;
-        },
-      )
-      .subscribe();
+      const row = (data as OrderRow | null) ?? null;
+      applyRow(row);
 
-    // Polling cada 20s al POS vía server fn. Si el POS cambió el estado
-    // (entregado, anulado, en reparto) o asignó número de comanda, la server
-    // fn actualiza la fila y Realtime propaga el UPDATE.
-    const poll = setInterval(() => {
-      const s = prevStatusRef.current;
-      if (s === "entregado" || s === "cancelado" || s === "error") return;
-      pollFn({ data: { orderId } }).catch(() => {
-        // silencioso: el siguiente tick reintenta
-      });
-    }, 20_000);
+      // Suscribir Realtime al UUID real (postgres_changes filter exige el id).
+      const realtimeId = row?.id ?? (isUuid ? orderId : null);
+      if (!realtimeId) return;
+
+      channel = supabase
+        .channel(`order-${realtimeId}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${realtimeId}` },
+          (payload) => applyRow(payload.new as OrderRow),
+        )
+        .subscribe();
+    }
+
+    init();
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
-      clearInterval(poll);
+      if (channel) supabase.removeChannel(channel);
     };
-  }, [orderId, pollFn]);
+  }, [orderId]);
 
   const status: OrderStatus = order?.status ?? "enviado";
   const isError = status === "cancelado" || status === "error";
   const step = isError ? 0 : stepIndex(status);
   const progreso = Math.min((step / PASOS.length) * 100, 100);
-  const comandaCorta = order?.rp_numero_comanda ?? null;
-  const idLargo = order?.rp_pedido_id ?? null;
+  const remision = order?.rp_pedido_id ?? (UUID_RE.test(orderId) ? null : orderId);
 
   return (
     <BrutalCard tone="black" className="p-5 md:p-7">
@@ -125,17 +112,8 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         <h3 className="font-display text-2xl md:text-3xl text-kp-yellow uppercase">
           Tu Reino en camino
         </h3>
-        {comandaCorta ? (
-          <div className="flex flex-col items-end gap-1">
-            <BrutalBadge tone="yellow">Comanda #{comandaCorta}</BrutalBadge>
-            {idLargo ? (
-              <span className="text-[10px] font-mono text-kp-cheese/60" title="ID interno (soporte)">
-                ref: {idLargo}
-              </span>
-            ) : null}
-          </div>
-        ) : idLargo ? (
-          <BrutalBadge tone="yellow">Comanda #{idLargo}</BrutalBadge>
+        {remision ? (
+          <BrutalBadge tone="yellow">Remisión #{remision}</BrutalBadge>
         ) : loading ? (
           <span className="text-xs font-display uppercase text-kp-cheese/70">conectando…</span>
         ) : null}
