@@ -182,27 +182,27 @@ function getSubdominio(): string {
 }
 
 /**
- * Endpoint descubierto vía DevTools del panel POS:
- *   GET http://{sub}.restaurant.pe/restaurant/api/rest/pedido/getPedidoListByDelivery/{deliveryId}
+ * Endpoint público V2 confirmado por soporte de Restaurant.pe para consultar
+ * el estado de un delivery por su ID. Probamos varias rutas candidatas (Swagger
+ * V2 vs readonly vs subdominio interno) y nos quedamos con la primera que
+ * responda `tipo:"1"`. Si todas fallan devolvemos null sin lanzar.
  *
- * El `deliveryId` es el escalar que devuelve `registrarDelivery`. La respuesta
- * lista los pedidos amarrados a ese delivery; el primer item trae el número
- * corto de comanda (visible en el POS, ej. 158719) y el estado real.
- *
- * Estrategia:
- *   1. Ruta interna del POS (la que vimos en network) — más probable que funcione.
- *   2. Fallback a la base pública v2 por si la migran allí.
- *
- * NUNCA lanza: devuelve la primera respuesta exitosa o null.
+ * El objeto devuelto contiene las llaves confirmadas (esquema observado en el
+ * DOM del POS): `delivery_numero`, `delivery_estado` (0..4), `motorizado`,
+ * `venta.venta_seriedoc`, `venta.venta_numdoc`.
  */
-export async function rpGetPedidoListByDelivery(
+export async function rpObtenerDelivery(
   deliveryId: number | string,
-): Promise<{ raw: unknown; firstItem: Record<string, unknown> | null } | null> {
+): Promise<{ raw: unknown; delivery: Record<string, unknown> | null } | null> {
   const sub = getSubdominio();
   const dominioId = getDominioId();
   const candidates: string[] = [
+    `${WRITE_BASE}/delivery/obtenerDelivery/${dominioId}/${deliveryId}`,
+    `${READ_BASE}/delivery/obtenerDelivery/${dominioId}/${deliveryId}`,
+    `${WRITE_BASE}/delivery/obtenerEstadoDelivery/${dominioId}/${deliveryId}`,
+    `${READ_BASE}/delivery/obtenerEstadoDelivery/${dominioId}/${deliveryId}`,
+    // Última opción (subdominio interno; suele requerir cookie del POS).
     `http://${sub}.restaurant.pe/restaurant/api/rest/pedido/getPedidoListByDelivery/${deliveryId}`,
-    `${WRITE_BASE}/pedido/getPedidoListByDelivery/${dominioId}/${deliveryId}`,
   ];
 
   let lastStatus: number | null = null;
@@ -212,40 +212,46 @@ export async function rpGetPedidoListByDelivery(
     try {
       const res = await fetch(url, {
         signal: controller.signal,
-        headers: {
-          Authorization: authHeader(),
-          Accept: "application/json",
-        },
+        headers: { Authorization: authHeader(), Accept: "application/json" },
       });
       clearTimeout(timeout);
       lastStatus = res.status;
       if (!res.ok) continue;
       const json = (await res.json()) as Record<string, unknown>;
-      // El envelope de Restaurant.pe normalmente es { tipo:"1", data:[...] }.
-      // Si tipo viene presente y no es "1", tratamos como fallo.
       if (json.tipo != null && String(json.tipo) !== "1") continue;
       const data = (json.data ?? json) as unknown;
-      const first = Array.isArray(data)
+      const delivery = Array.isArray(data)
         ? ((data[0] as Record<string, unknown>) ?? null)
         : data && typeof data === "object"
           ? (data as Record<string, unknown>)
           : null;
-      return { raw: json, firstItem: first };
+      return { raw: json, delivery };
     } catch {
       clearTimeout(timeout);
       continue;
     }
   }
 
-  // Log de fallo (best-effort, no romper si tampoco se puede loguear).
+  // Log silencioso de fallo (best-effort, dedupe: solo si no hay otro log de
+  // fallo para este delivery en los últimos 10 min, para no saturar la tabla).
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("rp_sync_log").insert({
-      tipo: "poll_pedido",
-      ok: false,
-      mensaje: `getPedidoListByDelivery falló (lastStatus=${lastStatus ?? "n/d"})`,
-      payload: { delivery_id: String(deliveryId), candidates } as never,
-    });
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: recientes } = await supabaseAdmin
+      .from("rp_sync_log")
+      .select("id")
+      .eq("tipo", "poll_pedido")
+      .eq("ok", false)
+      .gt("created_at", tenMinAgo)
+      .limit(1);
+    if (!recientes || recientes.length === 0) {
+      await supabaseAdmin.from("rp_sync_log").insert({
+        tipo: "poll_pedido",
+        ok: false,
+        mensaje: `obtenerDelivery falló (lastStatus=${lastStatus ?? "n/d"})`,
+        payload: { delivery_id: String(deliveryId), candidates } as never,
+      });
+    }
   } catch {
     // ignore
   }
@@ -253,9 +259,20 @@ export async function rpGetPedidoListByDelivery(
 }
 
 /**
- * @deprecated Reemplazado por `rpGetPedidoListByDelivery`. Mantenido como
- * shim para que código antiguo siga compilando; siempre devuelve null.
+ * @deprecated Reemplazado por `rpObtenerDelivery`. Shim para código viejo.
+ */
+export async function rpGetPedidoListByDelivery(
+  deliveryId: number | string,
+): Promise<{ raw: unknown; firstItem: Record<string, unknown> | null } | null> {
+  const r = await rpObtenerDelivery(deliveryId);
+  if (!r) return null;
+  return { raw: r.raw, firstItem: r.delivery };
+}
+
+/**
+ * @deprecated Antiguo; siempre null.
  */
 export async function rpObtenerPedido(_pedidoId: number | string): Promise<unknown | null> {
   return null;
 }
+
