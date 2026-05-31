@@ -111,11 +111,14 @@ function AdminPedidosPage() {
       status: OrderStatus;
       cancel_reason?: string | null;
     }) => {
-      const patch: Record<string, unknown> = { status };
-      if (status === "cancelado") {
-        patch.cancel_reason = cancel_reason ?? null;
-        patch.cancelled_at = new Date().toISOString();
-      }
+      const patch =
+        status === "cancelado"
+          ? {
+              status,
+              cancel_reason: cancel_reason ?? null,
+              cancelled_at: new Date().toISOString(),
+            }
+          : { status };
       const { error } = await supabase.from("orders").update(patch).eq("id", id);
       if (error) throw error;
     },
