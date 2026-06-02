@@ -94,16 +94,21 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       )
       .subscribe();
 
-    // Polling cada 20s al POS vía server fn. Si el POS cambió el estado
-    // (entregado, anulado, en reparto) o asignó número de comanda, la server
-    // fn actualiza la fila y Realtime propaga el UPDATE.
-    const poll = setInterval(() => {
+    // Polling al POS vía server fn: dispara inmediato al montar y luego cada
+    // 10s mientras el pedido no esté en estado terminal. Si el POS asignó
+    // comanda o cambió de estado, la server fn actualiza la fila y Realtime
+    // propaga el UPDATE.
+    const tick = () => {
       const s = prevStatusRef.current;
       if (s === "entregado" || s === "cancelado" || s === "error") return;
       pollFn({ data: { orderId } }).catch(() => {
         // silencioso: el siguiente tick reintenta
       });
-    }, 20_000);
+    };
+    // Pequeño delay inicial para dejar que `fetchOrder` setee prevStatusRef.
+    const firstTick = setTimeout(tick, 1500);
+    const poll = setInterval(tick, 10_000);
+
 
     return () => {
       cancelled = true;
