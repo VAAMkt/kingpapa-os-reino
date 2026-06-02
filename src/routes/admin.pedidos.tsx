@@ -69,38 +69,10 @@ const fmtTime = (iso: string) =>
 
 function AdminPedidosPage() {
   const queryClient = useQueryClient();
-  const pollFn = useServerFn(pollOrderFromRp);
+  const cancelFn = useServerFn(cancelOrderFromAdmin);
   const [cancelTarget, setCancelTarget] = useState<OrderRow | null>(null);
   const [cancelPreset, setCancelPreset] = useState<string>(CANCEL_PRESETS[0]);
   const [cancelDetail, setCancelDetail] = useState<string>("");
-  const [pollingId, setPollingId] = useState<string | null>(null);
-
-  async function handlePollFromPos(o: OrderRow) {
-    if (!o.rp_pedido_id) {
-      toast.error("Este pedido no tiene id de Restaurant.pe");
-      return;
-    }
-    setPollingId(o.id);
-    try {
-      const res = await pollFn({ data: { orderId: o.id } });
-      if (!res.ok) {
-        toast.error(`POS: ${res.reason}${"message" in res && res.message ? ` — ${res.message}` : ""}`);
-      } else if ("terminal" in res && res.terminal) {
-        toast.info("El pedido ya está en estado terminal");
-      } else if ("changed" in res && res.changed) {
-        toast.success(
-          `Sincronizado: ${res.status}${res.rp_numero_comanda ? ` · #${res.rp_numero_comanda}` : ""}`,
-        );
-      } else {
-        toast.message("Sin cambios desde el POS");
-      }
-      queryClient.invalidateQueries({ queryKey: ["admin", "pedidos"] });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al consultar el POS");
-    } finally {
-      setPollingId(null);
-    }
-  }
 
   const pedidosQuery = useQuery({
     queryKey: ["admin", "pedidos"],
@@ -133,29 +105,31 @@ function AdminPedidosPage() {
   }, [queryClient]);
 
   const updateStatus = useMutation({
-    mutationFn: async ({
-      id,
-      status,
-      cancel_reason,
-    }: {
-      id: string;
-      status: OrderStatus;
-      cancel_reason?: string | null;
-    }) => {
-      const patch =
-        status === "cancelado"
-          ? {
-              status,
-              cancel_reason: cancel_reason ?? null,
-              cancelled_at: new Date().toISOString(),
-            }
-          : { status };
-      const { error } = await supabase.from("orders").update(patch).eq("id", id);
+    mutationFn: async ({ id, status }: { id: string; status: OrderStatus }) => {
+      const { error } = await supabase.from("orders").update({ status }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Status actualizado");
       queryClient.invalidateQueries({ queryKey: ["admin", "pedidos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: async ({ orderId, motivo }: { orderId: string; motivo: string }) => {
+      return cancelFn({ data: { orderId, motivo } });
+    },
+    onSuccess: (res) => {
+      if (res.posOk === false) {
+        toast.warning(
+          `Cancelado en el sistema, pero el POS rechazó la cancelación: ${res.posError ?? "sin detalle"}. Revisa físicamente en el local.`,
+        );
+      } else {
+        toast.success("Pedido cancelado en POS y notificado al cliente");
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin", "pedidos"] });
+      setCancelTarget(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -179,10 +153,7 @@ function AdminPedidosPage() {
         : cancelDetail.trim()
           ? `${cancelPreset} — ${cancelDetail.trim()}`
           : cancelPreset;
-    updateStatus.mutate(
-      { id: cancelTarget.id, status: "cancelado", cancel_reason: reason },
-      { onSettled: () => setCancelTarget(null) },
-    );
+    cancelMutation.mutate({ orderId: cancelTarget.id, motivo: reason });
   }
 
   if (pedidosQuery.isLoading) {
