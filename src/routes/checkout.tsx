@@ -8,7 +8,7 @@ import { useCart, clearCart, setOrderType, type OrderType } from "@/lib/cart";
 import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-sede";
 import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
-import { submitCheckoutOrder } from "@/lib/orders.functions";
+import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/checkout")({
