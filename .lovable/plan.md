@@ -1,42 +1,39 @@
-## Objetivo
+## Resultado de la prueba (159749)
 
-Endurecer `src/routes/api/public/rp-webhook.ts` para que sirva como sonda empírica usando la tabla existente `rp_sync_log`. Cero UI nueva, cero migraciones, cero rutas nuevas.
+Confirmado empíricamente: **Restaurant.pe NO emite webhook al cancelar desde la lista de pendientes**. Para el `deliveryId=159749` no llegó ningún POST a `/api/public/rp-webhook` (0 registros `webhook_raw`). El último webhook recibido fue del 159666, que sí fue aceptado y recorrió `2→3→4` completos.
 
-## Cambios (un solo archivo: `src/routes/api/public/rp-webhook.ts`)
+## Plan
 
-1. **Log-first crudo, antes de cualquier validación**
-   - Capturar `request.text()` y la IP (`cf-connecting-ip` o `x-forwarded-for`).
-   - INSERT inmediato en `rp_sync_log` con `tipo='webhook_raw'`, `ok=true`, `mensaje='POST recibido'`, y `payload = { raw: bodyText, source_ip, headers_subset, query_token_present }`.
-   - Esto ocurre SIEMPRE, incluso si después el JSON es inválido, el token está mal, o el pedido no existe. Así verificamos empíricamente si RP dispara el webhook al cancelar desde el POS.
+### A) Matar el polling residual (causa real de los `poll_pedido` que vimos en logs)
 
-2. **Validación de token después del log crudo**
-   - Si el token no coincide, igual quedó el `webhook_raw`. Devolver 401.
+**Archivo:** `src/components/kp/TrackerOperativo.tsx`
+- Eliminar el `import { pollOrderFromRp } from "@/lib/orders.poll.functions"`.
+- Eliminar `useServerFn` import si ya no se usa en el archivo.
+- Eliminar el bloque `useEffect` con `setInterval` (líneas ~104–117) que llama a `pollFn` cada 60s.
+- El componente queda 100% reactivo a Supabase Realtime (que ya funciona).
 
-3. **Coerción defensiva de tipos** (ya existe parcial, reforzar)
-   - `statusCode` acepta `"0" | 0 | "2" | 2 | ...`. El `z.union([z.number(), z.string()]).transform(v => String(v).trim())` actual cubre esto — verificar que `mapWebhookStatusCode` también normalice (trim + toString) y no falle por whitespace.
+**Archivo:** `src/lib/orders.poll.functions.ts`
+- Conservar **solo** `resolveOrderId` (lo usa `src/routes/gracias.tsx`).
+- Eliminar la export `pollOrderFromRp` y cualquier helper interno que solo ella use.
+- Si tras la limpieza el archivo queda solo con `resolveOrderId`, renombrarlo conceptualmente está OK pero por ahora basta con borrar las funciones de polling sin renombrar el archivo (evita cambios de import en `gracias.tsx`).
 
-4. **Fallo suave: siempre HTTP 200 tras el log inicial**
-   - Cambiar los actuales `400` (payload inválido) y `422` (statusCode desconocido) a **`200 OK`** con cuerpo `"ok"`. El error queda registrado en `rp_sync_log` con `ok=false`, pero RP recibe 200 para que no desactive el webhook.
-   - Mantener `401` solo para token inválido (eso sí es legítimo rechazar).
-   - El `500` actual cuando falla el `UPDATE` también baja a `200` (lo registramos como `ok=false`).
+**Archivo:** `src/lib/restaurantpe.server.ts`
+- Eliminar el helper interno que ejecuta `obtenerDelivery` y el insert de `tipo='poll_pedido'` en `rp_sync_log` (líneas ~290–350 según grep). Esta función ya solo era consumida por `pollOrderFromRp`.
+- Verificar con grep final que nadie más la importa antes de borrar.
 
-5. **Cancelación desde POS (`statusCode=0`)** — ya está bien implementado, solo confirmar:
-   - UPDATE `orders` → `status='cancelado'`, `cancelled_at=now()`, `cancel_reason='Cancelado desde el POS'`.
-   - Esto dispara Supabase Realtime y `/gracias` cambia a estado cancelado en el cliente automáticamente (ya hay suscripción).
+### B) Borrador de ticket para soporte Restaurant.pe
 
-## Cómo verificar (sin código nuevo)
+Generar un archivo **`/mnt/documents/rp-soporte-webhook-cancelacion.md`** con un reporte técnico listo para enviar por email/WhatsApp a soporte de Restaurant.pe. Contenido:
 
-1. Hacer un pedido de prueba desde la web.
-2. Cancelarlo desde el POS de Restaurant.pe.
-3. Abrir Supabase → Table Editor → `rp_sync_log`, ordenar por `created_at desc`.
-4. Buscar fila `tipo='webhook_raw'` con el `deliveryId` correspondiente.
-   - **Si aparece con `statusCode=0`** → RP sí notifica cancelaciones, listo.
-   - **Si no aparece nada en 1–2 min** → confirmación empírica de que RP no dispara webhook para cancelaciones del POS y hay que escalar con soporte.
+- **Asunto:** Webhook V2 no notifica `statusCode=0` al cancelar deliverys desde el POS
+- **Dominio / local_id:** `5272` / `9` (KingPapa Limonar)
+- **Endpoint receptor configurado:** `https://kingpapa-os-reino.lovable.app/api/public/rp-webhook?t=***`
+- **Comportamiento esperado** (según Swagger V2 `2-oas3`, POST `/webhook`): recibir `{deliveryId, statusCode:"0"}` cuando un pedido se anula desde el POS.
+- **Comportamiento observado:** evidencia con 3 casos
+  - ✅ `delivery 159666` (aceptado y entregado): recibimos `statusCode=2,3,4` correctamente, timestamps UTC.
+  - ❌ `delivery 159734` (cancelado desde lista de pendientes): ningún POST recibido.
+  - ❌ `delivery 159749` (cancelado desde lista de pendientes ~04:04 UTC, 2026-06-02): ningún POST recibido.
+- **Hipótesis:** el evento `statusCode=0` solo se dispara para pedidos previamente aceptados, no para los que se cancelan directamente desde la cola.
+- **Solicitud:** confirmar si es bug o comportamiento esperado, y si existe forma de habilitar la notificación para cancelaciones de pedidos pendientes (o publicar un evento equivalente, ej. `statusCode="-1"` para rechazo).
 
-## Lo que NO se hace
-
-- ❌ Nueva tabla `webhook_logs`
-- ❌ Ruta `/admin/webhook-diagnostico`
-- ❌ Componentes de UI, simulador, badges
-- ❌ Server functions nuevas
-- ❌ Modificar `orders`, `restaurantpe.server.ts`, `TrackerOperativo.tsx`, o cualquier otro archivo
+Sin cambios en backend ni UI fuera de lo anterior.
