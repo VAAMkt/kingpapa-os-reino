@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { supabase } from "@/integrations/supabase/client";
-import { pollOrderFromRp } from "@/lib/orders.poll.functions";
 
 type OrderStatus =
   | "enviado"
