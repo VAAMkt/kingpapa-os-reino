@@ -6,8 +6,14 @@
 //   URI de actualización de deliverys:
 //   https://<host>/api/public/rp-webhook?t=<RP_WEBHOOK_SECRET>
 //
-// Seguridad: token compartido en query string. El endpoint solo UPDATEa
-// `orders` filtrando por `rp_pedido_id`; no devuelve PII.
+// Diseño:
+//  - LOG-FIRST: el primer paso siempre es guardar el body crudo + IP + headers
+//    en rp_sync_log (tipo='webhook_raw'). Así verificamos empíricamente qué
+//    envía RP (incluidas cancelaciones desde el POS) sin depender de validación.
+//  - FALLO SUAVE: tras el log crudo, cualquier error posterior (JSON inválido,
+//    statusCode desconocido, pedido no encontrado, update fallido) responde
+//    HTTP 200 para evitar que RP desactive el webhook por errores recurrentes.
+//    Solo el token inválido devuelve 401.
 
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
@@ -22,18 +28,68 @@ const Payload = z.object({
 
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
 
+function pickHeaders(request: Request): Record<string, string> {
+  const keep = [
+    "user-agent",
+    "content-type",
+    "x-forwarded-for",
+    "cf-connecting-ip",
+    "cf-ipcountry",
+    "x-real-ip",
+  ];
+  const out: Record<string, string> = {};
+  for (const k of keep) {
+    const v = request.headers.get(k);
+    if (v) out[k] = v;
+  }
+  return out;
+}
+
+function getSourceIp(request: Request): string | null {
+  return (
+    request.headers.get("cf-connecting-ip") ||
+    request.headers.get("x-real-ip") ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    null
+  );
+}
+
 async function handleWebhook(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const token = url.searchParams.get("t");
   const expected = process.env.RP_WEBHOOK_SECRET;
+
+  // 1) LOG CRUDO INMEDIATO — antes de cualquier validación/parsing.
+  let bodyText = "";
+  try {
+    bodyText = await request.text();
+  } catch {
+    bodyText = "";
+  }
+  const sourceIp = getSourceIp(request);
+  const headersSubset = pickHeaders(request);
+
+  await supabaseAdmin.from("rp_sync_log").insert({
+    tipo: "webhook_raw",
+    ok: true,
+    mensaje: "POST recibido",
+    payload: {
+      raw: bodyText,
+      source_ip: sourceIp,
+      headers: headersSubset,
+      query_token_present: Boolean(token),
+      query_token_match: Boolean(expected && token === expected),
+    } as unknown as Json,
+  });
+
+  // 2) Token: único caso donde devolvemos error HTTP real.
   if (!expected || !token || token !== expected) {
     return new Response("unauthorized", { status: 401 });
   }
 
-  let bodyText = "";
+  // 3) Parseo. A partir de aquí, todo error → 200 (fallo suave).
   let parsed: z.infer<typeof Payload>;
   try {
-    bodyText = await request.text();
     parsed = Payload.parse(JSON.parse(bodyText));
   } catch (err) {
     await supabaseAdmin.from("rp_sync_log").insert({
@@ -42,7 +98,7 @@ async function handleWebhook(request: Request): Promise<Response> {
       mensaje: `payload inválido: ${err instanceof Error ? err.message : String(err)}`,
       payload: { raw: bodyText } as unknown as Json,
     });
-    return new Response("bad request", { status: 400 });
+    return new Response("ok", { status: 200 });
   }
 
   const mapped = mapWebhookStatusCode(parsed.statusCode);
@@ -53,7 +109,7 @@ async function handleWebhook(request: Request): Promise<Response> {
       mensaje: `statusCode desconocido: ${parsed.statusCode}`,
       payload: parsed as unknown as Json,
     });
-    return new Response("unknown statusCode", { status: 422 });
+    return new Response("ok", { status: 200 });
   }
 
   // Match por rp_pedido_id (registrarDelivery devuelve este id como `data`).
@@ -71,7 +127,6 @@ async function handleWebhook(request: Request): Promise<Response> {
       mensaje: `pedido no encontrado para deliveryId=${parsed.deliveryId}`,
       payload: parsed as unknown as Json,
     });
-    // 200 para que Restaurant.pe no reintente eternamente.
     return new Response("ok", { status: 200 });
   }
 
@@ -104,7 +159,8 @@ async function handleWebhook(request: Request): Promise<Response> {
       mensaje: `update falló: ${updErr.message}`,
       payload: { ...parsed, order_id: row.id } as unknown as Json,
     });
-    return new Response("update failed", { status: 500 });
+    // Fallo suave: 200 igual.
+    return new Response("ok", { status: 200 });
   }
 
   await supabaseAdmin.from("rp_sync_log").insert({
