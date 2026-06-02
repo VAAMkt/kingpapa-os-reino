@@ -370,14 +370,11 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       }
     }
 
-
-
     // Nota: ya no llamamos a `getPedidoListByDelivery` aquí. Ese endpoint
     // requiere cookie del POS y devuelve 404 vía API pública. El número corto
     // de comanda (cuando exista) llegará vía polling/webhook posterior; mientras
     // tanto, la UI muestra `rp_pedido_id` como referencia.
-    const rpNumeroComanda: string | null = null;
-    const rpCabecera: unknown = null;
+
 
     await supabaseAdmin
       .from("orders")
