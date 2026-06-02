@@ -146,16 +146,9 @@ function AdminPedidosPage() {
       status: OrderStatus;
       cancel_reason?: string | null;
     }) => {
-      const patch =
-        status === "cancelado"
-          ? {
-              status,
-              cancel_reason: cancel_reason ?? null,
-              cancelled_at: new Date().toISOString(),
-            }
-          : { status };
-      const { error } = await supabase.from("orders").update(patch).eq("id", id);
-      if (error) throw error;
+      await updateStatusFn({
+        data: { orderId: id, status, cancelReason: cancel_reason ?? null },
+      });
     },
     onSuccess: () => {
       toast.success("Status actualizado");
@@ -163,6 +156,7 @@ function AdminPedidosPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   function handleStatusChange(order: OrderRow, next: OrderStatus) {
     if (next === order.status) return;
