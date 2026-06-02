@@ -5,6 +5,11 @@ import { submitOrder } from "./orders.server";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  rpCancelarDelivery,
+  rpVerificarProductosAgotados,
+} from "@/lib/restaurantpe.server";
 
 const checkoutSchema = z.object({
   sedeId: z.string().uuid(),
