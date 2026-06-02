@@ -113,8 +113,10 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
+      clearTimeout(firstTick);
       clearInterval(poll);
     };
+
   }, [orderId, pollFn]);
 
   const status: OrderStatus = order?.status ?? "enviado";
