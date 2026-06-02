@@ -236,16 +236,7 @@ function AdminPedidosPage() {
                         </option>
                       ))}
                     </select>
-                    {o.rp_pedido_id ? (
-                      <button
-                        type="button"
-                        onClick={() => handlePollFromPos(o)}
-                        disabled={pollingId === o.id}
-                        className="px-3 py-1.5 bg-kp-yellow border-2 border-kp-ink shadow-brutal-sm font-display uppercase text-[10px] disabled:opacity-60"
-                      >
-                        {pollingId === o.id ? "Consultando…" : "Actualizar desde POS"}
-                      </button>
-                    ) : null}
+                    {/* Polling manual eliminado: el webhook empuja estados desde Restaurant.pe en tiempo real. */}
                   </div>
                 </div>
               </BrutalCard>
