@@ -292,7 +292,7 @@ function AdminPedidosPage() {
               variant="fire"
               onClick={confirmCancel}
               disabled={
-                updateStatus.isPending ||
+                cancelMutation.isPending ||
                 (cancelPreset === "Otro" && cancelDetail.trim().length === 0)
               }
             >
