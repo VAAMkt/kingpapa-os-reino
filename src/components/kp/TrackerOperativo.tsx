@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { supabase } from "@/integrations/supabase/client";
+import { pollOrderFromRp } from "@/lib/orders.poll.functions";
 
 type OrderStatus =
   | "enviado"
@@ -98,6 +100,21 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       supabase.removeChannel(channel);
     };
   }, [orderId]);
+
+  // Fallback ultraligero: si el webhook no llegó (p.ej. cancelación manual
+  // desde el POS), preguntamos cada 60 s mientras el cliente esté mirando y
+  // el pedido no esté en estado terminal. Costo: ≤1 req/min/cliente.
+  const pollFn = useServerFn(pollOrderFromRp);
+  useEffect(() => {
+    if (!orderId) return;
+    const terminal = (s: OrderStatus) =>
+      s === "entregado" || s === "cancelado" || s === "error";
+    if (order && terminal(order.status)) return;
+    const id = window.setInterval(() => {
+      pollFn({ data: { orderId } }).catch(() => {});
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [orderId, order?.status, pollFn]);
 
   const status: OrderStatus = order?.status ?? "enviado";
   const isError = status === "cancelado" || status === "error";

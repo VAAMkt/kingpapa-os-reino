@@ -1,95 +1,82 @@
-# Plan: Conexión Restaurant.pe impecable (Swagger V2 oficial)
 
-## Diagnóstico (qué está bien y qué no)
+# Cierre de hito: comanda visible, cancelación sincronizada y horario
 
-Comparando nuestro código actual contra el spec oficial `RESTAURANT.PE/APIV2/2-oas3`:
+Tres cosas a arreglar, en orden de impacto.
 
-| Área | Estado actual | Brecha vs Swagger V2 |
-|---|---|---|
-| `registrarDelivery` | Enviamos ~10 campos | Faltan campos requeridos/útiles: `cliente_tipo`, `validacion_cliente`, `delivery_comprobante`, `delivery_codigointegracion` (antiduplica), `delivery_latitud/longitud`, `canaldelivery_id` |
-| Tracking en vivo | Polling cada 20s a `obtenerDelivery` (endpoint no documentado, falla seguido) | Swagger expone **webhook push** (`/webhook` con `deliveryId` + `statusCode`) que NO estamos usando |
-| Estados | Mapeamos 0..4 desde DOM del POS | Swagger oficial: `0=cancelado, 2=confirmado, 3=en camino, 4=entregado` (distinto de lo cacheado) |
-| Cancelación | No usamos endpoint | Existe `cancelarDelivery` con `delivery_motivocancelacion` |
-| Stock pre-checkout | No verificamos | Existe `verificarProductosAgotados` para evitar pedidos a productos sin stock |
-| Reconciliación | No tenemos | Existe `obtenerVentasPorIntegracion` (ventas con `serie`, `correlativo`, `total`, `estado`) — fuente de verdad |
-| Idempotencia | Si el cliente hace doble-click podemos duplicar pedidos en POS | `delivery_codigointegracion` previene duplicados a nivel POS |
+---
 
-## Cambios propuestos (priorizados por impacto)
+## 1) "Asignando comanda…" se queda para siempre
 
-### P0 — Tracking real-time vía webhook (elimina polling frágil)
+**Diagnóstico**
+El POS muestra dos números distintos para un mismo pedido:
 
-**Nuevo:** `src/routes/api/public/rp-webhook.ts` (server route bajo `/api/public/*`).
-- Recibe `POST { deliveryId, statusCode }` desde Restaurant.pe.
-- Valida con Zod. Como Swagger no define firma HMAC, protegemos con un **token compartido en query string** (`?t=<secret>`) que guardamos como secret `RP_WEBHOOK_SECRET` y configuramos en el panel de Restaurant.pe.
-- Mapea `statusCode` con la tabla oficial (`0→cancelado, 2→recibido, 3→en_camino, 4→entregado`) — sobrescribe el mapeo actual `0/1=recibido, 2=en_preparacion...` que vino del DOM legacy.
-- `UPDATE orders SET status=..., cancelled_at=... WHERE rp_pedido_id = deliveryId`. Realtime ya propaga al `TrackerOperativo`.
-- Loguea en `rp_sync_log` (tipo `webhook`).
+- `delivery_id` = `159728` → es lo que devuelve `registrarDelivery` y guardamos en `orders.rp_pedido_id`. Es la URL del POS (`/resumen/159728`).
+- `pedido_numero` = `#159179` → es el número corto que el POS muestra en grande ("¡El pedido #159179 se ha realizado!").
 
-**URL a registrar en Restaurant.pe** (Menu → Mi Restaurant → Integraciones → URI de actualización):
-`https://project--340d46a4-b783-4a2a-a2a1-295d9ea3dcbc.lovable.app/api/public/rp-webhook?t=<RP_WEBHOOK_SECRET>`
+Para obtener `pedido_numero` hoy llamamos a `rpObtenerDelivery`, que prueba 5 endpoints distintos y **todos devuelven 404 / requieren cookie de sesión del POS** (ya quedó documentado en `rp_sync_log` con `tipo=poll_pedido` antes de matar el polling). Por eso `rp_numero_comanda` jamás se rellena y la UI muestra el placeholder eternamente.
 
-### P0 — Mapeo de estados correcto
+El webhook oficial **no envía** `pedido_numero` — solo `{deliveryId, statusCode}`. No hay forma fiable hoy de conseguir el corto sin la cookie del POS.
 
-En `src/lib/restaurantpe-normalize.ts`, reemplazar la tabla del DOM por la oficial del Swagger. El polling de respaldo y el webhook comparten la misma función.
+**Fix**
+Dejar de prometer un número que no llega y mostrar lo que sí tenemos:
 
-### P1 — Payload `registrarDelivery` completo
+- En `src/routes/gracias.tsx`: si no hay `comanda`, mostrar `#{rpPedidoId ?? order_id}` como número principal (mismo tamaño, mismo estilo "brutalista"), con etiqueta "Ref. del POS" en vez de "Asignando comanda…". El cliente sí puede usar ese número — es lo que ve el motorizado en el POS al abrir el pedido (la URL `/resumen/{id}` usa exactamente ese ID).
+- Si en algún momento el webhook o un futuro endpoint sí trae el corto, sustituirlo automáticamente (lógica Realtime ya existe).
+- Quitar el bloque "ref interna" duplicado: con un solo número grande basta.
+- En `src/lib/orders.server.ts`: eliminar la llamada a `rpGetPedidoListByDelivery` dentro de `submitOrder` (siempre falla y agrega ~1s de latencia al checkout). El hueco queda cubierto por el webhook + Realtime.
 
-En `src/lib/orders.server.ts` (`submitOrder`), enriquecer el body:
+---
 
-```ts
-delivery: {
-  ...actual,
-  delivery_codigointegracion: localId,        // UUID de orders.id → antiduplica
-  delivery_comprobante: 1,                    // 1=boleta por defecto
-  delivery_latitud: sede.lat ? String(...) : undefined,
-  delivery_longitud: sede.lng ? String(...) : undefined,
-  delivery_notageneral: input.notas ?? "",
-  // canaldelivery_id: solo si Restaurant.pe nos asigna uno; preguntar a soporte
-},
-cliente: {
-  ...actual,
-  cliente_tipo: 0,            // 0=natural
-  validacion_cliente: 4,      // 4=por teléfono (es lo que tenemos siempre)
-  cliente_dniruc: input.cliente.dniruc ?? "",  // vacío permitido por Swagger
-}
-```
+## 2) Anulación desde el POS no llega al cliente
 
-**Nota:** Requiere insertar `orders` ANTES de llamar al POS (ya lo hacemos) para tener el UUID que sirve como `delivery_codigointegracion`.
+**Diagnóstico**
+Cancelaste el pedido `159728` desde el POS y `orders.status` sigue en `enviado`. En `rp_sync_log` no hay ningún registro de `tipo=webhook` para ese delivery → Restaurant.pe **no nos llamó al cancelar desde su panel** (sí lo hace cuando el cambio de estado viene desde su flujo de motorizados, pero no en cancelaciones manuales del callcenter — esto lo confirma el log vacío).
 
-### P1 — Polling como respaldo (no como fuente primaria)
+**Fix**
+Como el webhook no es 100 % confiable para cancelaciones manuales del POS, agregar un **fallback polling ultra-ligero solo mientras el cliente está mirando el tracker**:
 
-`pollOrderFromRp` se mantiene pero:
-- Frecuencia baja de 20s → 60s.
-- Solo corre si han pasado >2 min sin actualización vía webhook (campo `updated_at`).
-- Si `obtenerDelivery` sigue fallando, fallback a `obtenerVentasPorIntegracion` filtrando por fecha del día y matcheando `delivery_codigointegracion` → trae `serie`, `correlativo`, `estado_txt` confiables.
+- Nuevo serverFn `pollOrderStatus({ orderId })` en `src/lib/orders.poll.functions.ts` que:
+  1. Lee el `rp_pedido_id` desde nuestra DB.
+  2. Llama `rpObtenerDelivery(rp_pedido_id)`.
+  3. Si responde, mapea `delivery_estado` con `mapDeliveryEstado` y, si difiere del status local y no es terminal, actualiza `orders` + loguea (`tipo=poll_pedido`, `ok=true`).
+  4. Si la API responde 404 (caso actual), no toca nada y devuelve `{ ok: false, reason: "api_unavailable" }` — sin spammear el log.
+- En `TrackerOperativo.tsx`: si el `status` aún no es terminal, llamar a `pollOrderStatus` **cada 60 s** mientras el componente esté montado (no antes ni después). Es solo en `/gracias` y `/tracking`, no en `admin.pedidos`. Costo: ≤ 1 request/min/cliente.
+- Mantener Realtime + webhook como vía primaria. El polling es red de seguridad solo para cancelaciones manuales.
 
-### P2 — Pre-validación de stock
+Si en producción confirmamos que `obtenerDelivery` sigue devolviendo 404 también desde el worker (no solo desde dev), agregamos un botón visible "Actualizar estado" que llame al mismo serverFn — al menos el cliente tiene cómo refrescar manualmente.
 
-Nuevo wrapper `rpVerificarAgotados(localId, productIds[])` en `restaurantpe.server.ts`. Llamado al inicio de `submitOrder` antes de armar el payload. Si algún `agotado: true`, lanza error legible: "‘Pollo a la brasa’ se acaba de agotar, recarga el menú".
+---
 
-### P3 — Cancelación desde admin
+## 3) "Estamos fuera de horario" bloquea pruebas
 
-Nuevo server fn `cancelOrder({ orderId, motivo })` que llama a `POST /cancelarDelivery` con `delivery_id` + `delivery_motivocancelacion`. Botón en `admin.pedidos.tsx`. (Opcional, pedirlo cuando se necesite.)
+**Diagnóstico**
+Las 7 sedes tienen `horarios = 12:00–22:00` en DB. Estás probando a las 22:05 → el bloqueo es legítimo, pero impide testing y futuras pruebas nocturnas del equipo.
 
-## Detalles técnicos
+**Fix — flag de bypass para staff**
+Aprovechar la tabla `user_roles` que ya existe:
 
-- **Idempotencia del webhook:** mismo `statusCode` entrante 2× = no-op (comparamos contra `orders.status` antes de UPDATE).
-- **Seguridad webhook:** el query token `?t=` es suficiente porque el endpoint solo hace UPDATE filtrado por `rp_pedido_id`; no expone datos. Si Restaurant.pe luego soporta firma HMAC, migramos.
-- **Backwards compat:** `extractDeliveryEstado` y el shim `obtenerDelivery` quedan, pero el webhook es la vía rápida.
-- **Logs:** todo movimiento de estado registra en `rp_sync_log` con `tipo: webhook | poll_pedido | order | cancel` para auditoría.
+- En `assertSedeOperativa` (orders.server.ts): si `input.userId` corresponde a un usuario con rol `admin`, omitir la validación de horario y de `kill_switch`, y registrar en `rp_sync_log` un aviso (`tipo=order_test_mode`) para que quede traza.
+- En `submitCheckoutOrder` (orders.functions.ts): ya tenemos el userId del middleware de auth; pasarlo a `submitOrder` (hoy lo pasamos como `null` cuando no hay sesión — confirmar el camino).
+- Sin tocar UI: el admin simplemente loguea con su cuenta y puede pedir 24/7.
 
-## Out of scope (no toco en este PR)
+Alternativa más rápida si urge probar ahora mismo: ampliar horarios temporalmente a `00:00–23:59` vía un UPDATE puntual. Lo dejo como opción, pero el bypass por rol es la solución correcta.
 
-- `obtenerComprasPorIntegracion` (compras de insumos — no afecta cliente final).
-- Integración con motorizado en mapa real-time (Swagger no expone GPS del motorizado, solo nombre/teléfono).
-- Reemplazar pasarela de pago online (`delivery_tipopago=5`); cuando se integre, ya tenemos el slot.
+---
 
-## Validación
+## Archivos a tocar
 
-1. Hacer un pedido en `/menu` → checkout → ver `delivery_codigointegracion` en `rp_sync_log`.
-2. Disparar el webhook manualmente: `curl -X POST '<url>?t=...' -d '{"deliveryId":<id>,"statusCode":3}'` → `TrackerOperativo` debe pasar a "Motorizado en camino" en <2s vía Realtime.
-3. Confirmar en el POS que el pedido aparece UNA sola vez aunque hagamos doble-click en "Pagar".
+- `src/routes/gracias.tsx` — cambiar el render del número grande, eliminar placeholder confuso.
+- `src/lib/orders.server.ts` — quitar `rpGetPedidoListByDelivery` del checkout; respetar `userId` para bypass; bypass en `assertSedeOperativa` si rol = admin.
+- `src/lib/orders.functions.ts` — pasar `userId` y rol a `submitOrder`; agregar serverFn `pollOrderStatus`.
+- `src/lib/orders.poll.functions.ts` — implementar `pollOrderStatus`.
+- `src/components/kp/TrackerOperativo.tsx` — auto-poll cada 60s mientras status no es terminal.
 
-## Pregunta para ti antes de implementar
+## Lo que NO voy a hacer
 
-¿Procedo con **P0 + P1** (webhook + mapeo correcto + payload completo + idempotencia) en este turno y dejamos P2/P3 para iteraciones? ¿O prefieres que arranque solo con el webhook (P0) para validar end-to-end antes de tocar el payload?
+- No voy a forzar `rp_numero_comanda` con datos inventados.
+- No voy a revivir el polling agresivo que matamos en el hito anterior — solo 1/min y solo en la vista del cliente.
+- No voy a tocar `client.ts`, `types.ts`, ni `auth-middleware.ts` (auto-generados).
+
+---
+
+¿Doy luz verde y procedo, o prefieres alguna variante (p.ej. botón manual de refresh en vez de auto-poll, o ampliar horarios en vez del bypass por rol)?

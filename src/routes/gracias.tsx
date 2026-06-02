@@ -129,21 +129,21 @@ function GraciasPage() {
         <h1 className="font-display text-4xl md:text-6xl uppercase leading-none mt-3">
           👑 Tu corona se está forjando
         </h1>
-        <p className="mt-3 text-sm opacity-80">Guarda este código por si tu motorizado pregunta:</p>
+        <p className="mt-3 text-sm opacity-80">
+          {comanda
+            ? "Guarda este código por si tu motorizado pregunta:"
+            : "Tu referencia de pedido (úsala con el motorizado o por WhatsApp):"}
+        </p>
         <div className="mt-3 border-2 border-kp-ink bg-kp-cheese px-4 py-3 inline-block">
-          {comanda ? (
-            <span className="font-display text-3xl md:text-4xl tracking-widest">
-              {comanda.startsWith("#") ? comanda : `#${comanda}`}
-            </span>
-          ) : (
-            <span className="font-display text-lg md:text-xl tracking-wider opacity-70">
-              Asignando comanda…
-            </span>
-          )}
+          <span className="font-display text-3xl md:text-4xl tracking-widest">
+            {comanda
+              ? comanda.startsWith("#") ? comanda : `#${comanda}`
+              : `#${rpPedidoId ?? order_id}`}
+          </span>
         </div>
-        {rpPedidoId || order_id ? (
+        {comanda && rpPedidoId ? (
           <p className="mt-2 text-[11px] font-mono opacity-60">
-            ref interna: {rpPedidoId ?? order_id}
+            ref interna: {rpPedidoId}
           </p>
         ) : null}
       </BrutalCard>

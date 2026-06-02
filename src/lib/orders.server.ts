@@ -9,8 +9,7 @@
 //   con el id devuelto por la pasarela, para que el arqueo del POS cuadre.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
-import { rpGetCatalogo, rpGetPedidoListByDelivery, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
-import { extractComandaNumber } from "@/lib/restaurantpe-normalize";
+import { rpGetCatalogo, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
 import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
 
 export type CheckoutInputItem = {
@@ -108,7 +107,11 @@ function assertSedeOperativa(
     rp_acepta_delivery: number | null;
   },
   tipo: "delivery" | "pickup",
+  opts: { bypass?: boolean } = {},
 ): void {
+  // Bypass para staff (super_admin / editor): permite pedidos de prueba 24/7,
+  // incluso fuera de horario o con kill_switch activo. Se loguea aparte.
+  if (opts.bypass) return;
   if (sede.kill_switch) {
     throw new Error(`"${sede.nombre}" está temporalmente cerrada hoy. Intenta más tarde o contáctanos por WhatsApp.`);
   }
@@ -126,6 +129,16 @@ function assertSedeOperativa(
   if (ventanas.length === 0 || !ventanas.some((v) => dentroDeVentana(hhmm, v))) {
     throw new Error(`Estamos fuera de horario en "${sede.nombre}" (hoy: ${describeVentanas(ventanas)}). Vuelve más tarde o escríbenos por WhatsApp.`);
   }
+}
+
+async function isStaffUser(userId: string | null | undefined): Promise<boolean> {
+  if (!userId) return false;
+  const { data } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["super_admin", "editor"]);
+  return (data?.length ?? 0) > 0;
 }
 
 function toNum(v: unknown, fallback = 0): number {
@@ -174,7 +187,18 @@ async function resolveOrder(input: CheckoutInput): Promise<{
   if (!sede.rp_local_id)
     throw new Error(`La sede "${sede.nombre}" no tiene rp_local_id asignado`);
 
-  assertSedeOperativa(sede, input.tipo);
+  const staffBypass = await isStaffUser(input.userId);
+  assertSedeOperativa(sede, input.tipo, { bypass: staffBypass });
+  if (staffBypass) {
+    // Traza de pedidos de prueba para que no se confundan con tráfico real.
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "order_test_mode",
+      sede_id: sede.id,
+      ok: true,
+      mensaje: `Bypass de horario/kill_switch por staff (user_id=${input.userId ?? "?"})`,
+      payload: { tipo: input.tipo } as never,
+    });
+  }
 
   // 2) Productos master
   const productIds = Array.from(new Set(input.items.map((i) => i.productoId)));
@@ -371,21 +395,11 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       }
     }
 
+    // Nota: ya no llamamos a `getPedidoListByDelivery` aquí. Ese endpoint
+    // requiere cookie del POS y devuelve 404 vía API pública. El número corto
+    // de comanda (cuando exista) llegará vía polling/webhook posterior; mientras
+    // tanto, la UI muestra `rp_pedido_id` como referencia.
 
-
-    // El id que devuelve registrarDelivery es interno (delivery_id, ej. 159268).
-    // El número corto visible en el POS (ej. #158719) se obtiene con un GET
-    // adicional al endpoint getPedidoListByDelivery. Tolerante a fallos: si
-    // no llega ahora, el polling en TrackerOperativo lo resolverá en ≤20s.
-    if (rpPedidoId) {
-      try {
-        const r = await rpGetPedidoListByDelivery(rpPedidoId);
-        rpCabecera = r?.raw ?? null;
-        rpNumeroComanda = extractComandaNumber(r?.firstItem ?? null);
-      } catch {
-        // ignorar: no bloquea el pedido
-      }
-    }
 
     await supabaseAdmin
       .from("orders")
