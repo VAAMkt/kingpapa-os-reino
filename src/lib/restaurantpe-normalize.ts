@@ -104,6 +104,31 @@ export function mapDeliveryEstado(estado: unknown): RpOrderStatus | null {
 }
 
 /**
+ * Mapea el `statusCode` que envía Restaurant.pe al webhook oficial V2
+ * (Swagger 2-oas3, sección POST /webhook):
+ *   0 = cancelado, 2 = confirmado/recibido, 3 = en camino, 4 = entregado.
+ * Es distinto del `delivery_estado` que devuelve obtenerDelivery (ver
+ * mapDeliveryEstado). Devuelve null si no se reconoce.
+ */
+export function mapWebhookStatusCode(code: unknown): RpOrderStatus | null {
+  if (code == null || code === "") return null;
+  const n = Number(code);
+  if (!Number.isFinite(n)) return null;
+  switch (Math.trunc(n)) {
+    case 0:
+      return "cancelado";
+    case 2:
+      return "recibido";
+    case 3:
+      return "en_camino";
+    case 4:
+      return "entregado";
+    default:
+      return null;
+  }
+}
+
+/**
  * Extrae el número corto de comanda visible en el POS.
  * Esquema confirmado por soporte de Restaurant.pe:
  *   - `delivery_numero` (ej. "C10-12381")
