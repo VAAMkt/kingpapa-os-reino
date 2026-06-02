@@ -372,19 +372,12 @@ export async function submitOrder(input: CheckoutInput): Promise<{
 
 
 
-    // El id que devuelve registrarDelivery es interno (delivery_id, ej. 159268).
-    // El número corto visible en el POS (ej. #158719) se obtiene con un GET
-    // adicional al endpoint getPedidoListByDelivery. Tolerante a fallos: si
-    // no llega ahora, el polling en TrackerOperativo lo resolverá en ≤20s.
-    if (rpPedidoId) {
-      try {
-        const r = await rpGetPedidoListByDelivery(rpPedidoId);
-        rpCabecera = r?.raw ?? null;
-        rpNumeroComanda = extractComandaNumber(r?.firstItem ?? null);
-      } catch {
-        // ignorar: no bloquea el pedido
-      }
-    }
+    // Nota: ya no llamamos a `getPedidoListByDelivery` aquí. Ese endpoint
+    // requiere cookie del POS y devuelve 404 vía API pública. El número corto
+    // de comanda (cuando exista) llegará vía polling/webhook posterior; mientras
+    // tanto, la UI muestra `rp_pedido_id` como referencia.
+    const rpNumeroComanda: string | null = null;
+    const rpCabecera: unknown = null;
 
     await supabaseAdmin
       .from("orders")
