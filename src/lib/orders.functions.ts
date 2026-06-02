@@ -5,6 +5,11 @@ import { submitOrder } from "./orders.server";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  rpCancelarDelivery,
+  rpVerificarProductosAgotados,
+} from "@/lib/restaurantpe.server";
 
 const checkoutSchema = z.object({
   sedeId: z.string().uuid(),
@@ -121,4 +126,190 @@ export const findRecentOrder = createServerFn({ method: "POST" })
     }
 
     return { notFound: true as const };
+  });
+
+/**
+ * P3 — Cancelación bidireccional desde el admin.
+ * Llama a `cancelarDelivery` en Restaurant.pe y, sea cual sea el resultado
+ * del POS, marca el pedido como cancelado en nuestra DB para que el cliente
+ * lo vea en tiempo real (Realtime). Si el POS falla, logueamos y avisamos
+ * pero NO bloqueamos: la cancelación local manda — al fin y al cabo, el
+ * pedido NO sale.
+ */
+export const cancelOrderFromAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        orderId: z.string().uuid(),
+        motivo: z.string().min(1).max(300),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+
+    const { data: order, error: ordErr } = await supabase
+      .from("orders")
+      .select("id, status, rp_pedido_id, sede_id")
+      .eq("id", data.orderId)
+      .maybeSingle();
+    if (ordErr) throw new Error(ordErr.message);
+    if (!order) throw new Error("Pedido no encontrado");
+    if (order.status === "cancelado") {
+      return { ok: true as const, alreadyCancelled: true };
+    }
+
+    let rpOk = true;
+    let rpError: string | null = null;
+    if (order.rp_pedido_id) {
+      try {
+        await rpCancelarDelivery({
+          deliveryId: order.rp_pedido_id,
+          motivo: data.motivo,
+        });
+      } catch (e) {
+        rpOk = false;
+        rpError = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    const { error: updErr } = await supabaseAdmin
+      .from("orders")
+      .update({
+        status: "cancelado",
+        cancel_reason: data.motivo,
+        cancelled_at: new Date().toISOString(),
+      } as never)
+      .eq("id", order.id);
+    if (updErr) throw new Error(updErr.message);
+
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "cancel",
+      sede_id: order.sede_id,
+      ok: rpOk,
+      mensaje: rpOk
+        ? `Cancelado en POS y DB (rp_pedido_id=${order.rp_pedido_id ?? "n/d"})`
+        : `Cancelado en DB; POS falló: ${rpError ?? "sin detalle"}`,
+      payload: {
+        order_id: order.id,
+        rp_pedido_id: order.rp_pedido_id,
+        motivo: data.motivo,
+      } as never,
+    });
+
+    return { ok: true as const, posOk: rpOk, posError: rpError };
+  });
+
+/**
+ * P2 — Pre-check de stock antes de enviar el pedido.
+ * Diseño defensivo: timeout 3s, fallo suave. Si Restaurant.pe no responde
+ * a tiempo o falla, devolvemos `agotados: []` para que el checkout siga.
+ * NUNCA bloqueamos una venta por una caída de la API del POS.
+ */
+export const precheckStock = createServerFn({ method: "POST" })
+  .inputValidator((input) =>
+    z
+      .object({
+        sedeId: z.string().uuid(),
+        items: z
+          .array(
+            z.object({
+              productoId: z.string().uuid(),
+              cantidad: z.number().int().min(1).max(50),
+            }),
+          )
+          .min(1)
+          .max(50),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: sede } = await supabaseAdmin
+      .from("sedes")
+      .select("rp_local_id")
+      .eq("id", data.sedeId)
+      .maybeSingle();
+    if (!sede?.rp_local_id) {
+      // Sin rp_local_id no podemos preguntar al POS → fallo suave.
+      return { ok: true as const, agotados: [] as string[], soft: true };
+    }
+
+    const { data: prods } = await supabaseAdmin
+      .from("productos_master")
+      .select("id, rp_id, nombre")
+      .in(
+        "id",
+        data.items.map((i) => i.productoId),
+      );
+    const prodMap = new Map<
+      string,
+      { rp_id: number; nombre: string }
+    >(
+      ((prods ?? []) as Array<{ id: string; rp_id: number; nombre: string }>).map(
+        (p) => [p.id, { rp_id: p.rp_id, nombre: p.nombre }],
+      ),
+    );
+
+    const lista = data.items
+      .map((it) => {
+        const p = prodMap.get(it.productoId);
+        if (!p) return null;
+        return {
+          pedido_productoid: p.rp_id,
+          pedido_cantidad: it.cantidad,
+          _localId: it.productoId,
+          _nombre: p.nombre,
+        };
+      })
+      .filter(
+        (
+          x,
+        ): x is {
+          pedido_productoid: number;
+          pedido_cantidad: number;
+          _localId: string;
+          _nombre: string;
+        } => x !== null,
+      );
+
+    if (lista.length === 0) {
+      return { ok: true as const, agotados: [] as string[], soft: true };
+    }
+
+    const result = await rpVerificarProductosAgotados({
+      localId: sede.rp_local_id,
+      productos: lista.map(({ pedido_productoid, pedido_cantidad }) => ({
+        pedido_productoid,
+        pedido_cantidad,
+      })),
+      timeoutMs: 3_000,
+    });
+
+    if (result == null) {
+      // Timeout o caída del POS → fallo suave: dejamos pasar la compra.
+      return {
+        ok: true as const,
+        agotados: [] as string[],
+        agotadosNombres: [] as string[],
+        soft: true,
+      };
+    }
+
+    const agotadosRpIds = new Set(
+      result.filter((r) => r.agotado).map((r) => r.pedido_productoid),
+    );
+    const agotados = lista
+      .filter((it) => agotadosRpIds.has(it.pedido_productoid))
+      .map((it) => it._localId);
+    const agotadosNombres = lista
+      .filter((it) => agotadosRpIds.has(it.pedido_productoid))
+      .map((it) => it._nombre);
+
+    return {
+      ok: true as const,
+      agotados,
+      agotadosNombres,
+      soft: false,
+    };
   });

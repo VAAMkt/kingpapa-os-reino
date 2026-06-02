@@ -8,7 +8,7 @@ import { useCart, clearCart, setOrderType, type OrderType } from "@/lib/cart";
 import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-sede";
 import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
-import { submitCheckoutOrder } from "@/lib/orders.functions";
+import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/checkout")({
@@ -49,6 +49,7 @@ function loadPersistedForm(): PersistedForm {
 
 function CheckoutPage() {
   const submitOrder = useServerFn(submitCheckoutOrder);
+  const precheckFn = useServerFn(precheckStock);
   const { items, count, subtotal, orderType } = useCart();
   const sede = useActiveSede();
   const navigate = useNavigate();
@@ -189,6 +190,29 @@ function CheckoutPage() {
     }
     setEnviando(true);
     try {
+      // P2 — Pre-check de stock con fallo suave (timeout 3s server-side).
+      // Si el POS responde a tiempo y marca algo como agotado, bloqueamos.
+      // Si no responde, dejamos pasar la compra (no podemos perder ventas
+      // por una caída de su API).
+      try {
+        const pre = await precheckFn({
+          data: {
+            sedeId: sede.sedeId,
+            items: items.map((i) => ({
+              productoId: i.productoId,
+              cantidad: i.cantidad,
+            })),
+          },
+        });
+        if (!pre.soft && pre.agotados && pre.agotados.length > 0) {
+          const nombres = (pre.agotadosNombres ?? []).join(", ") || "algunos productos";
+          toast.error(`Sin stock ahora mismo: ${nombres}. Ajusta tu pedido.`);
+          setEnviando(false);
+          return;
+        }
+      } catch {
+        // Fallo suave: continuamos.
+      }
       const result = await submitOrder({ data: buildOrderPayload() });
       const orderId = result.orderId;
       const lastOrder = {

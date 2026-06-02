@@ -307,6 +307,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   const payload = {
     delivery: {
       local_id: sede.rp_local_id,
+      canaldelivery_id: 1,
       delivery_pagocon: input.pago === "efectivo" ? total : 0,
       delivery_montodescuento: 0,
       delivery_tipopago: tipoPago,
