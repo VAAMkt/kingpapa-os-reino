@@ -187,7 +187,18 @@ async function resolveOrder(input: CheckoutInput): Promise<{
   if (!sede.rp_local_id)
     throw new Error(`La sede "${sede.nombre}" no tiene rp_local_id asignado`);
 
-  assertSedeOperativa(sede, input.tipo);
+  const staffBypass = await isStaffUser(input.userId);
+  assertSedeOperativa(sede, input.tipo, { bypass: staffBypass });
+  if (staffBypass) {
+    // Traza de pedidos de prueba para que no se confundan con tráfico real.
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "order_test_mode",
+      sede_id: sede.id,
+      ok: true,
+      mensaje: `Bypass de horario/kill_switch por staff (user_id=${input.userId ?? "?"})`,
+      payload: { tipo: input.tipo } as never,
+    });
+  }
 
   // 2) Productos master
   const productIds = Array.from(new Set(input.items.map((i) => i.productoId)));
