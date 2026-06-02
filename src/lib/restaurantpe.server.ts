@@ -182,85 +182,47 @@ function getSubdominio(): string {
 }
 
 /**
- * Endpoint público V2 confirmado por soporte de Restaurant.pe para consultar
- * el estado de un delivery por su ID. Probamos varias rutas candidatas (Swagger
- * V2 vs readonly vs subdominio interno) y nos quedamos con la primera que
- * responda `tipo:"1"`. Si todas fallan devolvemos null sin lanzar.
+ * Tracking de guerrilla: el Swagger oficial V2 NO expone un GET público para
+ * consultar el estado de un delivery. La única vía que devuelve la cabecera
+ * con `delivery_numero`/`delivery_estado` es el endpoint INTERNO del POS bajo
+ * el subdominio del tenant. Requiere un token de sesión del POS distinto al
+ * token público de la API V2: usamos EXCLUSIVAMENTE RESTAURANT_PE_POS_TOKEN.
  *
- * El objeto devuelto contiene las llaves confirmadas (esquema observado en el
- * DOM del POS): `delivery_numero`, `delivery_estado` (0..4), `motorizado`,
- * `venta.venta_seriedoc`, `venta.venta_numdoc`.
+ * Si el token no está configurado o el endpoint falla, devolvemos null sin
+ * lanzar — el TrackerOperativo cae en Realtime como única fuente de verdad.
  */
 export async function rpObtenerDelivery(
   deliveryId: number | string,
 ): Promise<{ raw: unknown; delivery: Record<string, unknown> | null } | null> {
-  const sub = getSubdominio();
-  const dominioId = getDominioId();
-  // El endpoint del subdominio (kingpapa.restaurant.pe) es el ÚNICO que
-  // devuelve la cabecera real con `delivery_numero`/`delivery_estado`,
-  // pero requiere un token distinto al token público de la API v2
-  // (el público responde "Token inválido"). Si está configurado
-  // RESTAURANT_PE_POS_TOKEN lo usamos solo para esa URL.
   const posToken = (process.env.RESTAURANT_PE_POS_TOKEN || "").trim();
-  const publicAuth = authHeader();
-  const posAuth = posToken ? `Token token="${posToken}"` : null;
+  if (!posToken) return null; // no-op silencioso
 
-  type Candidate = { url: string; auth: string };
-  const candidates: Candidate[] = [
-    { url: `${WRITE_BASE}/delivery/obtenerDelivery/${dominioId}/${deliveryId}`, auth: publicAuth },
-    { url: `${READ_BASE}/delivery/obtenerDelivery/${dominioId}/${deliveryId}`, auth: publicAuth },
-    { url: `${WRITE_BASE}/delivery/obtenerEstadoDelivery/${dominioId}/${deliveryId}`, auth: publicAuth },
-    { url: `${READ_BASE}/delivery/obtenerEstadoDelivery/${dominioId}/${deliveryId}`, auth: publicAuth },
-    {
-      url: `http://${sub}.restaurant.pe/restaurant/api/rest/pedido/getPedidoListByDelivery/${deliveryId}`,
-      auth: posAuth ?? publicAuth,
-    },
-  ];
+  const sub = getSubdominio();
+  const url = `http://${sub}.restaurant.pe/restaurant/api/rest/pedido/getPedidoListByDelivery/${deliveryId}`;
+  const auth = `Token token="${posToken}"`;
 
-  const attempts: Array<{
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let attempt: {
     url: string;
     status: number | null;
     tipo?: unknown;
     mensajes?: unknown;
     snippet?: string;
     error?: string;
-    usedPosToken?: boolean;
-  }> = [];
+  } = { url, status: null };
 
-  for (const { url, auth } of candidates) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const usedPosToken = auth === posAuth && posAuth != null;
-    try {
-      const res = await fetch(url, {
-        signal: controller.signal,
-        headers: { Authorization: auth, Accept: "application/json" },
-      });
-      clearTimeout(timeout);
-      const text = await res.text();
-      let parsed: Record<string, unknown> | null = null;
-      try { parsed = JSON.parse(text) as Record<string, unknown>; } catch { /* not JSON */ }
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { Authorization: auth, Accept: "application/json" },
+    });
+    clearTimeout(timeout);
+    const text = await res.text();
+    let parsed: Record<string, unknown> | null = null;
+    try { parsed = JSON.parse(text) as Record<string, unknown>; } catch { /* not JSON */ }
 
-      if (!res.ok || !parsed) {
-        attempts.push({
-          url,
-          status: res.status,
-          snippet: text.slice(0, 200),
-          usedPosToken,
-        });
-        continue;
-      }
-      if (parsed.tipo != null && String(parsed.tipo) !== "1") {
-        attempts.push({
-          url,
-          status: res.status,
-          tipo: parsed.tipo,
-          mensajes: parsed.mensajes,
-          usedPosToken,
-        });
-        continue;
-      }
-
+    if (res.ok && parsed && (parsed.tipo == null || String(parsed.tipo) === "1")) {
       const data = (parsed.data ?? parsed) as unknown;
       const delivery = Array.isArray(data)
         ? ((data[0] as Record<string, unknown>) ?? null)
@@ -268,19 +230,24 @@ export async function rpObtenerDelivery(
           ? (data as Record<string, unknown>)
           : null;
       return { raw: parsed, delivery };
-    } catch (err) {
-      clearTimeout(timeout);
-      attempts.push({
-        url,
-        status: null,
-        error: err instanceof Error ? err.message : String(err),
-        usedPosToken,
-      });
-      continue;
     }
+    attempt = {
+      url,
+      status: res.status,
+      tipo: parsed?.tipo,
+      mensajes: parsed?.mensajes,
+      snippet: parsed ? undefined : text.slice(0, 200),
+    };
+  } catch (err) {
+    clearTimeout(timeout);
+    attempt = {
+      url,
+      status: null,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 
-  // Log detallado del fallo. Dedupe a 10 min por delivery_id.
+  // Log detallado del fallo. Dedupe a 10 min para no inundar la tabla.
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
@@ -295,14 +262,80 @@ export async function rpObtenerDelivery(
       await supabaseAdmin.from("rp_sync_log").insert({
         tipo: "poll_pedido",
         ok: false,
-        mensaje: `obtenerDelivery falló (delivery_id=${deliveryId}, pos_token=${posAuth ? "set" : "missing"})`,
-        payload: { delivery_id: String(deliveryId), attempts } as never,
+        mensaje: `getPedidoListByDelivery falló (delivery_id=${deliveryId})`,
+        payload: { delivery_id: String(deliveryId), attempt } as never,
       });
     }
   } catch {
     // ignore
   }
   return null;
+}
+
+/**
+ * Cancela un delivery en Restaurant.pe (spec V2 oficial).
+ * Tolerante a fallos: nunca lanza, loggea en rp_sync_log y devuelve estado.
+ */
+export async function rpCancelarDelivery(
+  deliveryId: number | string,
+  motivo: string,
+): Promise<{ ok: boolean; mensaje?: string }> {
+  const dominioId = getDominioId();
+  const url = `${HOST}/readonly/rest/delivery/cancelarDelivery/${dominioId}`;
+  const body = {
+    delivery_id: Number(deliveryId),
+    delivery_motivocancelacion: motivo,
+  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  let ok = false;
+  let mensaje: string | undefined;
+  let responseSnapshot: unknown = null;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: authHeader(),
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let parsed: Record<string, unknown> | null = null;
+    try { parsed = JSON.parse(text) as Record<string, unknown>; } catch { /* not JSON */ }
+    responseSnapshot = parsed ?? text.slice(0, 300);
+    if (res.ok && parsed && String(parsed.tipo) === "1") {
+      ok = true;
+    } else {
+      const msgs = parsed?.mensajes;
+      mensaje = Array.isArray(msgs)
+        ? msgs.flat().map((m) => String(m)).join("; ")
+        : `HTTP ${res.status}`;
+    }
+  } catch (err) {
+    mensaje = err instanceof Error ? err.message : String(err);
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "cancel_pedido",
+      ok,
+      mensaje: ok
+        ? `Delivery ${deliveryId} anulado en el POS`
+        : `Fallo al anular delivery ${deliveryId}: ${mensaje ?? "desconocido"}`,
+      payload: { request: body, response: responseSnapshot } as never,
+    });
+  } catch {
+    // ignore
+  }
+
+  return ok ? { ok: true } : { ok: false, mensaje };
 }
 
 

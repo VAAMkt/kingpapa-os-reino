@@ -287,13 +287,25 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   // Payload Restaurant.pe — basado en patrones de la API v2.
   // Si el endpoint rechaza por nombres de campos, queda en rp_sync_log para
   // iterar el shape.
+  // Canal de delivery — requerido para activar la deduplicación vía
+  // `delivery_codigointegracion` (spec V2 oficial). Default 1 = API/Web.
+  const canalDeliveryId = Number(process.env.RESTAURANT_PE_CANAL_ID || 1) || 1;
+  const notasGenerales = input.notas ?? "";
+  const latStr = input.cliente.lat != null ? String(input.cliente.lat) : null;
+  const lngStr = input.cliente.lng != null ? String(input.cliente.lng) : null;
+
   const payload = {
     delivery: {
       local_id: sede.rp_local_id,
       // Identidad / origen — el POS muestra `#WEB-XXXXXX` en la cabecera
       // hasta que Restaurant.pe le asigna su propio correlativo (rp_numero_comanda).
       delivery_numero: `#WEB-${localId.slice(0, 6).toUpperCase()}`,
-      delivery_origentipo: 3, // 3 = API / Web
+      delivery_origentipo: 3, // 3 = API / Web (no en spec, tolerado por el POS)
+      // Antiduplicación oficial (spec V2): código único del sistema externo.
+      // Requiere `canaldelivery_id` para tener efecto.
+      delivery_codigointegracion: localId,
+      canaldelivery_id: canalDeliveryId,
+      emitSocket: false, // deprecado por el spec; explícito = false
       // Pago
       delivery_pagocon: esEfectivo ? total : 0,
       delivery_montopagado: esEfectivo ? 0 : total,
@@ -301,15 +313,22 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       delivery_montodescuento: 0,
       delivery_tipopago: tipoPago,
       tarjeta_id: input.pago === "datafono" ? 1 : null,
-      // Logística
+      // Comprobante: 1 = boleta, 2 = factura
+      delivery_comprobante: 1,
+      // Modalidad de atención del spec V2: 1=inmediato, 2=recojo, 3=programado.
+      // Coincide con nuestro mapeo: delivery=1 (inmediato), pickup=2 (recojo).
       delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
       delivery_direccionenvio: input.cliente.direccion ?? "",
       // Indicaciones (Apto/Torre/portería) van EXCLUSIVAMENTE aquí.
       // `delivery_direccionenvio` debe quedar con la dirección base limpia.
       delivery_referencia: input.cliente.detalles ?? "",
-      delivery_observacion: input.notas ?? "",
-      delivery_lat: input.cliente.lat ?? null,
-      delivery_lng: input.cliente.lng ?? null,
+      // Nota general — campo oficial del spec V2.
+      delivery_notageneral: notasGenerales,
+      // Alias legacy para vistas viejas del POS (no rompe el envelope).
+      delivery_observacion: notasGenerales,
+      // Coordenadas — el spec las nombra _latitud/_longitud (string).
+      delivery_latitud: latStr,
+      delivery_longitud: lngStr,
     },
     cliente: {
       cliente_nombres: input.cliente.nombre,
@@ -318,9 +337,12 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       cliente_direccion: input.cliente.direccion ?? "",
       cliente_telefono: input.cliente.telefono,
       cliente_email: "",
+      // Spec V2: 0 = persona natural, 1 = empresa.
+      cliente_tipo: 0,
+      // Spec V2: 1=email, 2=nombre, 3=documento, 4=teléfono.
+      validacion_cliente: 4,
       // Notas del checkout → "Ver notas del cliente" en el POS v2.
-      // delivery_observacion arriba se mantiene como respaldo (vista vieja).
-      cliente_observacion: input.notas ?? "",
+      cliente_observacion: notasGenerales,
     },
     listaPedidos: detalle.map((d) => ({
       pedido_productoid: d.pedido_productoid,

@@ -88,8 +88,10 @@ export function mapDeliveryEstado(estado: unknown): RpOrderStatus | null {
   if (estado == null || estado === "") return null;
   const n = Number(estado);
   if (!Number.isFinite(n)) return null;
+  // Mapeo del endpoint INTERNO del POS (getPedidoListByDelivery):
+  //   1=recibido, 2=en_preparacion, 3=en_camino, 4=cancelado, 5=entregado.
+  // NO confundir con la tabla del webhook oficial V2 (que no usamos).
   switch (Math.trunc(n)) {
-    case 0:
     case 1:
       return "recibido";
     case 2:
@@ -98,6 +100,8 @@ export function mapDeliveryEstado(estado: unknown): RpOrderStatus | null {
       return "en_camino";
     case 4:
       return "cancelado";
+    case 5:
+      return "entregado";
     default:
       return null;
   }
