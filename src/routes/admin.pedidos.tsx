@@ -72,7 +72,9 @@ const fmtTime = (iso: string) =>
 function AdminPedidosPage() {
   const queryClient = useQueryClient();
   const pollFn = useServerFn(pollOrderFromRp);
+  const updateStatusFn = useServerFn(updateOrderStatusAdmin);
   const [cancelTarget, setCancelTarget] = useState<OrderRow | null>(null);
+
   const [cancelPreset, setCancelPreset] = useState<string>(CANCEL_PRESETS[0]);
   const [cancelDetail, setCancelDetail] = useState<string>("");
   const [pollingId, setPollingId] = useState<string | null>(null);
