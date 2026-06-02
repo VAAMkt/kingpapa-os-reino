@@ -271,103 +271,13 @@ export async function rpRegistrarDelivery(
  * Subdominio del tenant en Restaurant.pe (ej. "kingpapa").
  * Distinto al id numérico de `RESTAURANT_PE_DOMINIO` (ej. "5272").
  * Fallback a "kingpapa" porque hoy es el único tenant.
+ *
+ * Se mantiene exportado por si futuras integraciones lo requieren.
+ * Las funciones de polling (`rpObtenerDelivery`, `rpGetPedidoListByDelivery`,
+ * `rpObtenerPedido`) fueron eliminadas: dependemos del webhook + Realtime.
  */
-function getSubdominio(): string {
+export function getSubdominio(): string {
   return (process.env.RESTAURANT_PE_SUBDOMINIO || "kingpapa").trim();
 }
 
-/**
- * Endpoint público V2 confirmado por soporte de Restaurant.pe para consultar
- * el estado de un delivery por su ID. Probamos varias rutas candidatas (Swagger
- * V2 vs readonly vs subdominio interno) y nos quedamos con la primera que
- * responda `tipo:"1"`. Si todas fallan devolvemos null sin lanzar.
- *
- * El objeto devuelto contiene las llaves confirmadas (esquema observado en el
- * DOM del POS): `delivery_numero`, `delivery_estado` (0..4), `motorizado`,
- * `venta.venta_seriedoc`, `venta.venta_numdoc`.
- */
-export async function rpObtenerDelivery(
-  deliveryId: number | string,
-): Promise<{ raw: unknown; delivery: Record<string, unknown> | null } | null> {
-  const sub = getSubdominio();
-  const dominioId = getDominioId();
-  const candidates: string[] = [
-    `${WRITE_BASE}/delivery/obtenerDelivery/${dominioId}/${deliveryId}`,
-    `${READ_BASE}/delivery/obtenerDelivery/${dominioId}/${deliveryId}`,
-    `${WRITE_BASE}/delivery/obtenerEstadoDelivery/${dominioId}/${deliveryId}`,
-    `${READ_BASE}/delivery/obtenerEstadoDelivery/${dominioId}/${deliveryId}`,
-    // Última opción (subdominio interno; suele requerir cookie del POS).
-    `http://${sub}.restaurant.pe/restaurant/api/rest/pedido/getPedidoListByDelivery/${deliveryId}`,
-  ];
-
-  let lastStatus: number | null = null;
-  for (const url of candidates) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    try {
-      const res = await fetch(url, {
-        signal: controller.signal,
-        headers: { Authorization: authHeader(), Accept: "application/json" },
-      });
-      clearTimeout(timeout);
-      lastStatus = res.status;
-      if (!res.ok) continue;
-      const json = (await res.json()) as Record<string, unknown>;
-      if (json.tipo != null && String(json.tipo) !== "1") continue;
-      const data = (json.data ?? json) as unknown;
-      const delivery = Array.isArray(data)
-        ? ((data[0] as Record<string, unknown>) ?? null)
-        : data && typeof data === "object"
-          ? (data as Record<string, unknown>)
-          : null;
-      return { raw: json, delivery };
-    } catch {
-      clearTimeout(timeout);
-      continue;
-    }
-  }
-
-  // Log silencioso de fallo (best-effort, dedupe: solo si no hay otro log de
-  // fallo para este delivery en los últimos 10 min, para no saturar la tabla).
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { data: recientes } = await supabaseAdmin
-      .from("rp_sync_log")
-      .select("id")
-      .eq("tipo", "poll_pedido")
-      .eq("ok", false)
-      .gt("created_at", tenMinAgo)
-      .limit(1);
-    if (!recientes || recientes.length === 0) {
-      await supabaseAdmin.from("rp_sync_log").insert({
-        tipo: "poll_pedido",
-        ok: false,
-        mensaje: `obtenerDelivery falló (lastStatus=${lastStatus ?? "n/d"})`,
-        payload: { delivery_id: String(deliveryId), candidates } as never,
-      });
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
-/**
- * @deprecated Reemplazado por `rpObtenerDelivery`. Shim para código viejo.
- */
-export async function rpGetPedidoListByDelivery(
-  deliveryId: number | string,
-): Promise<{ raw: unknown; firstItem: Record<string, unknown> | null } | null> {
-  const r = await rpObtenerDelivery(deliveryId);
-  if (!r) return null;
-  return { raw: r.raw, firstItem: r.delivery };
-}
-
-/**
- * @deprecated Antiguo; siempre null.
- */
-export async function rpObtenerPedido(_pedidoId: number | string): Promise<unknown | null> {
-  return null;
-}
 
