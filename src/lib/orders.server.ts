@@ -107,7 +107,11 @@ function assertSedeOperativa(
     rp_acepta_delivery: number | null;
   },
   tipo: "delivery" | "pickup",
+  opts: { bypass?: boolean } = {},
 ): void {
+  // Bypass para staff (super_admin / editor): permite pedidos de prueba 24/7,
+  // incluso fuera de horario o con kill_switch activo. Se loguea aparte.
+  if (opts.bypass) return;
   if (sede.kill_switch) {
     throw new Error(`"${sede.nombre}" está temporalmente cerrada hoy. Intenta más tarde o contáctanos por WhatsApp.`);
   }
@@ -125,6 +129,16 @@ function assertSedeOperativa(
   if (ventanas.length === 0 || !ventanas.some((v) => dentroDeVentana(hhmm, v))) {
     throw new Error(`Estamos fuera de horario en "${sede.nombre}" (hoy: ${describeVentanas(ventanas)}). Vuelve más tarde o escríbenos por WhatsApp.`);
   }
+}
+
+async function isStaffUser(userId: string | null | undefined): Promise<boolean> {
+  if (!userId) return false;
+  const { data } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["super_admin", "editor"]);
+  return (data?.length ?? 0) > 0;
 }
 
 function toNum(v: unknown, fallback = 0): number {
