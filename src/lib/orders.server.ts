@@ -370,24 +370,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       }
     }
 
-      // Fallback por si en el futuro cambia el shape a objeto.
-      const r = (rpResponse ?? {}) as Record<string, unknown>;
-      const candidates = [
-        r.pedido_id,
-        r.id,
-        r.comanda,
-        r.numero,
-        r.numero_pedido,
-        (r.data as Record<string, unknown> | undefined)?.pedido_id,
-        (r.data as Record<string, unknown> | undefined)?.id,
-      ];
-      for (const c of candidates) {
-        if (c != null && String(c).trim() !== "") {
-          rpPedidoId = String(c);
-          break;
-        }
-      }
-    }
+
 
     // El id que devuelve registrarDelivery es interno (delivery_id, ej. 159268).
     // El número corto visible en el POS (ej. #158719) se obtiene con un GET
