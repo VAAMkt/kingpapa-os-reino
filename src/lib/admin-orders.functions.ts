@@ -7,6 +7,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { rpCancelarDelivery } from "@/lib/restaurantpe.server";
 
 const STATUSES = [
   "enviado",
@@ -42,6 +43,24 @@ export const updateOrderStatusAdmin = createServerFn({ method: "POST" })
       throw new Error("No tienes permiso para cambiar el estado de pedidos.");
     }
 
+    let posCancelled = false;
+    let posError: string | undefined;
+
+    if (data.status === "cancelado") {
+      const { data: row } = await supabaseAdmin
+        .from("orders")
+        .select("rp_pedido_id")
+        .eq("id", data.orderId)
+        .maybeSingle();
+      const rpId = row?.rp_pedido_id;
+      if (rpId) {
+        const motivo = data.cancelReason ?? "Cancelado desde la web";
+        const r = await rpCancelarDelivery(rpId, motivo);
+        posCancelled = r.ok;
+        if (!r.ok) posError = r.mensaje;
+      }
+    }
+
     const patch: Record<string, unknown> =
       data.status === "cancelado"
         ? {
@@ -57,5 +76,5 @@ export const updateOrderStatusAdmin = createServerFn({ method: "POST" })
       .eq("id", data.orderId);
     if (updErr) throw new Error(`Update falló: ${updErr.message}`);
 
-    return { ok: true as const };
+    return { ok: true as const, posCancelled, posError };
   });
