@@ -49,6 +49,7 @@ function loadPersistedForm(): PersistedForm {
 
 function CheckoutPage() {
   const submitOrder = useServerFn(submitCheckoutOrder);
+  const precheckFn = useServerFn(precheckStock);
   const { items, count, subtotal, orderType } = useCart();
   const sede = useActiveSede();
   const navigate = useNavigate();
