@@ -266,41 +266,8 @@ export async function submitOrder(input: CheckoutInput): Promise<{
 }> {
   const { sede, detalle, subtotal, total } = await resolveOrder(input);
 
-  // Payload Restaurant.pe — basado en patrones de la API v2.
-  // Si el endpoint rechaza por nombres de campos, queda en rp_sync_log para
-  // iterar el shape.
-  const payload = {
-    delivery: {
-      local_id: sede.rp_local_id,
-      delivery_pagocon: input.pago === "efectivo" ? total : 0,
-      delivery_montodescuento: 0,
-      delivery_tipopago: input.pago === "efectivo" ? 1 : input.pago === "datafono" ? 2 : 5,
-      tarjeta_id: input.pago === "datafono" ? 1 : null,
-      delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
-      delivery_direccionenvio: input.cliente.direccion ?? "",
-      delivery_referencia: input.cliente.detalles ?? "",
-      delivery_observacion: input.notas ?? "",
-    },
-    cliente: {
-      cliente_nombres: input.cliente.nombre,
-      cliente_apellidos: "",
-      cliente_dniruc: "",
-      cliente_direccion: input.cliente.direccion ?? "",
-      cliente_telefono: input.cliente.telefono,
-      cliente_email: "",
-      // Notas del checkout → "Ver notas del cliente" en el POS v2.
-      // delivery_observacion abajo se mantiene como respaldo (vista vieja).
-      cliente_observacion: input.notas ?? "",
-    },
-    listaPedidos: detalle.map((d) => ({
-      pedido_productoid: d.pedido_productoid,
-      pedido_cantidad: d.cantidad,
-      pedido_precio: d.precio_unitario.toFixed(2),
-      pedido_observacion: "",
-    })),
-  };
-
-  // 1) Insertar registro local como "enviado" (sin rp_pedido_id todavía).
+  // 1) Insertar registro local PRIMERO para tener UUID que sirva como
+  //    delivery_codigointegracion (antiduplica en el POS, Swagger V2).
   const itemsSnapshot = detalle.map((d) => ({
     productoId: d.productoId,
     nombre: d.nombre,
@@ -313,7 +280,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     .insert({
       user_id: input.userId ?? null,
       sede_id: sede.id,
-      rp_payload: payload as unknown as Json,
+      rp_payload: {} as unknown as Json,
       status: "enviado",
       tipo: input.tipo,
       pago: input.pago,
@@ -328,18 +295,81 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   if (insErr) throw new Error(`No se pudo guardar el pedido: ${insErr.message}`);
   const localId = (orderRow as { id: string }).id;
 
-  // 2) Llamar a Restaurant.pe.
+  // 2) Payload Restaurant.pe — alineado al Swagger V2 oficial (2-oas3).
+  //    Notas:
+  //    - `delivery_codigointegracion` = UUID local → idempotencia en el POS.
+  //    - `cliente_tipo: 0` = persona natural (1 = empresa).
+  //    - `validacion_cliente: 4` = validar por teléfono (lo único que pedimos).
+  //    - `delivery_comprobante: 1` = boleta por defecto.
+  //    Pago: 1=efectivo, 2=tarjeta presencial, 5=online (Swagger V2).
+  const tipoPago = input.pago === "efectivo" ? 1 : input.pago === "datafono" ? 2 : 5;
+  const sedeLatLng = sede as unknown as { lat: number | null; lng: number | null };
+  const payload = {
+    delivery: {
+      local_id: sede.rp_local_id,
+      delivery_pagocon: input.pago === "efectivo" ? total : 0,
+      delivery_montodescuento: 0,
+      delivery_tipopago: tipoPago,
+      tarjeta_id: input.pago === "datafono" ? 1 : null,
+      delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
+      delivery_direccionenvio: input.cliente.direccion ?? "",
+      delivery_referencia: input.cliente.detalles ?? "",
+      delivery_observacion: input.notas ?? "",
+      delivery_notageneral: input.notas ?? "",
+      delivery_comprobante: 1,
+      delivery_codigointegracion: localId,
+      ...(sedeLatLng.lat != null ? { delivery_latitud: String(sedeLatLng.lat) } : {}),
+      ...(sedeLatLng.lng != null ? { delivery_longitud: String(sedeLatLng.lng) } : {}),
+      emitSocket: false,
+    },
+    cliente: {
+      cliente_nombres: input.cliente.nombre,
+      cliente_apellidos: "",
+      cliente_dniruc: "",
+      cliente_direccion: input.cliente.direccion ?? "",
+      cliente_telefono: input.cliente.telefono,
+      cliente_email: "",
+      cliente_observacion: input.notas ?? "",
+      cliente_tipo: 0,
+      validacion_cliente: 4,
+    },
+    listaPedidos: detalle.map((d) => ({
+      pedido_productoid: d.pedido_productoid,
+      pedido_cantidad: d.cantidad,
+      pedido_precio: d.precio_unitario.toFixed(2),
+      pedido_observacion: "",
+    })),
+  };
+
+  // 3) Llamar a Restaurant.pe.
   let rpResponse: unknown = null;
   let rpPedidoId: string | null = null;
   let rpNumeroComanda: string | null = null;
   let rpCabecera: unknown = null;
   try {
     rpResponse = await rpRegistrarDelivery(payload);
-    // FASE 1 — Restaurant.pe devuelve `data` como escalar (ej. 159235), no como objeto.
     if (typeof rpResponse === "number" || typeof rpResponse === "string") {
       const s = String(rpResponse).trim();
       if (s) rpPedidoId = s;
     } else {
+      const r = (rpResponse ?? {}) as Record<string, unknown>;
+      const candidates = [
+        r.pedido_id,
+        r.id,
+        r.comanda,
+        r.numero,
+        r.numero_pedido,
+        (r.data as Record<string, unknown> | undefined)?.pedido_id,
+        (r.data as Record<string, unknown> | undefined)?.id,
+      ];
+      for (const c of candidates) {
+        if (c != null && String(c).trim() !== "") {
+          rpPedidoId = String(c);
+          break;
+        }
+      }
+    }
+
       // Fallback por si en el futuro cambia el shape a objeto.
       const r = (rpResponse ?? {}) as Record<string, unknown>;
       const candidates = [
