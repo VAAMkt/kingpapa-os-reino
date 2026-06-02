@@ -97,7 +97,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [orderId, pollFn]);
+  }, [orderId]);
 
   const status: OrderStatus = order?.status ?? "enviado";
   const isError = status === "cancelado" || status === "error";
