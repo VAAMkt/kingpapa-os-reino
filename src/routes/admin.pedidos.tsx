@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { pollOrderFromRp } from "@/lib/orders.poll.functions";
+import { cancelOrderFromAdmin } from "@/lib/orders.functions";
 
 export const Route = createFileRoute("/admin/pedidos")({
   head: () => ({ meta: [{ title: "Pedidos — Admin" }] }),
