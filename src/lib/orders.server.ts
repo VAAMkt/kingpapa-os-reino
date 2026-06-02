@@ -391,6 +391,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       .update({
         rp_pedido_id: rpPedidoId,
         rp_numero_comanda: rpNumeroComanda,
+        rp_payload: payload as unknown as Json,
         rp_response: rpResponse as Json,
         status: "enviado",
       })
