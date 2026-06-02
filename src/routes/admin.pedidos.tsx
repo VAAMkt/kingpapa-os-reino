@@ -16,8 +16,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { pollOrderFromRp } from "@/lib/orders.poll.functions";
-import { updateOrderStatusAdmin } from "@/lib/admin-orders.functions";
-
 
 export const Route = createFileRoute("/admin/pedidos")({
   head: () => ({ meta: [{ title: "Pedidos — Admin" }] }),
@@ -72,9 +70,7 @@ const fmtTime = (iso: string) =>
 function AdminPedidosPage() {
   const queryClient = useQueryClient();
   const pollFn = useServerFn(pollOrderFromRp);
-  const updateStatusFn = useServerFn(updateOrderStatusAdmin);
   const [cancelTarget, setCancelTarget] = useState<OrderRow | null>(null);
-
   const [cancelPreset, setCancelPreset] = useState<string>(CANCEL_PRESETS[0]);
   const [cancelDetail, setCancelDetail] = useState<string>("");
   const [pollingId, setPollingId] = useState<string | null>(null);
@@ -146,9 +142,16 @@ function AdminPedidosPage() {
       status: OrderStatus;
       cancel_reason?: string | null;
     }) => {
-      await updateStatusFn({
-        data: { orderId: id, status, cancelReason: cancel_reason ?? null },
-      });
+      const patch =
+        status === "cancelado"
+          ? {
+              status,
+              cancel_reason: cancel_reason ?? null,
+              cancelled_at: new Date().toISOString(),
+            }
+          : { status };
+      const { error } = await supabase.from("orders").update(patch).eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Status actualizado");
@@ -156,7 +159,6 @@ function AdminPedidosPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
 
   function handleStatusChange(order: OrderRow, next: OrderStatus) {
     if (next === order.status) return;

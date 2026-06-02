@@ -94,27 +94,22 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       )
       .subscribe();
 
-    // Polling de guerrilla al endpoint interno del POS (server fn).
-    // Cada 15s mientras el pedido no esté en estado terminal. Si el POS token
-    // no está configurado o el endpoint falla, la server fn devuelve sin tocar
-    // nada → caemos en Realtime como única fuente de verdad.
-    const tick = () => {
+    // Polling cada 20s al POS vía server fn. Si el POS cambió el estado
+    // (entregado, anulado, en reparto) o asignó número de comanda, la server
+    // fn actualiza la fila y Realtime propaga el UPDATE.
+    const poll = setInterval(() => {
       const s = prevStatusRef.current;
       if (s === "entregado" || s === "cancelado" || s === "error") return;
       pollFn({ data: { orderId } }).catch(() => {
-        // silencioso: Realtime sigue siendo la fuente de verdad
+        // silencioso: el siguiente tick reintenta
       });
-    };
-    // Disparo inmediato + intervalo cada 15s.
-    tick();
-    const poll = setInterval(tick, 15_000);
+    }, 20_000);
 
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
       clearInterval(poll);
     };
-
   }, [orderId, pollFn]);
 
   const status: OrderStatus = order?.status ?? "enviado";
