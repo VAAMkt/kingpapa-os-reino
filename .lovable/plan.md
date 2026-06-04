@@ -1,32 +1,26 @@
-## Objetivo
+Confirmación inicial:
+- Tienes razón: yo no ejecuté un pedido real. El pedido real lo hiciste tú desde la web.
+- No puedo devolver créditos directamente desde aquí; eso debe gestionarlo soporte/billing de Lovable. Sí puedo dejar la evidencia técnica clara para que revisen el caso.
 
-Confirmar empíricamente, después de publicar la versión log-first del webhook, si Restaurant.pe emite POST cuando cancelas el pedido 160162 desde call center. **Cero cambios de código.**
+Hallazgos del último pedido:
+- Pedido `160162`: creado correctamente en KINGPAPA Limonar, quedó en la web como `enviado`.
+- Pedido `160163`: creado correctamente en KINGPAPA Limonar a las `18:35:49 UTC`, con nota `PRUEBA`, y Restaurant.pe respondió `160163`.
+- En ambos casos, nuestra base tiene `rp_pedido_id` correcto y sede `KINGPAPA Limonar`.
+- Después del envío de `160163`, no aparece ningún `webhook_raw` ni `webhook` real de Restaurant.pe en `rp_sync_log`.
+- El único `webhook_raw` reciente fue una prueba técnica con `curl`, con token incorrecto; no venía de Restaurant.pe.
 
-## Pre-requisito
+Conclusión técnica provisional:
+- Si Restaurant.pe hubiera llamado nuestro endpoint con `{ deliveryId: 160163, statusCode: 0 }`, el código actual lo habría marcado como `cancelado`.
+- Como no aparece ni siquiera el log crudo `webhook_raw`, el problema más probable no está en el parseo del webhook, sino en que Restaurant.pe no está llamando la URL configurada para Limonar, o la está llamando a otra URL/token/ambiente.
 
-La versión log-first ya debe estar publicada (último deploy con `src/routes/api/public/rp-webhook.ts` que guarda `webhook_raw` antes de validar token). Sin publish, el endpoint productivo sigue validando antes de loggear y no veremos huella si RP llama con token incorrecto.
+Plan de revisión minuciosa:
+1. Documentar la línea de tiempo exacta de `160162` y `160163`: creación, respuesta de Restaurant.pe, sede, local_id `9`, estado local y ausencia de webhook posterior.
+2. Revisar que la URL configurada en Limonar sea la URL pública publicada, no la preview, y que incluya exactamente el parámetro `?t=...` vigente.
+3. Hacer una prueba controlada desde fuera simulando exactamente el body oficial de Restaurant.pe para demostrar que nuestro endpoint sí cancela cuando recibe `statusCode: 0` con el token correcto.
+4. Repetir la prueba real: crear/cancelar desde Call Center y consultar `rp_sync_log` desde el timestamp de cancelación.
+5. Si no entra `webhook_raw`, enviar a Restaurant.pe el ticket con evidencia: pedidos `160162/160163`, sede Limonar, local_id `9`, hora UTC, URL configurada y prueba de que nuestro endpoint no recibió ninguna llamada.
+6. Si sí entra `webhook_raw` pero no cambia estado, corregir el parser o el matching contra `rp_pedido_id` según el payload real recibido.
 
-## Pasos
-
-1. **Marca de tiempo de inicio**: anoto el `now()` antes de tu acción para filtrar limpio en `rp_sync_log`.
-
-2. **Tú cancelas 160162 desde call center** (o creas un pedido nuevo desde Limonar y lo cancelas — lo que prefieras).
-
-3. **Espero ~30s** y consulto `rp_sync_log` filtrando por `created_at > marca` y `tipo IN ('webhook_raw','webhook')`.
-
-4. **Tres escenarios posibles:**
-
-   - **A) Llega `webhook_raw` con `query_token_match=true` y body parseable** → el endpoint funciona, RP emite. Cierro caso (no hay ticket que enviar).
-   - **B) Llega `webhook_raw` con `query_token_match=false`, o body vacío, o headers raros** → tenemos evidencia exacta del problema (token mal copiado, content-type, etc.). Adjunto el `payload` crudo al ticket para RP.
-   - **C) No llega nada** → RP no está emitiendo. Ticket queda confirmado y listo para enviar tal cual está en `/mnt/documents/rp-soporte-webhook-cancelacion.md`. Te paso el resumen ejecutivo + ruta del archivo.
-
-## Lo que NO se toca
-
-- Ningún archivo de código.
-- Ninguna migración, tabla, UI, ni flujo de checkout.
-- Ningún cambio en `restaurantpe.server.ts` ni `orders.functions.ts`.
-
-## Entregable
-
-- Resultado del escenario (A/B/C) con los IDs de `rp_sync_log` correspondientes.
-- Si B o C: confirmación de que el ticket en `/mnt/documents/rp-soporte-webhook-cancelacion.md` está listo (o actualización mínima con el nuevo `payload` capturado).
+Resultado esperado:
+- Separar definitivamente si el fallo es de emisión/configuración en Restaurant.pe o de procesamiento en nuestra web.
+- Dejar pruebas verificables para soporte de Restaurant.pe y para soporte de créditos/billing de Lovable.
