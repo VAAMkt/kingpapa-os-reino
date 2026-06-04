@@ -1,68 +1,32 @@
 ## Objetivo
 
-Confirmar que el problema está 100% del lado de Restaurant.pe (no en nuestro webhook) y entregarte un paquete de evidencia listo para escalar a soporte. **Cero cambios de UI. Cambios mínimos de código.**
+Confirmar empíricamente, después de publicar la versión log-first del webhook, si Restaurant.pe emite POST cuando cancelas el pedido 160162 desde call center. **Cero cambios de código.**
 
-## Hechos verificados
+## Pre-requisito
 
-- Pedido 160162 creado OK desde Limonar (18:17:56 UTC, 4-jun).
-- 0 `webhook_raw` para 160162 (ni aceptación, ni cancelación).
-- Último `webhook_raw` en toda la base: 2-jun (pedido 159666). Más de 2 días sin tráfico de RP.
-- La URL y token configurados en la sede Limonar coinciden con los que ya funcionaron antes.
+La versión log-first ya debe estar publicada (último deploy con `src/routes/api/public/rp-webhook.ts` que guarda `webhook_raw` antes de validar token). Sin publish, el endpoint productivo sigue validando antes de loggear y no veremos huella si RP llama con token incorrecto.
 
 ## Pasos
 
-### 1) Self-test del endpoint (sin cambios de código)
+1. **Marca de tiempo de inicio**: anoto el `now()` antes de tu acción para filtrar limpio en `rp_sync_log`.
 
-Simular un POST al webhook con el mismo formato que RP usaría:
+2. **Tú cancelas 160162 desde call center** (o creas un pedido nuevo desde Limonar y lo cancelas — lo que prefieras).
 
-```
-POST https://kingpapa-os-reino.lovable.app/api/public/rp-webhook?t=<RP_WEBHOOK_SECRET>
-Body: {"deliveryId": 160162, "statusCode": "0"}
-```
+3. **Espero ~30s** y consulto `rp_sync_log` filtrando por `created_at > marca` y `tipo IN ('webhook_raw','webhook')`.
 
-- Esperado: HTTP 200, una nueva fila `webhook_raw` y otra `webhook` con `enviado → cancelado` para el pedido 160162.
-- Si esto funciona (lo más probable, dado que ya recibimos webhooks reales antes), queda probado que el endpoint está vivo y el problema es 100% emisor (RP).
+4. **Tres escenarios posibles:**
 
-Esto se hace con `stack_modern--invoke-server-function`; no requiere editar archivos.
-
-### 2) Reforzar el log para diagnóstico (1 archivo, ~15 líneas)
-
-**Archivo:** `src/routes/api/public/rp-webhook.ts`
-
-Pequeños ajustes para que cualquier futuro POST de RP deje una huella aún más completa, sin cambiar el comportamiento:
-
-- Capturar también `method` y `url` (con el path completo y query) en el `payload` del `webhook_raw`.
-- Capturar el `content-length` y el `host` recibido (útil para detectar si RP está llamando otro hostname/preview/published por equivocación).
-- Si el body crudo viene vacío, dejarlo explícito en `mensaje`.
-
-Esto no toca lógica de negocio ni la UI.
-
-### 3) Actualizar el borrador de ticket para Restaurant.pe
-
-**Archivo:** `/mnt/documents/rp-soporte-webhook-cancelacion.md` (sobreescribir versión actual).
-
-Reestructurar el ticket con los hechos nuevos:
-
-- **Asunto:** Webhook V2 dejó de emitirse: 0 notificaciones desde 2-jun-2026 a pesar de tener la integración configurada (dominio + sede Limonar)
-- **Dominio:** 5272 — **Local:** 9 (KingPapa Limonar)
-- **WebHook URI configurada (ambos niveles, dominio y local):** `https://kingpapa-os-reino.lovable.app/api/public/rp-webhook?t=***`
-- **Última notificación recibida:** 2-jun-2026 02:43 UTC (delivery 159666 — secuencia 2→3→4 completa).
-- **Evidencia posterior (sin webhook):**
-  - 159734 cancelado desde pendientes → 0 POST.
-  - 159749 cancelado desde pendientes → 0 POST.
-  - 159613 cancelado desde lista de aceptados (screenshot) → 0 POST.
-  - **160162** creado desde Limonar el 4-jun 18:17 UTC, aceptado y cancelado desde call center → 0 POST.
-- **Auto-prueba:** confirmamos que nuestro endpoint responde 200 a un POST manual con la firma esperada (resultado del paso 1).
-- **Pregunta concreta:** ¿pueden disparar un test de webhook desde su panel hacia esta URL? ¿La configuración del WebHook a nivel de sede requiere un paso adicional (re-habilitar accesos, reiniciar token, contactar soporte)? ¿Hay algún whitelist de IP de salida que debamos contemplar?
-
-### 4) Entregable
-
-- Confirmación en chat del resultado del self-test (200 o no, con el id del nuevo log).
-- Ruta del ticket actualizado: `/mnt/documents/rp-soporte-webhook-cancelacion.md` (descargable).
+   - **A) Llega `webhook_raw` con `query_token_match=true` y body parseable** → el endpoint funciona, RP emite. Cierro caso (no hay ticket que enviar).
+   - **B) Llega `webhook_raw` con `query_token_match=false`, o body vacío, o headers raros** → tenemos evidencia exacta del problema (token mal copiado, content-type, etc.). Adjunto el `payload` crudo al ticket para RP.
+   - **C) No llega nada** → RP no está emitiendo. Ticket queda confirmado y listo para enviar tal cual está en `/mnt/documents/rp-soporte-webhook-cancelacion.md`. Te paso el resumen ejecutivo + ruta del archivo.
 
 ## Lo que NO se toca
 
-- UI (sin componentes nuevos, sin pantallas nuevas).
-- Tablas / migraciones (`rp_sync_log` ya tiene todo lo necesario).
-- Polling (sigue eliminado, confirmado en la limpieza anterior).
-- `restaurantpe.server.ts`, `orders.functions.ts`, ningún flujo de checkout.
+- Ningún archivo de código.
+- Ninguna migración, tabla, UI, ni flujo de checkout.
+- Ningún cambio en `restaurantpe.server.ts` ni `orders.functions.ts`.
+
+## Entregable
+
+- Resultado del escenario (A/B/C) con los IDs de `rp_sync_log` correspondientes.
+- Si B o C: confirmación de que el ticket en `/mnt/documents/rp-soporte-webhook-cancelacion.md` está listo (o actualización mínima con el nuevo `payload` capturado).
