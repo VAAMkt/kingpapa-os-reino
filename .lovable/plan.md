@@ -1,26 +1,40 @@
-Confirmación inicial:
-- Tienes razón: yo no ejecuté un pedido real. El pedido real lo hiciste tú desde la web.
-- No puedo devolver créditos directamente desde aquí; eso debe gestionarlo soporte/billing de Lovable. Sí puedo dejar la evidencia técnica clara para que revisen el caso.
+## Conectar Google Maps con tu clave propia para `kingpapa.co`
 
-Hallazgos del último pedido:
-- Pedido `160162`: creado correctamente en KINGPAPA Limonar, quedó en la web como `enviado`.
-- Pedido `160163`: creado correctamente en KINGPAPA Limonar a las `18:35:49 UTC`, con nota `PRUEBA`, y Restaurant.pe respondió `160163`.
-- En ambos casos, nuestra base tiene `rp_pedido_id` correcto y sede `KINGPAPA Limonar`.
-- Después del envío de `160163`, no aparece ningún `webhook_raw` ni `webhook` real de Restaurant.pe en `rp_sync_log`.
-- El único `webhook_raw` reciente fue una prueba técnica con `curl`, con token incorrecto; no venía de Restaurant.pe.
+Tienes la clave lista y bien restringida (4 dominios + las APIs correctas). El siguiente paso es agregarla a Lovable como **conexión personalizada** de Google Maps, paralela a la actual gestionada.
 
-Conclusión técnica provisional:
-- Si Restaurant.pe hubiera llamado nuestro endpoint con `{ deliveryId: 160163, statusCode: 0 }`, el código actual lo habría marcado como `cancelado`.
-- Como no aparece ni siquiera el log crudo `webhook_raw`, el problema más probable no está en el parseo del webhook, sino en que Restaurant.pe no está llamando la URL configurada para Limonar, o la está llamando a otra URL/token/ambiente.
+### Pasos al pasar a build mode
 
-Plan de revisión minuciosa:
-1. Documentar la línea de tiempo exacta de `160162` y `160163`: creación, respuesta de Restaurant.pe, sede, local_id `9`, estado local y ausencia de webhook posterior.
-2. Revisar que la URL configurada en Limonar sea la URL pública publicada, no la preview, y que incluya exactamente el parámetro `?t=...` vigente.
-3. Hacer una prueba controlada desde fuera simulando exactamente el body oficial de Restaurant.pe para demostrar que nuestro endpoint sí cancela cuando recibe `statusCode: 0` con el token correcto.
-4. Repetir la prueba real: crear/cancelar desde Call Center y consultar `rp_sync_log` desde el timestamp de cancelación.
-5. Si no entra `webhook_raw`, enviar a Restaurant.pe el ticket con evidencia: pedidos `160162/160163`, sede Limonar, local_id `9`, hora UTC, URL configurada y prueba de que nuestro endpoint no recibió ninguna llamada.
-6. Si sí entra `webhook_raw` pero no cambia estado, corregir el parser o el matching contra `rp_pedido_id` según el payload real recibido.
+1. **Abrir el diálogo de conector** con `standard_connectors--connect` (`connector_id: google_maps`).
+   - Elegirás **"Crear nueva conexión"** (no la gestionada) y pegarás `AIzaSyAiuC4KKYakHPcCJO3B4AIwuI18D4Zmnd0` ahí.
+   - Lovable la guarda cifrada y la inyecta como `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` + `GOOGLE_MAPS_API_KEY` en el runtime, reemplazando a la gestionada.
+   - **Importante:** por seguridad, después de guardarla, **rota la clave en Google Cloud** (regenerar) — ya quedó expuesta al compartirla por chat. La nueva clave la pegas igual en el diálogo.
 
-Resultado esperado:
-- Separar definitivamente si el fallo es de emisión/configuración en Restaurant.pe o de procesamiento en nuestra web.
-- Dejar pruebas verificables para soporte de Restaurant.pe y para soporte de créditos/billing de Lovable.
+2. **Verificar** con `secrets--fetch_secrets` que los nuevos valores reemplazaron a los antiguos.
+
+3. **Publicar** el proyecto para que `kingpapa.co` use la clave nueva. El mapa de `GateMap.tsx` y el autocomplete de `PlacesAutocomplete.tsx` empezarán a cargar sin `RefererNotAllowedMapError`.
+
+### Sobre "eliminar APIs que no usemos"
+
+En el código actual solo usamos **3 APIs**:
+
+| API | Dónde |
+|---|---|
+| Maps JavaScript API | `src/lib/google-maps.ts` (mapa) |
+| Places API (New) | `src/components/kp/PlacesAutocomplete.tsx` |
+| Geocoding API | `src/lib/geocode.functions.ts` (server) |
+
+Las otras 30 que tienes habilitadas (Routes, Air Quality, Pollen, Solar, Weather, Street View, Aerial, Tiles, Roads, etc.) **no se llaman desde el código**. Puedes deshabilitarlas en Google Cloud para reducir superficie de ataque y costo:
+
+**Recomendación: deja habilitadas solo estas 3** y deshabilita el resto. Si en el futuro agregamos rutas/clima/etc., las re-habilitamos en 30 segundos.
+
+Lo mismo en la **restricción de la clave** ("APIs a las que se puede acceder"): déjala restringida solo a esas 3.
+
+### Secretos en Lovable Cloud
+
+No hay nada que limpiar ahí — Google Maps no guarda secretos por API individual, solo la clave del conector. Lo único que cambia al conectar la personalizada es que `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` y `GOOGLE_MAPS_API_KEY` pasan a apuntar a tu clave en vez de a la gestionada.
+
+### Acción inmediata recomendada
+
+1. **Rota la clave en Google Cloud ahora** (porque la compartiste por chat).
+2. Avísame cuando tengas la nueva y paso a build mode para abrir el diálogo de conexión.
+3. Mientras tanto, en Google Cloud puedes ir deshabilitando las APIs que listé como no usadas.
