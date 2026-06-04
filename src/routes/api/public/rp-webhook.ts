@@ -32,7 +32,11 @@ function pickHeaders(request: Request): Record<string, string> {
   const keep = [
     "user-agent",
     "content-type",
+    "content-length",
+    "host",
     "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-proto",
     "cf-connecting-ip",
     "cf-ipcountry",
     "x-real-ip",
@@ -68,13 +72,19 @@ async function handleWebhook(request: Request): Promise<Response> {
   }
   const sourceIp = getSourceIp(request);
   const headersSubset = pickHeaders(request);
+  const bodyEmpty = bodyText.length === 0;
 
   await supabaseAdmin.from("rp_sync_log").insert({
     tipo: "webhook_raw",
     ok: true,
-    mensaje: "POST recibido",
+    mensaje: bodyEmpty ? "POST recibido (body vacío)" : "POST recibido",
     payload: {
       raw: bodyText,
+      method: request.method,
+      url: request.url,
+      pathname: url.pathname,
+      search: url.search,
+      host: url.host,
       source_ip: sourceIp,
       headers: headersSubset,
       query_token_present: Boolean(token),
