@@ -24,6 +24,16 @@ import type { Json } from "@/integrations/supabase/types";
 const Payload = z.object({
   deliveryId: z.union([z.number(), z.string()]).transform((v) => String(v).trim()),
   statusCode: z.union([z.number(), z.string()]).transform((v) => String(v).trim()),
+  // Doc oficial OAS3 (30/07/2024) no lo lista, pero RP lo envía en webhooks
+  // recientes con statusCode=3. Es el ETA en minutos.
+  tiempoEnvio: z
+    .union([z.number(), z.string(), z.null()])
+    .optional()
+    .transform((v) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }),
 });
 
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
@@ -144,17 +154,30 @@ async function handleWebhook(request: Request): Promise<Response> {
   // Match por rp_pedido_id (registrarDelivery devuelve este id como `data`).
   const { data: rows, error: selErr } = await supabaseAdmin
     .from("orders")
-    .select("id, status, cancel_reason")
+    .select("id, status, cancel_reason, rp_response")
     .eq("rp_pedido_id", parsed.deliveryId)
     .order("created_at", { ascending: false })
     .limit(1);
 
   if (selErr || !rows || rows.length === 0) {
+    // Enriquecer el log con candidatos: últimos pedidos vivos sin match.
+    const sinceIso = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { data: candidatos } = await supabaseAdmin
+      .from("orders")
+      .select("id, rp_pedido_id, rp_numero_comanda, status, created_at")
+      .in("status", ["enviado", "recibido", "en_preparacion", "en_camino"])
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(5);
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "webhook",
       ok: false,
-      mensaje: `pedido no encontrado para deliveryId=${parsed.deliveryId}`,
-      payload: parsed as unknown as Json,
+      mensaje: `pedido no encontrado para deliveryId=${parsed.deliveryId} (sc=${parsed.statusCode} → ${mapped})`,
+      payload: {
+        ...parsed,
+        candidatos: candidatos ?? [],
+        select_error: selErr?.message ?? null,
+      } as unknown as Json,
     });
     return new Response("ok", { status: 200 });
   }
@@ -175,6 +198,15 @@ async function handleWebhook(request: Request): Promise<Response> {
     updates.cancel_reason = "Cancelado desde el POS";
     updates.cancelled_at = new Date().toISOString();
   }
+  // Persistir ETA cuando RP lo manda en sc=3 ("en camino").
+  if (mapped === "en_camino" && parsed.tiempoEnvio != null) {
+    const prev = (row.rp_response ?? {}) as Record<string, unknown>;
+    updates.rp_response = {
+      ...prev,
+      eta_min: parsed.tiempoEnvio,
+      eta_set_at: new Date().toISOString(),
+    };
+  }
 
   const { error: updErr } = await supabaseAdmin
     .from("orders")
@@ -192,10 +224,14 @@ async function handleWebhook(request: Request): Promise<Response> {
     return new Response("ok", { status: 200 });
   }
 
+  const etaSuffix =
+    mapped === "en_camino" && parsed.tiempoEnvio != null
+      ? ` (ETA ${parsed.tiempoEnvio} min)`
+      : "";
   await supabaseAdmin.from("rp_sync_log").insert({
     tipo: "webhook",
     ok: true,
-    mensaje: `${row.status} → ${mapped}`,
+    mensaje: `${row.status} → ${mapped}${etaSuffix}`,
     payload: { ...parsed, order_id: row.id } as unknown as Json,
   });
 
