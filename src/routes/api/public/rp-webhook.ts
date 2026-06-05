@@ -182,9 +182,15 @@ async function handleWebhook(request: Request): Promise<Response> {
     updates.cancel_reason = "Cancelado desde el POS";
     updates.cancelled_at = new Date().toISOString();
   }
-  // Persistir ETA cuando RP lo manda en sc=3 ("en camino").
+  // Persistir ETA cuando RP lo manda en sc=3 ("en camino"). Defensivo:
+  // rp_response heredado puede venir como number/string/null — si no es un
+  // objeto plano, lo descartamos y arrancamos desde {} para no romper.
   if (mapped === "en_camino" && parsed.tiempoEnvio != null) {
-    const prev = (row.rp_response ?? {}) as Record<string, unknown>;
+    const raw = row.rp_response;
+    const prev =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? (raw as Record<string, unknown>)
+        : {};
     updates.rp_response = {
       ...prev,
       eta_min: parsed.tiempoEnvio,
