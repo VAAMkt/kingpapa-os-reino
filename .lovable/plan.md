@@ -1,58 +1,67 @@
-# Fix: redirección de checkout debe usar el UUID local
+# Limpieza radical: adiós polling, adiós "Asignando comanda…"
 
-## Diagnóstico
+Volvemos a una arquitectura limpia: **el webhook público de Restaurant.pe es la única fuente de verdad**, y Supabase Realtime empuja los cambios al cliente. Se borra todo el polling de guerrilla y la UI deja de esperar el `rp_numero_comanda`.
 
-El hallazgo es real. En `src/lib/orders.server.ts:459`:
+## 1. Borrar el polling del POS
 
-```ts
-return { orderId: rpPedidoId ?? localId, ... }
-```
+- Eliminar la server function `pollOrderFromRp` de `src/lib/orders.poll.functions.ts`.
+- Mantener en ese mismo archivo `resolveOrderId` (sigue siendo útil para `/gracias` y links viejos de WhatsApp con `rp_pedido_id` numérico).
+- Quitar el secreto `RESTAURANT_PE_POS_TOKEN` de la lectura en código (el secreto puede quedar en Cloud, ya no se usa).
+- En `src/routes/admin.integraciones.tsx`, quitar la fila "pos cookie" del panel de estado RP.
+- En `src/lib/integrations.functions.ts`, eliminar el campo `pos_token_set` del status (revisar y limpiar).
 
-`submitOrder` devuelve el `rp_pedido_id` numérico (ej. `160364`) como `orderId` siempre que Restaurant.pe responde bien. `checkout.tsx` lo usa tal cual para redirigir → `/gracias?order_id=160364`.
+## 2. Tracker 100% reactivo
 
-`gracias.tsx` tiene un `resolveOrderId` que mitiga el problema (acepta numérico y lo traduce a UUID), por eso la página llega a cargar el resumen y el tracker. Pero deja varios efectos colaterales:
+En `src/components/kp/TrackerOperativo.tsx`:
 
-- El primer fetch directo en `TrackerOperativo` (`.eq("id", orderId)`) corre con un valor que **no es un UUID** y devuelve null hasta que `resolveOrderId` termine.
-- El canal Realtime se suscribe con `id=eq.<numero>` y no recibe eventos hasta que el UUID se resuelva.
-- Si RP falla y devuelve `null` como `rp_pedido_id`, la URL llevaría `undefined`/UUID inconsistente.
-- El UUID es el identificador canónico para compartir/recuperar la orden.
+- Quitar el `setInterval` de 20s y cualquier `useServerFn(pollOrderFromRp)`.
+- Conservar:
+  - Fetch inicial directo a `orders` por UUID.
+  - Suscripción Realtime a `postgres_changes` sobre `public.orders` filtrada por `id=eq.<uuid>`.
+- Quitar el estado/branch que muestra "Asignando comanda…" mientras `rp_numero_comanda` está vacío.
+- Donde antes se mostraba `#{rp_numero_comanda}`, mostrar `#{rp_pedido_id}` (el deliveryId que devuelve `registrarDelivery` desde el segundo cero).
 
-## Cambios
+## 3. Limpiar `/gracias`
 
-### 1. `src/lib/orders.server.ts` (1 línea)
+En `src/routes/gracias.tsx`:
 
-En el return final de `submitOrder`, cambiar:
+- Sustituir cualquier referencia visible a `rp_numero_comanda` por `rp_pedido_id`.
+- Mantener `resolveOrderId` como red de seguridad para links antiguos (`?order_id=160364`).
+- Texto de referencia para el cliente: **"Pedido Restaurant.pe #160366"** (basado en `rp_pedido_id`).
 
-```ts
-orderId: rpPedidoId ?? localId,
-```
+## 4. Webhook (verificación, sin cambios funcionales)
 
-por:
+Revisar `src/routes/api/public/rp-webhook.ts` para confirmar y dejar documentado que:
 
-```ts
-orderId: localId,
-```
+- Sigue **público** bajo `/api/public/*` (sin token `?t=`).
+- Sigue aceptando `tiempoEnvio` (JSONB) y matcheando por `delivery_codigointegracion` (nuestro UUID) o por `rp_pedido_id`.
+- Es el **único** camino que muta `status` (`recibido → en_preparacion → en_camino → entregado → cancelado`).
 
-`localId`, `rpPedidoId` y los demás campos se siguen devolviendo igual, así que cualquier consumidor que necesite el id de RP lo tiene en `rpPedidoId`.
+No se tocan reglas de validación ni firma; solo se verifica.
 
-### 2. Verificar consumidores de `submitOrder().orderId`
+## 5. Módulo Integraciones
 
-Revisar usos para asegurar que ninguno dependa de que `orderId` sea el numérico de RP. Esperado: sólo `checkout.tsx` lo consume y lo pasa a la URL.
+En `src/routes/admin.integraciones.tsx`:
 
-### 3. (Opcional) Endurecer `gracias.tsx`
+- Quitar la opción `pos_poll` del filtro de tipos (ya no se generarán esos logs).
+- Resto del módulo (estado RP/Lovable/Maps + stream realtime de `rp_sync_log` + buscador) queda igual.
 
-No es necesario para el fix, pero `resolveOrderId` puede quedarse: sirve como red de seguridad para links viejos compartidos por WhatsApp que aún tengan el numérico.
+## Detalles técnicos
 
-## Lo que NO se toca
+**Archivos a editar**
+- `src/lib/orders.poll.functions.ts` — borrar `pollOrderFromRp`, dejar solo `resolveOrderId`.
+- `src/components/kp/TrackerOperativo.tsx` — borrar interval + polling, mostrar `rp_pedido_id`.
+- `src/routes/gracias.tsx` — reemplazar referencias a `rp_numero_comanda` por `rp_pedido_id`.
+- `src/lib/integrations.functions.ts` — quitar `pos_token_set`.
+- `src/routes/admin.integraciones.tsx` — quitar fila "pos cookie" y opción `pos_poll`.
 
-- `TrackerOperativo.tsx`: ya consume un UUID resuelto, queda correcto.
-- `resolveOrderId`: se mantiene como compatibilidad hacia atrás.
-- Webhook, polling POS, schema de BD, módulo de integraciones: nada cambia.
-- El bug de "Asignando comanda…" es independiente (depende del polling POS extrayendo `pedido_comandaid`), no se resuelve aquí.
+**No se toca**
+- Tabla `orders` (columna `rp_numero_comanda` se queda; puede llegar a poblarse vía webhook el día que RP lo mande, pero la UI ya no la requiere).
+- Migrations.
+- Lógica del webhook ni del flujo de checkout.
+- `src/lib/orders.server.ts` (el fix de `orderId: localId` ya está aplicado).
 
-## Verificación
-
-1. Hacer un pedido nuevo en producción.
-2. Confirmar que la URL final es `/gracias?order_id=<uuid>`, no un numérico.
-3. Confirmar que `TrackerOperativo` se conecta a Realtime inmediatamente (sin esperar al `resolveOrderId`).
-4. Probar manualmente que un link viejo con `?order_id=160364` sigue funcionando (gracias a `resolveOrderId`).
+**Resultado esperado**
+- Cero llamadas ocultas al POS interno.
+- `/gracias` carga al instante con `#rp_pedido_id` visible y se actualiza por Realtime cuando el webhook escribe en `orders`.
+- Código mantenible, sin cookies que caducan, sin endpoints no documentados.
