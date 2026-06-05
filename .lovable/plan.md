@@ -1,56 +1,60 @@
-## Diagnóstico (con datos de la base)
 
-Miré los últimos 15 POST que Restaurant.pe envió al webhook (`rp_sync_log` tipo `webhook_raw`):
+## Diagnóstico
 
-- Los **bodies llegan bien** (`{ "deliveryId": "160161", "statusCode": "2", ... }`).
-- Las cancelaciones **sí se envían** (`statusCode: "3"` aparece varias veces — ej. 160070-160075).
-- **TODOS los recientes tienen `query_token_match: false`** → el webhook responde 401 y nunca actualiza el pedido.
+Dos problemas distintos, uno ya resuelto por ti y otro pendiente en código.
 
-La única vez reciente que funcionó (`enviado → cancelado` el 04-jun 18:42) fue cuando `token_ok: true`.
+### 1. URL del webhook ✅ (ya corregida por ti)
+Reemplazaste la URI en Restaurant.pe por `https://kingpapa.co/api/public/rp-webhook?t=e80c1ecaebafdaf22e40c5b98e453907` (sin `<>`). Pendiente: validar con un POST real (los logs actuales en BD son anteriores al fix; siguen apuntando al host viejo sin token).
 
-### Por qué falla el token
+### 2. Mapeo de `statusCode` incorrecto en el código ❌
+Mirando `rp_sync_log`:
 
-La URL que copiaste/pegaste en Restaurant.pe es:
+- Cuando hiciste **anular** desde el POS → llegaron `statusCode: "2"` (deliveries 160158-160164).
+- Cuando hiciste **cancelar/rechazar** desde el POS (prueba previa) → llegaron `statusCode: "3"` (deliveries 160070-160075, 160159).
 
+Pero `src/lib/restaurantpe-normalize.ts → mapWebhookStatusCode()` mapea:
 ```
-https://project--340d46a4-b783-4a2a-a2a1-295d9ea3dcbc.lovable.app/api/public/rp-webhook?t=<e80c1ecaebafdaf22e40c5b98e453907>
-```
-
-Los `<` y `>` son **literales** en la URL. Restaurant.pe los manda URL-encoded como `%3C...%3E`, así que el servidor recibe `t=%3Ce80c...%3E` que **no** coincide con `RP_WEBHOOK_SECRET`. Por eso devuelve 401 y los pedidos cancelados nunca se actualizan en tu pantalla.
-
-El dominio (`project--...lovable.app` vs `kingpapa.co`) **no es el problema** — ambos resuelven al mismo backend. La instrucción mostraba `<TOKEN>` como placeholder y se quedaron los corchetes.
-
-## Solución
-
-### Paso 1 — Corregir la URL en Restaurant.pe (tú, 30 segundos)
-
-En **Menú → Mi Restaurant → Integraciones → URI de actualización de deliverys**, reemplaza por:
-
-```
-https://kingpapa.co/api/public/rp-webhook?t=e80c1ecaebafdaf22e40c5b98e453907
+0 → cancelado
+2 → recibido      ← debería ser cancelado (anular)
+3 → en_camino     ← debería ser cancelado (cancelar/rechazar)
+4 → entregado
 ```
 
-**Sin** los `<` ni `>`. Guarda y dispara una cancelación de prueba desde el POS.
+Resultado: aunque el webhook llegara con token válido, **"anular" en el POS marcaría el pedido como "recibido"** y "cancelar" como "en_camino". El cliente nunca vería "Pedido cancelado" en `/gracias`.
 
-(Usar `kingpapa.co` también es válido y más estable que el subdominio interno; cualquiera de los dos funcionará una vez quitados los corchetes.)
+El comentario actual cita el Swagger oficial v2, pero la realidad observada del POS difiere. Tres webhooks distintos de tres acciones distintas confirman el patrón.
 
-### Paso 2 — Verificar (yo, tras confirmación)
+## Cambios
 
-Consulto `rp_sync_log` y confirmo que los próximos POST traen `query_token_match: true` y producen un log `webhook` con `enviado → cancelado` (u otra transición). Si pasa, listo.
+### Paso 1 — Corregir `mapWebhookStatusCode` en `src/lib/restaurantpe-normalize.ts`
 
-### Paso 3 — Endurecer el webhook (yo, opcional pero recomendado)
+Nuevo mapeo basado en evidencia empírica:
 
-Para que no vuelva a pasar silenciosamente:
+```ts
+case 0: return "cancelado";     // (según Swagger; sin evidencia, lo dejo)
+case 2: return "cancelado";     // anular desde el POS — observado
+case 3: return "cancelado";     // cancelar/rechazar desde el POS — observado
+case 4: return "entregado";     // (según Swagger)
+```
 
-1. En `src/routes/api/public/rp-webhook.ts`: cuando el token no coincide, además del 401 hacer trim de `<` `>` y, si **eso** coincide, loguear en `rp_sync_log` un mensaje explícito `"token con corchetes — corregir URL en RP"`. Sirve solo como avisador, no autoriza el request.
-2. En `/admin/pedidos`, agregar un badge "Webhook KO últimas 24h" si hay logs `webhook_raw` con `query_token_match: false`, para detectarlo en futuro.
+Actualizar también el comentario del bloque explicando que el mapeo se basa en comportamiento real del POS, no en el Swagger.
 
-Este paso 3 es solo defensa en profundidad, no es necesario si confirmas que ya editaste la URL.
+**Nota:** Restaurant.pe **no envía** webhooks para "en preparación" / "en camino" (al menos no con los códigos del Swagger). Esos estados intermedios se siguen actualizando por el poller que lee `obtenerDelivery` (sin tocar — ya funciona). El webhook solo dispara transiciones terminales.
 
-## Sobre el tracking en pantalla
+### Paso 2 — Verificación tras tu nueva prueba
 
-El tracking en `/gracias` ya está suscrito por Realtime a `orders` filtrando por id, y `TrackerOperativo` también. En cuanto el webhook actualice `status = "cancelado"`, el cambio aparecerá en vivo sin recargar. No hay nada que arreglar ahí — el bloqueador es exclusivamente el token.
+Cuando dispares una anulación de prueba (con la URL ya corregida en RP), consulto `rp_sync_log` y confirmo:
+- `query_token_match: true` en el `webhook_raw`.
+- Un log `tipo='webhook'` con `enviado → cancelado` (no `→ recibido`).
+- `orders.status='cancelado'` + `cancel_reason='Cancelado desde el POS'`.
+- `/gracias` muestra "Pedido cancelado" vía Realtime sin recargar.
+
+## Lo que NO toco
+
+- `src/routes/api/public/rp-webhook.ts` — el endpoint en sí está bien (LOG-FIRST, validación de token, fallo suave, update).
+- `TrackerOperativo.tsx` — ya está suscrito vía Realtime y muestra estado cancelado correctamente.
+- Polling de `obtenerDelivery` — sigue cubriendo los estados intermedios.
 
 ## Confírmame
 
-¿Edito el webhook con el paso 3 (badge + log de aviso), o lo dejamos solo con el fix de URL en Restaurant.pe?
+¿Aplico el fix del mapeo y luego validamos juntos con una prueba real?
