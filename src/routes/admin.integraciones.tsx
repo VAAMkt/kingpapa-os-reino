@@ -32,7 +32,6 @@ const TIPOS = [
   "order",
   "order_test_mode",
   "cancel",
-  "pos_poll",
 ] as const;
 
 function fmtTime(iso: string) {

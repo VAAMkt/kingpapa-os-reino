@@ -25,7 +25,6 @@ export const getIntegrationsStatus = createServerFn({ method: "GET" })
         token_set: !!process.env.RESTAURANT_PE_TOKEN,
         dominio_set: !!process.env.RESTAURANT_PE_DOMINIO,
         webhook_secret_set: !!process.env.RP_WEBHOOK_SECRET,
-        pos_token_set: !!process.env.RESTAURANT_PE_POS_TOKEN,
         last_webhook_at: lastWebhookAt,
         webhook_path: "/api/public/rp-webhook",
       },
