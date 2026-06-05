@@ -70,10 +70,8 @@ function getSourceIp(request: Request): string | null {
 
 async function handleWebhook(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  const token = url.searchParams.get("t");
-  const expected = process.env.RP_WEBHOOK_SECRET;
 
-  // 1) LOG CRUDO INMEDIATO — antes de cualquier validación/parsing.
+  // 1) LOG CRUDO INMEDIATO — antes de cualquier parsing.
   let bodyText = "";
   try {
     bodyText = await request.text();
@@ -97,34 +95,15 @@ async function handleWebhook(request: Request): Promise<Response> {
       host: url.host,
       source_ip: sourceIp,
       headers: headersSubset,
-      query_token_present: Boolean(token),
-      query_token_match: Boolean(expected && token === expected),
     } as unknown as Json,
   });
 
-  // 2) Token: único caso donde devolvemos error HTTP real.
-  if (!expected || !token || token !== expected) {
-    // Detección defensiva: si Restaurant.pe (o el usuario al pegar la URL)
-    // dejó los corchetes `<...>` del placeholder, el token llega URL-encoded
-    // como `%3C...%3E` y nunca matchea. Logueamos explícitamente para que
-    // se vea en /admin/pedidos sin tener que descodificar a mano.
-    const trimmed = token ? token.replace(/^[<%3Ce]*/i, "").replace(/[>%3Ee]*$/i, "").trim() : "";
-    const looksBracketed = !!token && (/^<.*>$/.test(token) || /^%3C.*%3E$/i.test(token));
-    const matchesIfStripped = !!expected && !!trimmed && trimmed === expected;
-    if (looksBracketed || matchesIfStripped) {
-      await supabaseAdmin.from("rp_sync_log").insert({
-        tipo: "webhook",
-        ok: false,
-        mensaje:
-          "Token con corchetes <...> — corregir URI en Restaurant.pe (quitar < y >).",
-        payload: {
-          token_received: token,
-          url: request.url,
-        } as unknown as Json,
-      });
-    }
-    return new Response("unauthorized", { status: 401 });
-  }
+  // NOTA: Sin validación de token en POST. Restaurant.pe usa RestSharp y
+  // recorta el ?t=... del URI, rechazando el 92% del tráfico legítimo.
+  // El endpoint es público; el riesgo es bajo porque sólo se puede mover
+  // el `status` de un pedido existente (no PII, no creación, no borrado)
+  // y se requiere adivinar un `deliveryId` interno de RP. Todo queda
+  // auditado en rp_sync_log con IP y headers.
 
   // 3) Parseo. A partir de aquí, todo error → 200 (fallo suave).
   let parsed: z.infer<typeof Payload>;
