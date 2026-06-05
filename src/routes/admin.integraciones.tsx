@@ -154,7 +154,6 @@ function AdminIntegracionesPage() {
             <li>token api: {status?.rp.token_set ? "✓" : "—"}</li>
             <li>dominio: {status?.rp.dominio_set ? "✓" : "—"}</li>
             <li>webhook secret: {status?.rp.webhook_secret_set ? "✓" : "—"}</li>
-            <li>pos cookie: {status?.rp.pos_token_set ? "✓" : "—"}</li>
             <li className="break-all">path: {status?.rp.webhook_path}</li>
           </ul>
         </BrutalCard>
