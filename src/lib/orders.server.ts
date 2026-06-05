@@ -401,13 +401,23 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     // tanto, la UI muestra `rp_pedido_id` como referencia.
 
 
+    // Normalizamos rp_response como objeto JSON estructurado para evitar
+    // primitivos (number/string) que rompen merges posteriores (p.ej. al
+    // inyectar eta_min desde el webhook). El raw del POS se preserva en
+    // `raw_pos_response`.
+    const rpResponseObj = {
+      rp_pedido_id: rpPedidoId,
+      registered_at: new Date().toISOString(),
+      raw_pos_response: rpResponse,
+    };
+
     await supabaseAdmin
       .from("orders")
       .update({
         rp_pedido_id: rpPedidoId,
         rp_numero_comanda: rpNumeroComanda,
         rp_payload: payload as unknown as Json,
-        rp_response: rpResponse as Json,
+        rp_response: rpResponseObj as unknown as Json,
         status: "enviado",
       })
       .eq("id", localId);
