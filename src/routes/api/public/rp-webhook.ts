@@ -139,7 +139,12 @@ async function handleWebhook(request: Request): Promise<Response> {
     .limit(1);
 
   if (selErr || !rows || rows.length === 0) {
-    // Enriquecer el log con candidatos: últimos pedidos vivos sin match.
+    // Restaurant.pe envía un "firehose" global: todos los cambios de estado
+    // del local llegan al webhook, no sólo los originados en nuestra web
+    // (también call center, app RP, etc.). Si el deliveryId no existe en
+    // nuestras orders, NO es un error: es tráfico legítimo de otro canal.
+    // Lo registramos como informativo y devolvemos 200 para no bloquear el
+    // webhook desde el panel de RP.
     const sinceIso = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     const { data: candidatos } = await supabaseAdmin
       .from("orders")
@@ -149,9 +154,9 @@ async function handleWebhook(request: Request): Promise<Response> {
       .order("created_at", { ascending: false })
       .limit(5);
     await supabaseAdmin.from("rp_sync_log").insert({
-      tipo: "webhook",
-      ok: false,
-      mensaje: `pedido no encontrado para deliveryId=${parsed.deliveryId} (sc=${parsed.statusCode} → ${mapped})`,
+      tipo: "webhook_ignored_external",
+      ok: true,
+      mensaje: `Pedido externo ignorado (deliveryId=${parsed.deliveryId}, sc=${parsed.statusCode} → ${mapped}). No pertenece a nuestro sistema web.`,
       payload: {
         ...parsed,
         candidatos: candidatos ?? [],
