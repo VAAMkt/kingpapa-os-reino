@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { supabase } from "@/integrations/supabase/client";
-import { pollOrderFromRp } from "@/lib/orders.poll.functions";
 
 type OrderStatus =
   | "enviado"
@@ -17,7 +16,6 @@ type OrderRow = {
   id: string;
   status: OrderStatus;
   rp_pedido_id: string | null;
-  rp_numero_comanda: string | null;
   cancel_reason: string | null;
   tipo: "delivery" | "pickup";
 };
@@ -52,7 +50,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     async function fetchOrder() {
       const { data } = await supabase
         .from("orders")
-        .select("id, status, rp_pedido_id, rp_numero_comanda, cancel_reason, tipo")
+        .select("id, status, rp_pedido_id, cancel_reason, tipo")
         .eq("id", orderId)
         .maybeSingle();
       if (cancelled) return;
@@ -72,8 +70,8 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
 
     fetchOrder();
 
-    // 100% reactivo: Realtime sobre orders. El webhook de Restaurant.pe
-    // empuja los cambios de estado al backend y Supabase los propaga aquí.
+    // 100% reactivo: el webhook público de Restaurant.pe es la única fuente
+    // de verdad. Supabase Realtime propaga los cambios al cliente.
     const channel = supabase
       .channel(`order-${orderId}`)
       .on(
@@ -94,34 +92,16 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       )
       .subscribe();
 
-    // Polling de guerrilla (cada 20s) — salvavidas para extraer
-    // rp_numero_comanda y para avanzar el status si el webhook se cae.
-    // Fallo silencioso: si el POS token expira, la app sigue 100% reactiva
-    // sobre el webhook + Realtime.
-    const pollTick = async () => {
-      try {
-        await pollOrderFromRp({ data: { orderId } });
-      } catch {
-        /* silencioso a propósito */
-      }
-    };
-    pollTick();
-    const pollId = setInterval(pollTick, 20_000);
-
     return () => {
       cancelled = true;
-      clearInterval(pollId);
       supabase.removeChannel(channel);
     };
   }, [orderId]);
-
-
 
   const status: OrderStatus = order?.status ?? "enviado";
   const isError = status === "cancelado" || status === "error";
   const step = isError ? 0 : stepIndex(status);
   const progreso = Math.min((step / PASOS.length) * 100, 100);
-  const comandaCorta = order?.rp_numero_comanda ?? null;
   const idLargo = order?.rp_pedido_id ?? null;
 
   return (
@@ -130,28 +110,12 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         <h3 className="font-display text-2xl md:text-3xl text-kp-yellow uppercase">
           Tu Reino en camino
         </h3>
-        {comandaCorta ? (
-          <div className="flex flex-col items-end gap-1">
-            <BrutalBadge tone="yellow">
-              Comanda {comandaCorta.startsWith("#") ? comandaCorta : `#${comandaCorta}`}
-            </BrutalBadge>
-            {idLargo ? (
-              <span className="text-[10px] font-mono text-kp-cheese/60" title="ID interno (soporte)">
-                ref: {idLargo}
-              </span>
-            ) : null}
-          </div>
+        {idLargo ? (
+          <BrutalBadge tone="yellow">Pedido #{idLargo}</BrutalBadge>
         ) : (
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-xs font-display uppercase text-kp-cheese/70">
-              {loading ? "conectando…" : "asignando comanda…"}
-            </span>
-            {idLargo ? (
-              <span className="text-[10px] font-mono text-kp-cheese/60" title="ID interno (soporte)">
-                ref: {idLargo}
-              </span>
-            ) : null}
-          </div>
+          <span className="text-xs font-display uppercase text-kp-cheese/70">
+            {loading ? "conectando…" : "registrando…"}
+          </span>
         )}
       </div>
 

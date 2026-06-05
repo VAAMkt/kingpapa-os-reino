@@ -45,7 +45,6 @@ function GraciasPage() {
   const [order, setOrder] = useState<LastOrder | null>(null);
   const [sedeWa, setSedeWa] = useState<string | null>(null);
   const [resolvedId, setResolvedId] = useState<string | null>(null);
-  const [comanda, setComanda] = useState<string | null>(null);
   const [rpPedidoId, setRpPedidoId] = useState<string | null>(null);
   const resolveFn = useServerFn(resolveOrderId);
 
@@ -64,18 +63,17 @@ function GraciasPage() {
     };
   }, [order_id, resolveFn]);
 
-  // Suscripción a la fila orders para obtener rp_numero_comanda (POS) en vivo.
+  // Suscripción a la fila orders para obtener el rp_pedido_id (deliveryId) en vivo.
   useEffect(() => {
     if (!resolvedId) return;
     let cancelled = false;
-    const apply = (row: { rp_numero_comanda: string | null; rp_pedido_id: string | null } | null) => {
+    const apply = (row: { rp_pedido_id: string | null } | null) => {
       if (!row || cancelled) return;
-      setComanda(row.rp_numero_comanda ?? null);
       setRpPedidoId(row.rp_pedido_id ?? null);
     };
     supabase
       .from("orders")
-      .select("rp_numero_comanda, rp_pedido_id")
+      .select("rp_pedido_id")
       .eq("id", resolvedId)
       .maybeSingle()
       .then(({ data }) => apply(data as never));
@@ -116,8 +114,9 @@ function GraciasPage() {
 
   const esRecoger = order?.tipo === "pickup";
   const waNumber = (sedeWa ?? "573172455336").replace(/\D/g, "");
+  const refVisible = rpPedidoId ?? order_id;
   const waText = encodeURIComponent(
-    `Hola KINGPAPA, mi pedido ${order_id} (${esRecoger ? "RECOGER" : "DELIVERY"}). ` +
+    `Hola KINGPAPA, mi pedido #${refVisible} (${esRecoger ? "RECOGER" : "DELIVERY"}). ` +
       (order ? `Total: ${cop(order.total)}` : ""),
   );
   const waUrl = `https://wa.me/${waNumber}?text=${waText}`;
@@ -130,22 +129,13 @@ function GraciasPage() {
           👑 Tu corona se está forjando
         </h1>
         <p className="mt-3 text-sm opacity-80">
-          {comanda
-            ? "Guarda este código por si tu motorizado pregunta:"
-            : "Tu referencia de pedido (úsala con el motorizado o por WhatsApp):"}
+          Tu número de pedido (úsalo con el motorizado o por WhatsApp):
         </p>
         <div className="mt-3 border-2 border-kp-ink bg-kp-cheese px-4 py-3 inline-block">
           <span className="font-display text-3xl md:text-4xl tracking-widest">
-            {comanda
-              ? comanda.startsWith("#") ? comanda : `#${comanda}`
-              : `#${rpPedidoId ?? order_id}`}
+            #{refVisible}
           </span>
         </div>
-        {comanda && rpPedidoId ? (
-          <p className="mt-2 text-[11px] font-mono opacity-60">
-            ref interna: {rpPedidoId}
-          </p>
-        ) : null}
       </BrutalCard>
 
       {resolvedId ? <TrackerOperativo orderId={resolvedId} /> : null}
