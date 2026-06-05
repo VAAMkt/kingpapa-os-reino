@@ -24,6 +24,16 @@ import type { Json } from "@/integrations/supabase/types";
 const Payload = z.object({
   deliveryId: z.union([z.number(), z.string()]).transform((v) => String(v).trim()),
   statusCode: z.union([z.number(), z.string()]).transform((v) => String(v).trim()),
+  // Doc oficial OAS3 (30/07/2024) no lo lista, pero RP lo envía en webhooks
+  // recientes con statusCode=3. Es el ETA en minutos.
+  tiempoEnvio: z
+    .union([z.number(), z.string(), z.null()])
+    .optional()
+    .transform((v) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }),
 });
 
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
