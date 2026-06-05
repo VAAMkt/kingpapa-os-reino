@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { supabase } from "@/integrations/supabase/client";
+import { pollOrderFromRp } from "@/lib/orders.poll.functions";
 
 type OrderStatus =
   | "enviado"
@@ -93,8 +94,23 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       )
       .subscribe();
 
+    // Polling de guerrilla (cada 20s) — salvavidas para extraer
+    // rp_numero_comanda y para avanzar el status si el webhook se cae.
+    // Fallo silencioso: si el POS token expira, la app sigue 100% reactiva
+    // sobre el webhook + Realtime.
+    const pollTick = async () => {
+      try {
+        await pollOrderFromRp({ data: { orderId } });
+      } catch {
+        /* silencioso a propósito */
+      }
+    };
+    pollTick();
+    const pollId = setInterval(pollTick, 20_000);
+
     return () => {
       cancelled = true;
+      clearInterval(pollId);
       supabase.removeChannel(channel);
     };
   }, [orderId]);

@@ -37,6 +37,7 @@ import { Route as AdminSincronizacionRouteImport } from './routes/admin.sincroni
 import { Route as AdminSedesRouteImport } from './routes/admin.sedes'
 import { Route as AdminPedidosRouteImport } from './routes/admin.pedidos'
 import { Route as AdminMenuRouteImport } from './routes/admin.menu'
+import { Route as AdminIntegracionesRouteImport } from './routes/admin.integraciones'
 import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
 import { Route as AdminSedesIndexRouteImport } from './routes/admin.sedes.index'
 import { Route as AdminContenidosIndexRouteImport } from './routes/admin.contenidos.index'
@@ -186,6 +187,11 @@ const AdminMenuRoute = AdminMenuRouteImport.update({
   path: '/menu',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminIntegracionesRoute = AdminIntegracionesRouteImport.update({
+  id: '/integraciones',
+  path: '/integraciones',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminContenidosRoute = AdminContenidosRouteImport.update({
   id: '/contenidos',
   path: '/contenidos',
@@ -245,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tracking': typeof TrackingRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
+  '/admin/integraciones': typeof AdminIntegracionesRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sedes': typeof AdminSedesRouteWithChildren
@@ -280,6 +287,7 @@ export interface FileRoutesByTo {
   '/sedes': typeof SedesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tracking': typeof TrackingRoute
+  '/admin/integraciones': typeof AdminIntegracionesRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sincronizacion': typeof AdminSincronizacionRoute
@@ -318,6 +326,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tracking': typeof TrackingRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
+  '/admin/integraciones': typeof AdminIntegracionesRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sedes': typeof AdminSedesRouteWithChildren
@@ -358,6 +367,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/tracking'
     | '/admin/contenidos'
+    | '/admin/integraciones'
     | '/admin/menu'
     | '/admin/pedidos'
     | '/admin/sedes'
@@ -393,6 +403,7 @@ export interface FileRouteTypes {
     | '/sedes'
     | '/sitemap.xml'
     | '/tracking'
+    | '/admin/integraciones'
     | '/admin/menu'
     | '/admin/pedidos'
     | '/admin/sincronizacion'
@@ -430,6 +441,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/tracking'
     | '/admin/contenidos'
+    | '/admin/integraciones'
     | '/admin/menu'
     | '/admin/pedidos'
     | '/admin/sedes'
@@ -669,6 +681,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMenuRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/integraciones': {
+      id: '/admin/integraciones'
+      path: '/integraciones'
+      fullPath: '/admin/integraciones'
+      preLoaderRoute: typeof AdminIntegracionesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/contenidos': {
       id: '/admin/contenidos'
       path: '/contenidos'
@@ -762,6 +781,7 @@ const AdminSedesRouteWithChildren = AdminSedesRoute._addFileChildren(
 
 interface AdminRouteChildren {
   AdminContenidosRoute: typeof AdminContenidosRouteWithChildren
+  AdminIntegracionesRoute: typeof AdminIntegracionesRoute
   AdminMenuRoute: typeof AdminMenuRoute
   AdminPedidosRoute: typeof AdminPedidosRoute
   AdminSedesRoute: typeof AdminSedesRouteWithChildren
@@ -772,6 +792,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminContenidosRoute: AdminContenidosRouteWithChildren,
+  AdminIntegracionesRoute: AdminIntegracionesRoute,
   AdminMenuRoute: AdminMenuRoute,
   AdminPedidosRoute: AdminPedidosRoute,
   AdminSedesRoute: AdminSedesRouteWithChildren,
