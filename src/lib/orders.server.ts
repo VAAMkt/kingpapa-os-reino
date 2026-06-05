@@ -456,7 +456,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   }
 
   return {
-    orderId: rpPedidoId ?? localId,
+    orderId: localId,
     localId,
     rpPedidoId,
     subtotal,
