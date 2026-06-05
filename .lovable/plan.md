@@ -1,40 +1,56 @@
-## Conectar Google Maps con tu clave propia para `kingpapa.co`
+## Diagnóstico (con datos de la base)
 
-Tienes la clave lista y bien restringida (4 dominios + las APIs correctas). El siguiente paso es agregarla a Lovable como **conexión personalizada** de Google Maps, paralela a la actual gestionada.
+Miré los últimos 15 POST que Restaurant.pe envió al webhook (`rp_sync_log` tipo `webhook_raw`):
 
-### Pasos al pasar a build mode
+- Los **bodies llegan bien** (`{ "deliveryId": "160161", "statusCode": "2", ... }`).
+- Las cancelaciones **sí se envían** (`statusCode: "3"` aparece varias veces — ej. 160070-160075).
+- **TODOS los recientes tienen `query_token_match: false`** → el webhook responde 401 y nunca actualiza el pedido.
 
-1. **Abrir el diálogo de conector** con `standard_connectors--connect` (`connector_id: google_maps`).
-   - Elegirás **"Crear nueva conexión"** (no la gestionada) y pegarás `AIzaSyAiuC4KKYakHPcCJO3B4AIwuI18D4Zmnd0` ahí.
-   - Lovable la guarda cifrada y la inyecta como `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` + `GOOGLE_MAPS_API_KEY` en el runtime, reemplazando a la gestionada.
-   - **Importante:** por seguridad, después de guardarla, **rota la clave en Google Cloud** (regenerar) — ya quedó expuesta al compartirla por chat. La nueva clave la pegas igual en el diálogo.
+La única vez reciente que funcionó (`enviado → cancelado` el 04-jun 18:42) fue cuando `token_ok: true`.
 
-2. **Verificar** con `secrets--fetch_secrets` que los nuevos valores reemplazaron a los antiguos.
+### Por qué falla el token
 
-3. **Publicar** el proyecto para que `kingpapa.co` use la clave nueva. El mapa de `GateMap.tsx` y el autocomplete de `PlacesAutocomplete.tsx` empezarán a cargar sin `RefererNotAllowedMapError`.
+La URL que copiaste/pegaste en Restaurant.pe es:
 
-### Sobre "eliminar APIs que no usemos"
+```
+https://project--340d46a4-b783-4a2a-a2a1-295d9ea3dcbc.lovable.app/api/public/rp-webhook?t=<e80c1ecaebafdaf22e40c5b98e453907>
+```
 
-En el código actual solo usamos **3 APIs**:
+Los `<` y `>` son **literales** en la URL. Restaurant.pe los manda URL-encoded como `%3C...%3E`, así que el servidor recibe `t=%3Ce80c...%3E` que **no** coincide con `RP_WEBHOOK_SECRET`. Por eso devuelve 401 y los pedidos cancelados nunca se actualizan en tu pantalla.
 
-| API | Dónde |
-|---|---|
-| Maps JavaScript API | `src/lib/google-maps.ts` (mapa) |
-| Places API (New) | `src/components/kp/PlacesAutocomplete.tsx` |
-| Geocoding API | `src/lib/geocode.functions.ts` (server) |
+El dominio (`project--...lovable.app` vs `kingpapa.co`) **no es el problema** — ambos resuelven al mismo backend. La instrucción mostraba `<TOKEN>` como placeholder y se quedaron los corchetes.
 
-Las otras 30 que tienes habilitadas (Routes, Air Quality, Pollen, Solar, Weather, Street View, Aerial, Tiles, Roads, etc.) **no se llaman desde el código**. Puedes deshabilitarlas en Google Cloud para reducir superficie de ataque y costo:
+## Solución
 
-**Recomendación: deja habilitadas solo estas 3** y deshabilita el resto. Si en el futuro agregamos rutas/clima/etc., las re-habilitamos en 30 segundos.
+### Paso 1 — Corregir la URL en Restaurant.pe (tú, 30 segundos)
 
-Lo mismo en la **restricción de la clave** ("APIs a las que se puede acceder"): déjala restringida solo a esas 3.
+En **Menú → Mi Restaurant → Integraciones → URI de actualización de deliverys**, reemplaza por:
 
-### Secretos en Lovable Cloud
+```
+https://kingpapa.co/api/public/rp-webhook?t=e80c1ecaebafdaf22e40c5b98e453907
+```
 
-No hay nada que limpiar ahí — Google Maps no guarda secretos por API individual, solo la clave del conector. Lo único que cambia al conectar la personalizada es que `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` y `GOOGLE_MAPS_API_KEY` pasan a apuntar a tu clave en vez de a la gestionada.
+**Sin** los `<` ni `>`. Guarda y dispara una cancelación de prueba desde el POS.
 
-### Acción inmediata recomendada
+(Usar `kingpapa.co` también es válido y más estable que el subdominio interno; cualquiera de los dos funcionará una vez quitados los corchetes.)
 
-1. **Rota la clave en Google Cloud ahora** (porque la compartiste por chat).
-2. Avísame cuando tengas la nueva y paso a build mode para abrir el diálogo de conexión.
-3. Mientras tanto, en Google Cloud puedes ir deshabilitando las APIs que listé como no usadas.
+### Paso 2 — Verificar (yo, tras confirmación)
+
+Consulto `rp_sync_log` y confirmo que los próximos POST traen `query_token_match: true` y producen un log `webhook` con `enviado → cancelado` (u otra transición). Si pasa, listo.
+
+### Paso 3 — Endurecer el webhook (yo, opcional pero recomendado)
+
+Para que no vuelva a pasar silenciosamente:
+
+1. En `src/routes/api/public/rp-webhook.ts`: cuando el token no coincide, además del 401 hacer trim de `<` `>` y, si **eso** coincide, loguear en `rp_sync_log` un mensaje explícito `"token con corchetes — corregir URL en RP"`. Sirve solo como avisador, no autoriza el request.
+2. En `/admin/pedidos`, agregar un badge "Webhook KO últimas 24h" si hay logs `webhook_raw` con `query_token_match: false`, para detectarlo en futuro.
+
+Este paso 3 es solo defensa en profundidad, no es necesario si confirmas que ya editaste la URL.
+
+## Sobre el tracking en pantalla
+
+El tracking en `/gracias` ya está suscrito por Realtime a `orders` filtrando por id, y `TrackerOperativo` también. En cuanto el webhook actualice `status = "cancelado"`, el cambio aparecerá en vivo sin recargar. No hay nada que arreglar ahí — el bloqueador es exclusivamente el token.
+
+## Confírmame
+
+¿Edito el webhook con el paso 3 (badge + log de aviso), o lo dejamos solo con el fix de URL en Restaurant.pe?
