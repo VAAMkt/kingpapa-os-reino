@@ -104,11 +104,17 @@ export function mapDeliveryEstado(estado: unknown): RpOrderStatus | null {
 }
 
 /**
- * Mapea el `statusCode` que envía Restaurant.pe al webhook oficial V2
- * (Swagger 2-oas3, sección POST /webhook):
- *   0 = cancelado, 2 = confirmado/recibido, 3 = en camino, 4 = entregado.
- * Es distinto del `delivery_estado` que devuelve obtenerDelivery (ver
- * mapDeliveryEstado). Devuelve null si no se reconoce.
+ * Mapea el `statusCode` que envía Restaurant.pe al webhook.
+ *
+ * IMPORTANTE: el mapeo se basa en comportamiento REAL del POS observado en
+ * `rp_sync_log`, no en el Swagger oficial v2 (que describe otros valores).
+ * Evidencia empírica:
+ *   - "Anular" desde el POS   → statusCode "2"
+ *   - "Cancelar/Rechazar"     → statusCode "3"
+ *   - (0 y 4 no observados; conservados por compatibilidad con Swagger)
+ *
+ * Los estados intermedios (en preparación / en camino) NO llegan por webhook;
+ * el poller de `obtenerDelivery` los sincroniza vía `mapDeliveryEstado`.
  */
 export function mapWebhookStatusCode(code: unknown): RpOrderStatus | null {
   if (code == null || code === "") return null;
@@ -118,9 +124,9 @@ export function mapWebhookStatusCode(code: unknown): RpOrderStatus | null {
     case 0:
       return "cancelado";
     case 2:
-      return "recibido";
+      return "cancelado"; // anular desde el POS (observado)
     case 3:
-      return "en_camino";
+      return "cancelado"; // cancelar/rechazar desde el POS (observado)
     case 4:
       return "entregado";
     default:
