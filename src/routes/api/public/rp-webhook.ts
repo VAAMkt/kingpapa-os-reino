@@ -94,6 +94,25 @@ async function handleWebhook(request: Request): Promise<Response> {
 
   // 2) Token: único caso donde devolvemos error HTTP real.
   if (!expected || !token || token !== expected) {
+    // Detección defensiva: si Restaurant.pe (o el usuario al pegar la URL)
+    // dejó los corchetes `<...>` del placeholder, el token llega URL-encoded
+    // como `%3C...%3E` y nunca matchea. Logueamos explícitamente para que
+    // se vea en /admin/pedidos sin tener que descodificar a mano.
+    const trimmed = token ? token.replace(/^[<%3Ce]*/i, "").replace(/[>%3Ee]*$/i, "").trim() : "";
+    const looksBracketed = !!token && (/^<.*>$/.test(token) || /^%3C.*%3E$/i.test(token));
+    const matchesIfStripped = !!expected && !!trimmed && trimmed === expected;
+    if (looksBracketed || matchesIfStripped) {
+      await supabaseAdmin.from("rp_sync_log").insert({
+        tipo: "webhook",
+        ok: false,
+        mensaje:
+          "Token con corchetes <...> — corregir URI en Restaurant.pe (quitar < y >).",
+        payload: {
+          token_received: token,
+          url: request.url,
+        } as unknown as Json,
+      });
+    }
     return new Response("unauthorized", { status: 401 });
   }
 
