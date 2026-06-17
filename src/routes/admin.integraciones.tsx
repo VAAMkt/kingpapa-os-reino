@@ -7,7 +7,7 @@ import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { toast } from "sonner";
 import { getIntegrationsStatus } from "@/lib/integrations.functions";
-import { listOrphanOrders, reconcileOrphanOrders, reconcileOrder } from "@/lib/orders.reconcile.functions";
+import { listOrphanOrders } from "@/lib/orders.reconcile.functions";
 
 export const Route = createFileRoute("/admin/integraciones")({
   head: () => ({ meta: [{ title: "Integraciones — Admin" }] }),
@@ -55,8 +55,6 @@ function relativeAgo(iso: string | null): string {
 function AdminIntegracionesPage() {
   const fetchStatus = useServerFn(getIntegrationsStatus);
   const fetchOrphans = useServerFn(listOrphanOrders);
-  const reconcileAll = useServerFn(reconcileOrphanOrders);
-  const reconcileOne = useServerFn(reconcileOrder);
 
   const statusQuery = useQuery({
     queryKey: ["integraciones", "status"],
@@ -70,35 +68,7 @@ function AdminIntegracionesPage() {
     refetchInterval: 30_000,
   });
 
-  const [bulkRunning, setBulkRunning] = useState(false);
-  const [oneRunning, setOneRunning] = useState<string | null>(null);
 
-  async function handleReconcileAll() {
-    setBulkRunning(true);
-    try {
-      const r = await reconcileAll({});
-      toast.success(`Reconciliados ${r.processed} (cambios: ${r.changed})`);
-      orphansQuery.refetch();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al reconciliar");
-    } finally {
-      setBulkRunning(false);
-    }
-  }
-
-  async function handleReconcileOne(orderId: string) {
-    setOneRunning(orderId);
-    try {
-      const r = await reconcileOne({ data: { orderId } });
-      if (r.changed) toast.success(`Estado actualizado: ${r.status}`);
-      else toast(`Sin cambios (${r.source})`);
-      orphansQuery.refetch();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error");
-    } finally {
-      setOneRunning(null);
-    }
-  }
 
 
   const [rows, setRows] = useState<LogRow[]>([]);
@@ -232,7 +202,7 @@ function AdminIntegracionesPage() {
         </BrutalCard>
       </div>
 
-      {/* Bloque 1b — Pedidos huérfanos */}
+      {/* Bloque 1b — Pedidos huérfanos (solo lectura: auto-abandono a 45 min) */}
       <BrutalCard tone={(orphansQuery.data?.orphans.length ?? 0) > 0 ? "yellow" : "cheese"} className="p-4">
         <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <div className="flex items-center gap-2">
@@ -241,16 +211,9 @@ function AdminIntegracionesPage() {
               {orphansQuery.data?.orphans.length ?? 0}
             </BrutalBadge>
           </div>
-          <BrutalButton
-            size="sm"
-            onClick={handleReconcileAll}
-            disabled={bulkRunning || (orphansQuery.data?.orphans.length ?? 0) === 0}
-          >
-            {bulkRunning ? "Reconciliando…" : "Reconciliar todos"}
-          </BrutalButton>
         </div>
         <p className="text-xs text-kp-ink/70 mb-2">
-          Pedidos con &gt;15 min sin webhook que los toque. La reconciliación consulta a Restaurant.pe y sincroniza el estado.
+          Pedidos con &gt;15 min sin webhook que los toque. El sistema reconcilia solo en segundo plano y auto-cancela a los 45 min (zero-touch).
         </p>
         {(orphansQuery.data?.orphans.length ?? 0) === 0 ? (
           <p className="text-xs text-kp-ink/60">Sin huérfanos. Webhook al día.</p>
@@ -261,19 +224,12 @@ function AdminIntegracionesPage() {
                 <span className="truncate flex-1 min-w-0">
                   #{o.rp_pedido_id ?? "—"} · {o.id.slice(0, 8)} · {o.status} · {o.ageMinutes}m
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleReconcileOne(o.id)}
-                  disabled={oneRunning === o.id}
-                  className="px-2 py-0.5 border border-kp-ink bg-white font-display uppercase text-[10px]"
-                >
-                  {oneRunning === o.id ? "…" : "reconciliar"}
-                </button>
               </li>
             ))}
           </ul>
         )}
       </BrutalCard>
+
 
       {/* Bloque 2 — Buscar */}
       <BrutalCard tone="cheese" className="p-4">
