@@ -137,6 +137,48 @@ export function mapWebhookStatusCode(code: unknown): RpOrderStatus | null {
 }
 
 /**
+ * Mapea el `delivery_estado` textual de la API tenant
+ * (`GET /delivery/get/{id}`, `obtenerSyncFull`, etc.) al status local.
+ * Valores conocidos del Swagger del módulo delivery:
+ *   DELIVERY_ACTIVO | DELIVERY_CONFIRMADO  → recibido
+ *   DELIVERY_ENPREPARACION                 → en_preparacion
+ *   DELIVERY_DESPACHADO | DELIVERY_ENCAMINO → en_camino
+ *   DELIVERY_ENTREGADO                     → entregado
+ *   DELIVERY_ANULADO                       → cancelado
+ * Devuelve null para valores no reconocidos (no toca el status actual).
+ * Tolera prefijo opcional `DELIVERY_` y mayúsculas/minúsculas/acentos.
+ */
+export function mapRpEstadoToLocal(estado: unknown): RpOrderStatus | null {
+  if (estado == null || estado === "") return null;
+  const s = stripAccents(String(estado).toUpperCase()).trim().replace(/^DELIVERY_/, "");
+  switch (s) {
+    case "ACTIVO":
+    case "CONFIRMADO":
+    case "PENDIENTE":
+    case "REGISTRADO":
+      return "recibido";
+    case "ENPREPARACION":
+    case "EN_PREPARACION":
+    case "PREPARACION":
+      return "en_preparacion";
+    case "DESPACHADO":
+    case "ENCAMINO":
+    case "EN_CAMINO":
+      return "en_camino";
+    case "ENTREGADO":
+    case "FINALIZADO":
+    case "COMPLETADO":
+      return "entregado";
+    case "ANULADO":
+    case "CANCELADO":
+    case "RECHAZADO":
+      return "cancelado";
+    default:
+      return null;
+  }
+}
+
+/**
  * Extrae el número corto de comanda visible en el POS.
  * Esquema confirmado por soporte de Restaurant.pe:
  *   - `delivery_numero` (ej. "C10-12381")
