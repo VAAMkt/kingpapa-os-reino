@@ -21,13 +21,17 @@ type OrderRow = {
   cancel_reason: string | null;
   tipo: "delivery" | "pickup";
   updated_at: string;
+  created_at: string;
 };
 
 const TERMINAL = new Set<OrderStatus>(["entregado", "cancelado", "error"]);
 const STALE_SECONDS = 90;
-// Backoff: 60s, 120s, 180s, 300s, 300s… techo a 5 min, corte total a 30 min.
+// Backoff: 60s, 120s, 180s, 300s, 300s… techo a 5 min.
 const BACKOFFS_MS = [60_000, 120_000, 180_000, 300_000, 300_000, 300_000, 300_000];
-const MAX_BACKOFF_TOTAL_MS = 30 * 60_000;
+// Auto-kill TTL: 45 min desde created_at. El server-side reconcileOrder
+// cierra la orden como 'cancelado' (timeout_sistema) en su próxima llamada.
+const ORDER_TTL_MS = 45 * 60_000;
+
 
 const PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
   { label: "Recibimos tu pedido", emoji: "📋", status: ["enviado", "recibido"] },
