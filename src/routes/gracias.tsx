@@ -1,13 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
 import { resolveOrderId } from "@/lib/orders.poll.functions";
-import { reconcileOrder } from "@/lib/orders.reconcile.functions";
 import { supabase } from "@/integrations/supabase/client";
+
 
 export const Route = createFileRoute("/gracias")({
   validateSearch: (s: Record<string, unknown>) => {
@@ -51,9 +50,8 @@ function GraciasPage() {
   const [orderStatus, setOrderStatus] = useState<string | null>(null);
   const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [reconciling, setReconciling] = useState(false);
   const resolveFn = useServerFn(resolveOrderId);
-  const reconcileFn = useServerFn(reconcileOrder);
+
 
   // Resolver UUID real de orders.id (acepta UUID o rp_pedido_id numérico).
   useEffect(() => {
@@ -117,24 +115,7 @@ function GraciasPage() {
   const showSlowWarning =
     !!resolvedId && orderStatus === "enviado" && ageMin >= 5;
 
-  async function handleManualReconcile() {
-    if (!resolvedId || reconciling) return;
-    setReconciling(true);
-    try {
-      const r = await reconcileFn({ data: { orderId: resolvedId } });
-      if (r.changed) {
-        toast.success(`Estado actualizado: ${r.status}`);
-      } else if (r.source === "rate_limited") {
-        toast("Ya consultamos hace un momento, espera unos segundos.");
-      } else {
-        toast("Tu pedido sigue en el mismo estado por ahora.");
-      }
-    } catch {
-      toast.error("No pudimos verificar ahora. Intenta de nuevo.");
-    } finally {
-      setReconciling(false);
-    }
-  }
+
 
 
   useEffect(() => {
@@ -161,11 +142,15 @@ function GraciasPage() {
   const esRecoger = order?.tipo === "pickup";
   const waNumber = (sedeWa ?? "573172455336").replace(/\D/g, "");
   const refVisible = rpPedidoId ?? order_id;
-  const waText = encodeURIComponent(
-    `Hola KINGPAPA, mi pedido #${refVisible} (${esRecoger ? "RECOGER" : "DELIVERY"}). ` +
-      (order ? `Total: ${cop(order.total)}` : ""),
-  );
+
+  // Mensaje WhatsApp estructurado para optimizar el tiempo del call center.
+  const waText = encodeURIComponent(buildWhatsAppMessage({
+    refVisible,
+    esRecoger,
+    order,
+  }));
   const waUrl = `https://wa.me/${waNumber}?text=${waText}`;
+
 
   return (
     <section className="mx-auto max-w-3xl px-4 md:px-6 py-10 space-y-5">
@@ -189,20 +174,11 @@ function GraciasPage() {
       {showSlowWarning ? (
         <BrutalCard tone="cheese" className="p-4">
           <p className="text-sm">
-            Estamos confirmando tu pedido con la cocina. Si tarda más de 10 min, te llamamos.
+            Estamos confirmando tu pedido con la cocina. Si tarda más de 10 min, escríbenos por WhatsApp y te ayudamos al instante.
           </p>
-          <div className="mt-3">
-            <BrutalButton
-              variant="ghost"
-              size="sm"
-              onClick={handleManualReconcile}
-              disabled={reconciling}
-            >
-              {reconciling ? "Verificando…" : "Actualizar estado"}
-            </BrutalButton>
-          </div>
         </BrutalCard>
       ) : null}
+
 
       {order && (
         <BrutalCard tone="cheese" className="p-5">
@@ -240,3 +216,33 @@ function GraciasPage() {
     </section>
   );
 }
+
+function buildWhatsAppMessage(args: {
+  refVisible: string;
+  esRecoger: boolean;
+  order: LastOrder | null;
+}): string {
+  const { refVisible, esRecoger, order } = args;
+  const lines: string[] = [];
+  lines.push("Hola KINGPAPA, necesito ayuda con mi pedido.");
+  lines.push(`Referencia: #${refVisible}`);
+  lines.push(`Tipo: ${esRecoger ? "RECOGER EN SEDE" : "DELIVERY"}`);
+  if (order) {
+    lines.push(`A nombre de: ${order.cliente.nombre}`);
+    lines.push(`Teléfono: ${order.cliente.telefono}`);
+    if (esRecoger) {
+      if (order.sede?.label) lines.push(`Sede: ${order.sede.label}`);
+    } else if (order.cliente.direccion) {
+      lines.push(`Dirección: ${order.cliente.direccion}`);
+    }
+    if (order.cliente.detalles) lines.push(`Notas: ${order.cliente.detalles}`);
+    if (order.items?.length) {
+      lines.push("Pedido:");
+      for (const i of order.items) lines.push(`- ${i.cantidad}x ${i.nombre}`);
+    }
+    lines.push(`Total: ${cop(order.total)}`);
+    lines.push(`Pago: ${order.pago}`);
+  }
+  return lines.join("\n");
+}
+

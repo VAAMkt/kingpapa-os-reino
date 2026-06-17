@@ -21,13 +21,17 @@ type OrderRow = {
   cancel_reason: string | null;
   tipo: "delivery" | "pickup";
   updated_at: string;
+  created_at: string;
 };
 
 const TERMINAL = new Set<OrderStatus>(["entregado", "cancelado", "error"]);
 const STALE_SECONDS = 90;
-// Backoff: 60s, 120s, 180s, 300s, 300s… techo a 5 min, corte total a 30 min.
+// Backoff: 60s, 120s, 180s, 300s, 300s… techo a 5 min.
 const BACKOFFS_MS = [60_000, 120_000, 180_000, 300_000, 300_000, 300_000, 300_000];
-const MAX_BACKOFF_TOTAL_MS = 30 * 60_000;
+// Auto-kill TTL: 45 min desde created_at. El server-side reconcileOrder
+// cierra la orden como 'cancelado' (timeout_sistema) en su próxima llamada.
+const ORDER_TTL_MS = 45 * 60_000;
+
 
 const PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
   { label: "Recibimos tu pedido", emoji: "📋", status: ["enviado", "recibido"] },
@@ -50,7 +54,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const orderRef = useRef<OrderRow | null>(null);
   const reconcile = useServerFn(reconcileOrder);
-  const mountedAtRef = useRef<number>(Date.now());
+  
 
   useEffect(() => {
     if (!orderId) {
@@ -58,7 +62,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       return;
     }
     let cancelled = false;
-    mountedAtRef.current = Date.now();
+
 
     function applyRow(next: OrderRow | null) {
       if (cancelled) return;
@@ -79,11 +83,12 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     async function fetchOrder() {
       const { data } = await supabase
         .from("orders")
-        .select("id, status, rp_pedido_id, cancel_reason, tipo, updated_at")
+        .select("id, status, rp_pedido_id, cancel_reason, tipo, updated_at, created_at")
         .eq("id", orderId)
         .maybeSingle();
       applyRow((data as OrderRow | null) ?? null);
     }
+
 
     fetchOrder();
 
@@ -106,13 +111,20 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     let attempt = 0;
     function scheduleNext() {
       if (cancelled) return;
-      if (Date.now() - mountedAtRef.current > MAX_BACKOFF_TOTAL_MS) return;
       const cur = orderRef.current;
       if (!cur) {
         timer = setTimeout(scheduleNext, 30_000);
         return;
       }
       if (TERMINAL.has(cur.status)) return;
+      // Auto-kill TTL: si pasaron >45 min desde created_at, dejamos de pollear.
+      // El server-side reconcileOrder ya cerró/cerrará la orden como cancelado.
+      const ageFromCreated = Date.now() - new Date(cur.created_at).getTime();
+      if (ageFromCreated > ORDER_TTL_MS) {
+        // Disparamos un último reconcile para gatillar el auto-abandono server-side.
+        reconcile({ data: { orderId } }).catch(() => {});
+        return;
+      }
       const ageSec = (Date.now() - new Date(cur.updated_at).getTime()) / 1000;
       if (ageSec < STALE_SECONDS) {
         timer = setTimeout(scheduleNext, (STALE_SECONDS - ageSec + 1) * 1000);
@@ -123,6 +135,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       attempt += 1;
       timer = setTimeout(scheduleNext, delay);
     }
+
     timer = setTimeout(scheduleNext, STALE_SECONDS * 1000);
 
     return () => {
