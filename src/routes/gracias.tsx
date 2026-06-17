@@ -48,7 +48,12 @@ function GraciasPage() {
   const [sedeWa, setSedeWa] = useState<string | null>(null);
   const [resolvedId, setResolvedId] = useState<string | null>(null);
   const [rpPedidoId, setRpPedidoId] = useState<string | null>(null);
+  const [orderStatus, setOrderStatus] = useState<string | null>(null);
+  const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [reconciling, setReconciling] = useState(false);
   const resolveFn = useServerFn(resolveOrderId);
+  const reconcileFn = useServerFn(reconcileOrder);
 
   // Resolver UUID real de orders.id (acepta UUID o rp_pedido_id numérico).
   useEffect(() => {
@@ -65,17 +70,24 @@ function GraciasPage() {
     };
   }, [order_id, resolveFn]);
 
-  // Suscripción a la fila orders para obtener el rp_pedido_id (deliveryId) en vivo.
+  // Suscripción a la fila orders: rp_pedido_id, status y created_at.
   useEffect(() => {
     if (!resolvedId) return;
     let cancelled = false;
-    const apply = (row: { rp_pedido_id: string | null } | null) => {
+    type OrderLite = {
+      rp_pedido_id: string | null;
+      status: string;
+      created_at: string;
+    };
+    const apply = (row: OrderLite | null) => {
       if (!row || cancelled) return;
       setRpPedidoId(row.rp_pedido_id ?? null);
+      setOrderStatus(row.status ?? null);
+      setOrderCreatedAt(row.created_at ?? null);
     };
     supabase
       .from("orders")
-      .select("rp_pedido_id")
+      .select("rp_pedido_id, status, created_at")
       .eq("id", resolvedId)
       .maybeSingle()
       .then(({ data }) => apply(data as never));
@@ -92,6 +104,38 @@ function GraciasPage() {
       supabase.removeChannel(channel);
     };
   }, [resolvedId]);
+
+  // Tick cada 30s para refrescar el "han pasado > 5 min" sin recargar.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const ageMin = orderCreatedAt
+    ? Math.floor((now - new Date(orderCreatedAt).getTime()) / 60_000)
+    : 0;
+  const showSlowWarning =
+    !!resolvedId && orderStatus === "enviado" && ageMin >= 5;
+
+  async function handleManualReconcile() {
+    if (!resolvedId || reconciling) return;
+    setReconciling(true);
+    try {
+      const r = await reconcileFn({ data: { orderId: resolvedId } });
+      if (r.changed) {
+        toast.success(`Estado actualizado: ${r.status}`);
+      } else if (r.source === "rate_limited") {
+        toast("Ya consultamos hace un momento, espera unos segundos.");
+      } else {
+        toast("Tu pedido sigue en el mismo estado por ahora.");
+      }
+    } catch {
+      toast.error("No pudimos verificar ahora. Intenta de nuevo.");
+    } finally {
+      setReconciling(false);
+    }
+  }
+
 
   useEffect(() => {
     try {
