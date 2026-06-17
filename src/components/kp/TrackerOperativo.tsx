@@ -54,7 +54,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const orderRef = useRef<OrderRow | null>(null);
   const reconcile = useServerFn(reconcileOrder);
-  const mountedAtRef = useRef<number>(Date.now());
+  
 
   useEffect(() => {
     if (!orderId) {
@@ -62,7 +62,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       return;
     }
     let cancelled = false;
-    mountedAtRef.current = Date.now();
+
 
     function applyRow(next: OrderRow | null) {
       if (cancelled) return;
