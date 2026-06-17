@@ -216,3 +216,33 @@ function GraciasPage() {
     </section>
   );
 }
+
+function buildWhatsAppMessage(args: {
+  refVisible: string;
+  esRecoger: boolean;
+  order: LastOrder | null;
+}): string {
+  const { refVisible, esRecoger, order } = args;
+  const lines: string[] = [];
+  lines.push("Hola KINGPAPA, necesito ayuda con mi pedido.");
+  lines.push(`Referencia: #${refVisible}`);
+  lines.push(`Tipo: ${esRecoger ? "RECOGER EN SEDE" : "DELIVERY"}`);
+  if (order) {
+    lines.push(`A nombre de: ${order.cliente.nombre}`);
+    lines.push(`Teléfono: ${order.cliente.telefono}`);
+    if (esRecoger) {
+      if (order.sede?.label) lines.push(`Sede: ${order.sede.label}`);
+    } else if (order.cliente.direccion) {
+      lines.push(`Dirección: ${order.cliente.direccion}`);
+    }
+    if (order.cliente.detalles) lines.push(`Notas: ${order.cliente.detalles}`);
+    if (order.items?.length) {
+      lines.push("Pedido:");
+      for (const i of order.items) lines.push(`- ${i.cantidad}x ${i.nombre}`);
+    }
+    lines.push(`Total: ${cop(order.total)}`);
+    lines.push(`Pago: ${order.pago}`);
+  }
+  return lines.join("\n");
+}
+
