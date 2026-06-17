@@ -20,6 +20,9 @@ import type { Json } from "@/integrations/supabase/types";
 
 const RATE_LIMIT_SEC = 20;
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
+// Auto-abandono: si pasaron >45 min desde created_at y la orden sigue
+// en enviado/recibido, la cerramos como cancelado sin llamar a RP.
+const ABANDON_AFTER_MS = 45 * 60_000;
 
 type ReconcileSource = "webhook" | "reconcile" | "noop" | "error" | "rate_limited" | "no_pedido_id";
 
@@ -33,7 +36,7 @@ export type ReconcileResult = {
 async function reconcileOne(orderId: string): Promise<ReconcileResult> {
   const { data: row, error: selErr } = await supabaseAdmin
     .from("orders")
-    .select("id, status, rp_pedido_id, rp_response, cancel_reason, updated_at")
+    .select("id, status, rp_pedido_id, rp_response, cancel_reason, updated_at, created_at")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -43,6 +46,39 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
   if (TERMINAL.has(row.status)) {
     return { changed: false, status: row.status, source: "noop", message: "terminal" };
   }
+
+  // Regla #1 — Auto-Kill (TTL 45 min). Antes de cualquier llamada a RP.
+  const ageMs = Date.now() - new Date(row.created_at).getTime();
+  if (
+    ageMs > ABANDON_AFTER_MS &&
+    (row.status === "enviado" || row.status === "recibido")
+  ) {
+    const nowIso = new Date().toISOString();
+    const reason =
+      "timeout_sistema: Abandonado por falta de respuesta en POS tras 45 min";
+    await supabaseAdmin
+      .from("orders")
+      .update({
+        status: "cancelado",
+        cancel_reason: reason,
+        cancelled_at: nowIso,
+      } as never)
+      .eq("id", row.id);
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "reconcile",
+      ok: true,
+      mensaje: `auto-abandon: ${row.status} → cancelado (>${Math.floor(ABANDON_AFTER_MS / 60_000)} min)`,
+      payload: {
+        order_id: row.id,
+        rp_pedido_id: row.rp_pedido_id,
+        age_min: Math.floor(ageMs / 60_000),
+        reason,
+      } as unknown as Json,
+    });
+    return { changed: true, status: "cancelado", source: "reconcile", message: "auto_abandon" };
+  }
+
+
   if (!row.rp_pedido_id) {
     return { changed: false, status: row.status, source: "no_pedido_id" };
   }
