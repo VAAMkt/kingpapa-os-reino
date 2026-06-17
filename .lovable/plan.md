@@ -1,87 +1,59 @@
-# Plan "Zero-Touch": Auto-abandono y eliminación de botones manuales
+# Fix 401 Reconcile — Discovery + Fallback explícito
 
-Pasamos de un sistema semi-asistido a uno 100% autónomo. Tres cambios quirúrgicos, sin tocar webhook, RLS ni schema.
+## Diagnóstico (sin cambios)
 
-## 1. `src/routes/gracias.tsx` — quitar botón manual
+`registrarDelivery` ✅ → `api.restaurant.pe/restaurant/public/v2/...` con `RESTAURANT_PE_TOKEN`.
+`reconcileOrder` ❌ → `https://kingpapa.restaurant.pe/restaurant/api/rest/delivery/get/{id}` devuelve `tipo:"401", tokenValido:"0"` en todos los nodos. El token de dominio **no aplica** al host por tenant.
 
-- Eliminar el botón **"Actualizar estado"** y el handler que llama a `reconcileOrder`.
-- Mantener únicamente el texto informativo cuando `status === 'enviado'` >5 min:
-  > "Estamos confirmando tu pedido con la cocina. Si tarda más de 10 min, escribenos a whatsapp."
-- El backoff silencioso del `TrackerOperativo` sigue trabajando de fondo. El cliente no carga ninguna tarea.
+## Estrategia: dos fases
 
-## 2. `src/routes/admin.integraciones.tsx` — panel solo-lectura
+### Fase A — Discovery (server-side, sin tocar UI ni schema)
 
-- Mantener la card **"Pedidos huérfanos"** como observabilidad pura: conteo + lista de los 10 más viejos (UUID, `rp_pedido_id`, edad, status).
-- Eliminar los botones **"Reconciliar todos"** y los botones de reconciliar individual.
-- Eliminar los `useServerFn(reconcileOrphanOrders)` / `useServerFn(reconcileOrder)` del componente y cualquier estado de loading/toast asociado.
-- La server function `reconcileOrphanOrders` se queda en el archivo pero deja de tener caller en UI (se puede borrar en una limpieza futura — no la toco ahora para no romper imports si algo más la usa). `listOrphanOrders` se mantiene.
+Antes de escribir cualquier reemplazo, ejecuto pruebas reales con `RESTAURANT_PE_TOKEN` contra `api.restaurant.pe` para descubrir si existe un GET público que devuelva el estado actualizado del delivery. Plan de prueba (con el `rp_pedido_id = 163776` que ya tienes en la DB):
 
-## 3. Auto-Kill a los 45 min — TTL en dos capas
+1. Escribir un server function **temporal** `rpDiscoverDelivery` que, dado un `delivery_id`, pruebe en orden los candidatos más razonables y devuelva `{ path, status, tipo, mensajes, hasEstado, sample }` para cada uno:
 
-### 3a. `src/components/kp/TrackerOperativo.tsx`
+   - `GET /readonly/rest/delivery/get/{dominio_id}/{id}`
+   - `GET /readonly/rest/delivery/obtenerSyncFull/{dominio_id}/{id}`
+   - `GET /readonly/rest/delivery/obtenerDelivery/{dominio_id}/{id}/0`
+   - `GET /public/v2/rest/delivery/get/{dominio_id}/{id}`
+   - `GET /public/v2/rest/delivery/obtenerSyncFull/{dominio_id}/{id}`
+   - `GET /public/v2/rest/delivery/obtenerDelivery/{dominio_id}/{id}/0`
 
-- Reemplazar el corte actual basado en `MAX_BACKOFF_TOTAL_MS` (30 min desde mount) por un corte basado en `order.created_at`:
-  - Constante nueva: `ORDER_TTL_MS = 45 * 60_000`.
-  - Dentro de `scheduleNext()`, si `Date.now() - new Date(order.created_at).getTime() > ORDER_TTL_MS` → no llamar `reconcile`, no reprogramar. El siguiente `reconcileOrder` (disparado por mount de otra sesión o por el propio backoff antes del corte) hará el Auto-Kill server-side y Realtime cerrará el ciclo.
-- Añadir `created_at` al `select` y al tipo `OrderRow`.
+   Todos con `Authorization: Token token="${RESTAURANT_PE_TOKEN}"`. Mismo header que `registrarDelivery`.
 
-### 3b. `src/lib/orders.reconcile.functions.ts` — regla inicial en `reconcileOne`
+2. Invocar con `stack_modern--invoke-server-function` y leer la respuesta. Criterio de éxito: al menos un path devuelve `tipo:"1"` y un objeto donde `extractEstado()` encuentra `delivery_estado` no vacío.
 
-Justo después de leer la fila y antes del rate-limit / llamada RP:
+3. Loggear todo en `rp_sync_log` con `tipo='discovery'` para que quede traza.
 
-```ts
-const ageMs = Date.now() - new Date(row.created_at).getTime();
-const ABANDON_AFTER_MS = 45 * 60_000;
-if (
-  ageMs > ABANDON_AFTER_MS &&
-  (row.status === "enviado" || row.status === "recibido")
-) {
-  await supabaseAdmin.from("orders").update({
-    status: "cancelado",
-    cancel_reason: "timeout_sistema: Abandonado por falta de respuesta en POS tras 45 min",
-    cancelled_at: new Date().toISOString(),
-  }).eq("id", row.id);
-  await supabaseAdmin.from("rp_sync_log").insert({
-    tipo: "reconcile",
-    ok: true,
-    mensaje: `auto-abandon: ${row.status} → cancelado (>${ABANDON_AFTER_MS / 60_000} min)`,
-    payload: { order_id: row.id, rp_pedido_id: row.rp_pedido_id, age_min: Math.floor(ageMs / 60_000) },
-  });
-  return { changed: true, status: "cancelado", source: "reconcile", message: "auto_abandon" };
-}
-```
+### Fase B — Decisión basada en evidencia
 
-- Añadir `created_at` al `select` de `reconcileOne`.
-- Cero llamadas a RP para pedidos vencidos → servidor protegido.
-- Como el `UPDATE` toca `orders`, Realtime dispara → `TrackerOperativo` recibe `cancelado` (terminal) → limpia su timer → muestra card roja con el motivo. Ciclo cerrado sin humanos.
+**Caso 1: hay endpoint público que devuelve estado real**
+- Reemplazo `rpGetDeliveryById` / `rpObtenerSyncFull` por el endpoint descubierto, usando `READ_BASE` o `WRITE_BASE` según corresponda (mismo `rpFetch`, mismo token, misma firma).
+- Elimino `buildTenantBase`, `getDominioHost`, `rpFetchTenant`, `TENANT_TIMEOUT_MS`.
+- `orders.reconcile.functions.ts` solo cambia los nombres de funciones llamadas; el resto (TTL 45 min, rate-limit 20s, mapeo, logging) intacto.
+- Borro el server fn de discovery.
 
-## Lo que NO se toca
+**Caso 2: ningún endpoint público devuelve estado actualizado**
+- Reconcile pull queda **descartado** como tal.
+- Elimino `rpGetDeliveryById`, `rpObtenerSyncFull`, `rpFetchTenant`, `buildTenantBase`, `getDominioHost` — dejan de generar ruido 401 en `rp_sync_log`.
+- En `orders.reconcile.functions.ts`, `reconcileOne` queda **solo** con la regla de Auto-Kill 45 min + el rate-limit; cualquier llamada antes de los 45 min responde `{ source: "noop", message: "reconcile_unavailable" }` y no toca RP.
+- En `TrackerOperativo`, el backoff sigue programando `reconcileOrder` (sin penalidad: server responde noop barato), de modo que cuando una sesión cruza los 45 min dispare el Auto-Kill.
+- Dependemos 100% del webhook + Auto-Kill. Te aviso explícitamente para que decidas si subir prioridad de soporte con RP para obtener un token tenant válido.
 
-- Webhook (`/api/public/rp-webhook`), tabla `orders`, RLS, migrations.
-- Cliente RP, checkout, mapeo de estados.
-- Lógica de backoff exponencial (60/120/180/300s) — sigue igual, solo cambia el corte total.
-- Rate-limit de 20s entre reconciles.
+## Lo que NO se toca en ninguno de los dos casos
 
-## Resultado
+- Webhook `/api/public/rp-webhook`, `registrarDelivery`, `cancelarDelivery`, `verificarProductosAgotados`.
+- TTL 45 min y Auto-Kill en `orders.reconcile.functions.ts`.
+- `extractEstado()`.
+- Frontend: `TrackerOperativo`, `/gracias`, `/admin/integraciones`.
+- Schema, RLS, migrations, secrets.
 
-- Cliente: ve la pantalla "pensar" sola; si pasa lo peor, ve "cancelado" con motivo claro y CTA WhatsApp — sin botones.
-- Admin: panel de **observabilidad pura**, sin tareas pendientes.
-- Servidor: deja de pollear pedidos zombi a los 45 min; cualquier sesión que reabra el tracker dispara el Auto-Kill en la primera llamada.
+## Salida que verás al terminar la Fase A
 
-¿Procedo?  
-  
-**El Plan "Zero-Touch" es 100% Aprobado. La lógica de Auto-Kill en dos capas (front y server) usando** `created_at` **es exactamente la arquitectura que buscaba.**
+Te pego en chat:
+- Tabla de los 6 paths probados con `status`, `tipo`, primeros 200 chars de `mensajes` o `data`.
+- Veredicto: **Caso 1** (con el path elegido) o **Caso 2** (sin endpoint viable).
+- Solo entonces implemento la Fase B correspondiente.
 
-**ANTES DE EJECUTAR, AÑADE ESTA MEJORA CRUCIAL AL PLAN (Botón Inteligente de WhatsApp):**
-
-Ya tenemos un botón de "Escribir a la sede por WhatsApp" en la UI de `/gracias` (o en el Tracker). Vamos a hacerlo inteligente para optimizar el tiempo de nuestro Call Center.
-
-1. **Lógica del Mensaje (Helper):** Crea una función que tome el objeto `order` actual de la página de gracias y construya un string de texto estructurado. El texto debe verse más o menos así: *"Hola KingPapa, necesito ayuda con mi pedido.* *Referencia: #{rp_pedido_id}* *A nombre de: {customer_name}* *Teléfono: {customer_phone}* *Dirección: {delivery_address}* *Pedido: [Iterar sobre la lista de items (cantidad x nombre)]"*
-2. **Integración en el Botón:**
-
-- El botón de contacto debe estar SIEMPRE visible en la pantalla (no importa en qué estado esté el tracker, ni si hubo timeout).
-- Pasa el string generado por `encodeURIComponent()` y pásalo al `href` del botón apuntando al enlace de `[https://wa.me/](https://wa.me/)<NUMERO_DE_KINGPAPA>?text=<MENSAJE_ENCODED>`. (Asegúrate de usar el número de WhatsApp oficial que ya esté configurado en el proyecto o pon una variable/constante clara para él).
-
-**Agrega esta generación del link de WhatsApp al plan "Zero-Touch" y PROCEDE A EJECUTAR TODO EL CÓDIGO INMEDIATAMENTE. Despliega los cambios y avísame.**  
-  
-**whatsapp de call center kingpapa: +57 317 2455336**
+¿Procedo con la Fase A?
