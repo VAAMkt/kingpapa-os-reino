@@ -280,4 +280,113 @@ export function getSubdominio(): string {
   return (process.env.RESTAURANT_PE_SUBDOMINIO || "kingpapa").trim();
 }
 
+// ---------------------------------------------------------------------------
+// Cliente tenant (reconciliación pull).
+// Base distinta a la pública `api.restaurant.pe`: usa el host por tenant
+// `https://{subdominio}.{dominio_host}/restaurant/api/rest`, según Swagger.
+// Tipado totalmente defensivo: nunca lanza, siempre devuelve un resultado
+// estructurado para que el caller decida cómo reaccionar.
+// ---------------------------------------------------------------------------
+
+const TENANT_TIMEOUT_MS = 6_000;
+
+function getDominioHost(): string {
+  const v = (process.env.RESTAURANT_PE_DOMINIO_HOST || "").trim();
+  // valores válidos según Swagger: restaurant.pe | quipupos.com | deliverygo.app
+  if (v === "restaurant.pe" || v === "quipupos.com" || v === "deliverygo.app") return v;
+  return "restaurant.pe";
+}
+
+export function buildTenantBase(): string {
+  return `https://${getSubdominio()}.${getDominioHost()}/restaurant/api/rest`;
+}
+
+export type RpTenantResult = {
+  ok: boolean;
+  status: number;
+  raw: unknown;
+  error: string | null;
+};
+
+export async function rpFetchTenant(path: string): Promise<RpTenantResult> {
+  const url = `${buildTenantBase()}${path}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TENANT_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        Authorization: authHeader(),
+        Accept: "application/json",
+      },
+    });
+    let raw: unknown = null;
+    try {
+      raw = await res.json();
+    } catch {
+      raw = null;
+    }
+    return { ok: res.ok, status: res.status, raw, error: res.ok ? null : `HTTP ${res.status}` };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      raw: null,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function rpGetDeliveryById(id: string | number): Promise<RpTenantResult> {
+  return rpFetchTenant(`/delivery/get/${encodeURIComponent(String(id))}`);
+}
+
+export function rpObtenerSyncFull(id: string | number): Promise<RpTenantResult> {
+  return rpFetchTenant(`/delivery/obtenerSyncFull/${encodeURIComponent(String(id))}`);
+}
+
+/**
+ * Extrae estado/motivo/eta del JSON crudo del tenant.
+ * Recorre con `?.` claves conocidas; null si no aparece.
+ */
+export function extractEstado(raw: unknown): {
+  estado: string | null;
+  motivo: string | null;
+  eta_min: number | null;
+} {
+  const out = { estado: null as string | null, motivo: null as string | null, eta_min: null as number | null };
+  if (!raw || typeof raw !== "object") return out;
+  const r = raw as Record<string, unknown>;
+  // Posibles contenedores: r.data (obj), r.data[0] (array), r mismo.
+  const candidates: Record<string, unknown>[] = [];
+  if (r && typeof r === "object") candidates.push(r);
+  const d = r.data;
+  if (d && typeof d === "object" && !Array.isArray(d)) candidates.push(d as Record<string, unknown>);
+  if (Array.isArray(d) && d.length > 0 && typeof d[0] === "object" && d[0]) {
+    candidates.push(d[0] as Record<string, unknown>);
+  }
+  for (const c of candidates) {
+    if (out.estado == null) {
+      const v = c.delivery_estado ?? c.estado ?? c.delivery_estado_nombre;
+      if (v != null && String(v).trim() !== "") out.estado = String(v).trim();
+    }
+    if (out.motivo == null) {
+      const v = c.delivery_motivocancelacion ?? c.motivo ?? c.motivocancelacion;
+      if (v != null && String(v).trim() !== "") out.motivo = String(v).trim();
+    }
+    if (out.eta_min == null) {
+      const v = c.delivery_minutosestimados ?? c.tiempoEnvio ?? c.minutos_estimados;
+      if (v != null && v !== "") {
+        const n = Number(v);
+        if (Number.isFinite(n) && n > 0) out.eta_min = Math.trunc(n);
+      }
+    }
+  }
+  return out;
+}
+
+
 

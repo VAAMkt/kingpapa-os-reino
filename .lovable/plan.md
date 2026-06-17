@@ -1,67 +1,84 @@
-# Limpieza radical: adiós polling, adiós "Asignando comanda…"
+# Fase 1: Reconciliación pull (red de seguridad para el webhook)
 
-Volvemos a una arquitectura limpia: **el webhook público de Restaurant.pe es la única fuente de verdad**, y Supabase Realtime empuja los cambios al cliente. Se borra todo el polling de guerrilla y la UI deja de esperar el `rp_numero_comanda`.
+Pragmatismo total. Cero adivinanzas de schemas, cero mapa del motorizado. El objetivo único es que el cliente vea los estados básicos (Recibido → En Cocina → En Camino → Entregado/Cancelado) aunque el webhook no dispare.
 
-## 1. Borrar el polling del POS
+## 1. Cliente RP multi-tenant (`src/lib/restaurantpe.server.ts`)
 
-- Eliminar la server function `pollOrderFromRp` de `src/lib/orders.poll.functions.ts`.
-- Mantener en ese mismo archivo `resolveOrderId` (sigue siendo útil para `/gracias` y links viejos de WhatsApp con `rp_pedido_id` numérico).
-- Quitar el secreto `RESTAURANT_PE_POS_TOKEN` de la lectura en código (el secreto puede quedar en Cloud, ya no se usa).
-- En `src/routes/admin.integraciones.tsx`, quitar la fila "pos cookie" del panel de estado RP.
-- En `src/lib/integrations.functions.ts`, eliminar el campo `pos_token_set` del status (revisar y limpiar).
+Añadir, sin tocar lo existente:
 
-## 2. Tracker 100% reactivo
+- Helper `buildTenantBase()` que arma `https://${RESTAURANT_PE_SUBDOMINIO}.${RESTAURANT_PE_DOMINIO_HOST}/restaurant/api/rest` a partir de dos variables:
+  - `RESTAURANT_PE_SUBDOMINIO` (ya existe, fallback `"kingpapa"`)
+  - `RESTAURANT_PE_DOMINIO_HOST` (**nuevo secret**, valores aceptados: `restaurant.pe` | `quipupos.com` | `deliverygo.app`, fallback `"restaurant.pe"`)
+- `rpFetchTenant<T>(path, init)` — fetch genérico contra esa base, header `Authorization: Token token="<RESTAURANT_PE_TOKEN>"`, timeout 6s, una reintento, **devuelve siempre `{ ok, status, raw, data }**` sin parsear envelope (firma defensiva). Nunca tira; loguea y devuelve `{ ok: false }`.
+- `rpGetDeliveryById(id)` → `GET /delivery/get/{id}`
+- `rpObtenerSyncFull(id)` → `GET /delivery/obtenerSyncFull/{id}` (fallback)
+- Extractor `extractEstado(raw): { estado: string | null; motivo: string | null; eta_min: number | null }`. Recorre con `?.` posibles claves (`delivery_estado`, `data[0].delivery_estado`, `data.delivery_estado`, etc.) y devuelve null si no encuentra — nunca lanza.
 
-En `src/components/kp/TrackerOperativo.tsx`:
+Se mantiene el cliente actual (`HOST = http://api.restaurant.pe/...`) intacto para no romper checkout/menú/cancel. Reconcile es la única vía que usa la base por tenant.
 
-- Quitar el `setInterval` de 20s y cualquier `useServerFn(pollOrderFromRp)`.
-- Conservar:
-  - Fetch inicial directo a `orders` por UUID.
-  - Suscripción Realtime a `postgres_changes` sobre `public.orders` filtrada por `id=eq.<uuid>`.
-- Quitar el estado/branch que muestra "Asignando comanda…" mientras `rp_numero_comanda` está vacío.
-- Donde antes se mostraba `#{rp_numero_comanda}`, mostrar `#{rp_pedido_id}` (el deliveryId que devuelve `registrarDelivery` desde el segundo cero).
+## 2. Mapeo centralizado (`src/lib/restaurantpe-normalize.ts`)
 
-## 3. Limpiar `/gracias`
+Añadir `mapRpEstadoToLocal(estado: string | null): OrderStatus | null` que cubra los valores conocidos del Swagger (`DELIVERY_ACTIVO`, `DELIVERY_CONFIRMADO`, `DELIVERY_ENPREPARACION`, `DELIVERY_DESPACHADO`, `DELIVERY_ENCAMINO`, `DELIVERY_ENTREGADO`, `DELIVERY_ANULADO`) → `recibido | en_preparacion | en_camino | entregado | cancelado`. Estados desconocidos → `null` (no-op). Convive con el `mapWebhookStatusCode` actual sin tocarlo.
 
-En `src/routes/gracias.tsx`:
+## 3. Server function `reconcileOrder` (`src/lib/orders.reconcile.functions.ts` nuevo)
 
-- Sustituir cualquier referencia visible a `rp_numero_comanda` por `rp_pedido_id`.
-- Mantener `resolveOrderId` como red de seguridad para links antiguos (`?order_id=160364`).
-- Texto de referencia para el cliente: **"Pedido Restaurant.pe #160366"** (basado en `rp_pedido_id`).
+```ts
+reconcileOrder({ orderId: string }) → { changed, status, source: 'webhook' | 'reconcile' | 'noop' | 'error' }
+```
 
-## 4. Webhook (verificación, sin cambios funcionales)
+Pasos dentro del `.handler()`:
 
-Revisar `src/routes/api/public/rp-webhook.ts` para confirmar y dejar documentado que:
+1. `const { supabaseAdmin } = await import("@/integrations/supabase/client.server")`.
+2. Lee `orders` por UUID. Si no existe o status terminal → `noop`.
+3. **Rate-limit**: si `rp_response.last_reconcile_at` < 20s atrás → `noop` (lee `rp_response` actual, no llama RP).
+4. Sin `rp_pedido_id` → `noop`.
+5. Llama `rpGetDeliveryById(rp_pedido_id)`. Si `!ok` o sin estado, intenta `rpObtenerSyncFull`. Si ambos fallan → log `error`, return.
+6. `extractEstado` + `mapRpEstadoToLocal`. Si estado nuevo == local → log `noop`, return (pero actualiza `last_reconcile_at`).
+7. UPDATE en `orders`: `status`, `cancel_reason`/`cancelled_at` si cancelado, `rp_response = { ...prev, eta_min, last_reconcile_at, reconciled_status }`. Esto dispara Realtime → cliente refresca solo.
+8. Inserta en `rp_sync_log` con `tipo='reconcile'`, payload `{ before, after, raw }`.
 
-- Sigue **público** bajo `/api/public/*` (sin token `?t=`).
-- Sigue aceptando `tiempoEnvio` (JSONB) y matcheando por `delivery_codigointegracion` (nuestro UUID) o por `rp_pedido_id`.
-- Es el **único** camino que muta `status` (`recibido → en_preparacion → en_camino → entregado → cancelado`).
+Server fn pública (sin `requireSupabaseAuth`): el caller envía solo el UUID interno (no enumerable, no PII) y la fn nunca expone datos sensibles en la respuesta.
 
-No se tocan reglas de validación ni firma; solo se verifica.
+## 4. Frontend reactivo (`src/components/kp/TrackerOperativo.tsx` y `src/routes/gracias.tsx`)
 
-## 5. Módulo Integraciones
+`TrackerOperativo.tsx`:
 
-En `src/routes/admin.integraciones.tsx`:
+- Mantiene Realtime tal cual.
+- Al montar y cada vez que el `orderId` cambia, dispara `reconcileOrder` una vez (cubre el gap entre checkout y primer webhook).
+- Si `status ∈ {enviado, recibido, en_preparacion, en_camino}` y han pasado **>90s** desde el último cambio (`updated_at`), arranca backoff: 60s, 120s, 180s, 300s, 300s… se detiene si llega a terminal o si pasan 30 min sin cambios.
+- Limpia el interval al desmontar y al pasar a terminal.
 
-- Quitar la opción `pos_poll` del filtro de tipos (ya no se generarán esos logs).
-- Resto del módulo (estado RP/Lovable/Maps + stream realtime de `rp_sync_log` + buscador) queda igual.
+`gracias.tsx`:
 
-## Detalles técnicos
+- Si `status === 'enviado'` durante >5 min sin webhook ni reconcile exitoso, muestra:
+  > "Estamos confirmando tu pedido con la cocina. Si tarda más de 10 min, te llamamos."
+  - botón sutil **"Actualizar estado"** que invoca `reconcileOrder` manualmente y muestra toast con el resultado.
 
-**Archivos a editar**
-- `src/lib/orders.poll.functions.ts` — borrar `pollOrderFromRp`, dejar solo `resolveOrderId`.
-- `src/components/kp/TrackerOperativo.tsx` — borrar interval + polling, mostrar `rp_pedido_id`.
-- `src/routes/gracias.tsx` — reemplazar referencias a `rp_numero_comanda` por `rp_pedido_id`.
-- `src/lib/integrations.functions.ts` — quitar `pos_token_set`.
-- `src/routes/admin.integraciones.tsx` — quitar fila "pos cookie" y opción `pos_poll`.
+## 5. Panel `/admin/integraciones`
 
-**No se toca**
-- Tabla `orders` (columna `rp_numero_comanda` se queda; puede llegar a poblarse vía webhook el día que RP lo mande, pero la UI ya no la requiere).
-- Migrations.
-- Lógica del webhook ni del flujo de checkout.
-- `src/lib/orders.server.ts` (el fix de `orderId: localId` ya está aplicado).
+Añadir card **"Pedidos huérfanos"** debajo del estado RP:
 
-**Resultado esperado**
-- Cero llamadas ocultas al POS interno.
-- `/gracias` carga al instante con `#rp_pedido_id` visible y se actualiza por Realtime cuando el webhook escribe en `orders`.
-- Código mantenible, sin cookies que caducan, sin endpoints no documentados.
+- Cuenta órdenes con `status ∈ {enviado, recibido}` y `created_at < NOW() - interval '15 min'` que no tengan ningún registro en `rp_sync_log` con `tipo='webhook'` y `payload->>'order_id' = orders.id::text`.
+- Lista los últimos 10 (UUID, `rp_pedido_id`, edad).
+- Botón **"Reconciliar todos"** → server fn `reconcileOrphanOrders()` que itera la lista y llama `reconcileOrder` con un pequeño `await sleep(300ms)` entre cada uno (respeta rate-limit RP).
+
+## 6. Secret nuevo
+
+`RESTAURANT_PE_DOMINIO_HOST` — uno de `restaurant.pe | quipupos.com | deliverygo.app`. Antes de crear archivos pediré el valor con `add_secret`.
+
+## Lo que NO se toca
+
+- Webhook (`/api/public/rp-webhook`) — sigue siendo la fuente preferida cuando dispara.
+- Tabla `orders`, RLS, migrations.
+- Checkout, `orders.server.ts`, cliente RP existente (HOST `api.restaurant.pe`).
+- Sin tracking de motorizado, sin mapa, sin `getTransportista`, sin `consultarUbicacionPedido` — Fase 2 abortada.
+
+## Resultado esperado
+
+- Cliente nunca queda atascado en "Pedido recibido" más de ~90s sin actualización.
+- Admin ve y resuelve huérfanos en un clic.
+- Tipado defensivo: si RP cambia el shape, no rompemos la app — solo dejamos de reconciliar y queda registrado en `rp_sync_log`.
+- Cero llamadas extra por pedido cuando el webhook funciona (rate-limit + condición de >90s sin cambios).
+
+¿Procedo?  
+SI
