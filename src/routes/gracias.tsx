@@ -186,6 +186,24 @@ function GraciasPage() {
 
       {resolvedId ? <TrackerOperativo orderId={resolvedId} /> : null}
 
+      {showSlowWarning ? (
+        <BrutalCard tone="cheese" className="p-4">
+          <p className="text-sm">
+            Estamos confirmando tu pedido con la cocina. Si tarda más de 10 min, te llamamos.
+          </p>
+          <div className="mt-3">
+            <BrutalButton
+              variant="ghost"
+              size="sm"
+              onClick={handleManualReconcile}
+              disabled={reconciling}
+            >
+              {reconciling ? "Verificando…" : "Actualizar estado"}
+            </BrutalButton>
+          </div>
+        </BrutalCard>
+      ) : null}
+
       {order && (
         <BrutalCard tone="cheese" className="p-5">
           <h2 className="font-display uppercase text-xl mb-2">Resumen</h2>
