@@ -54,12 +54,52 @@ function relativeAgo(iso: string | null): string {
 
 function AdminIntegracionesPage() {
   const fetchStatus = useServerFn(getIntegrationsStatus);
+  const fetchOrphans = useServerFn(listOrphanOrders);
+  const reconcileAll = useServerFn(reconcileOrphanOrders);
+  const reconcileOne = useServerFn(reconcileOrder);
 
   const statusQuery = useQuery({
     queryKey: ["integraciones", "status"],
     queryFn: () => fetchStatus({}),
     refetchInterval: 15_000,
   });
+
+  const orphansQuery = useQuery({
+    queryKey: ["integraciones", "orphans"],
+    queryFn: () => fetchOrphans({}),
+    refetchInterval: 30_000,
+  });
+
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [oneRunning, setOneRunning] = useState<string | null>(null);
+
+  async function handleReconcileAll() {
+    setBulkRunning(true);
+    try {
+      const r = await reconcileAll({});
+      toast.success(`Reconciliados ${r.processed} (cambios: ${r.changed})`);
+      orphansQuery.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al reconciliar");
+    } finally {
+      setBulkRunning(false);
+    }
+  }
+
+  async function handleReconcileOne(orderId: string) {
+    setOneRunning(orderId);
+    try {
+      const r = await reconcileOne({ data: { orderId } });
+      if (r.changed) toast.success(`Estado actualizado: ${r.status}`);
+      else toast(`Sin cambios (${r.source})`);
+      orphansQuery.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    } finally {
+      setOneRunning(null);
+    }
+  }
+
 
   const [rows, setRows] = useState<LogRow[]>([]);
   const [filterTipo, setFilterTipo] = useState<(typeof TIPOS)[number]>("todos");
