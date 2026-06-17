@@ -30,6 +30,7 @@ const TIPOS = [
   "webhook_raw",
   "webhook",
   "webhook_ignored_external",
+  "reconcile",
   "order",
   "order_test_mode",
   "cancel",
