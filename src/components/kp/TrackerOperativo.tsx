@@ -20,7 +20,14 @@ type OrderRow = {
   rp_pedido_id: string | null;
   cancel_reason: string | null;
   tipo: "delivery" | "pickup";
+  updated_at: string;
 };
+
+const TERMINAL = new Set<OrderStatus>(["entregado", "cancelado", "error"]);
+const STALE_SECONDS = 90;
+// Backoff: 60s, 120s, 180s, 300s, 300s… techo a 5 min, corte total a 30 min.
+const BACKOFFS_MS = [60_000, 120_000, 180_000, 300_000, 300_000, 300_000, 300_000];
+const MAX_BACKOFF_TOTAL_MS = 30 * 60_000;
 
 const PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
   { label: "Recibimos tu pedido", emoji: "📋", status: ["enviado", "recibido"] },
