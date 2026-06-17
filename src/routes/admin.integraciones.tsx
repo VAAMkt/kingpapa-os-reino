@@ -232,6 +232,49 @@ function AdminIntegracionesPage() {
         </BrutalCard>
       </div>
 
+      {/* Bloque 1b — Pedidos huérfanos */}
+      <BrutalCard tone={(orphansQuery.data?.orphans.length ?? 0) > 0 ? "yellow" : "cheese"} className="p-4">
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-display uppercase text-sm">Pedidos huérfanos</span>
+            <BrutalBadge tone={(orphansQuery.data?.orphans.length ?? 0) > 0 ? "red" : "lime"}>
+              {orphansQuery.data?.orphans.length ?? 0}
+            </BrutalBadge>
+          </div>
+          <BrutalButton
+            size="sm"
+            onClick={handleReconcileAll}
+            disabled={bulkRunning || (orphansQuery.data?.orphans.length ?? 0) === 0}
+          >
+            {bulkRunning ? "Reconciliando…" : "Reconciliar todos"}
+          </BrutalButton>
+        </div>
+        <p className="text-xs text-kp-ink/70 mb-2">
+          Pedidos con &gt;15 min sin webhook que los toque. La reconciliación consulta a Restaurant.pe y sincroniza el estado.
+        </p>
+        {(orphansQuery.data?.orphans.length ?? 0) === 0 ? (
+          <p className="text-xs text-kp-ink/60">Sin huérfanos. Webhook al día.</p>
+        ) : (
+          <ul className="divide-y-2 divide-kp-ink/10 text-xs font-mono">
+            {orphansQuery.data!.orphans.slice(0, 10).map((o) => (
+              <li key={o.id} className="py-2 flex items-center gap-2 flex-wrap">
+                <span className="truncate flex-1 min-w-0">
+                  #{o.rp_pedido_id ?? "—"} · {o.id.slice(0, 8)} · {o.status} · {o.ageMinutes}m
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleReconcileOne(o.id)}
+                  disabled={oneRunning === o.id}
+                  className="px-2 py-0.5 border border-kp-ink bg-white font-display uppercase text-[10px]"
+                >
+                  {oneRunning === o.id ? "…" : "reconciliar"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </BrutalCard>
+
       {/* Bloque 2 — Buscar */}
       <BrutalCard tone="cheese" className="p-4">
         <label className="text-xs font-display uppercase block mb-2">Buscar pedido</label>
