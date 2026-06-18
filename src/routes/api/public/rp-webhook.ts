@@ -7,25 +7,26 @@
 //   URI de actualización de deliverys:
 //   https://kingpapa.co/api/public/rp-webhook
 //
-// CORRELACIÓN PROGRESIVA Y AUDITABLE (v2 — jun-2026):
-// Restaurant.pe puede enviar `delivery_codigointegracion` (UUID local que le
-// enviamos en `registrarDelivery`). Cuando lo hace, es la llave canónica y
-// resuelve la ambigüedad. Si no lo manda, caemos al esquema previo:
-//   0) Si llega integrationCode válido + pedido reciente + no terminal +
-//      enviado a RP → match directo por orders.id.
-//   1) Match directo:   orders.rp_pedido_id == deliveryId
-//   2) Alias aprendido: orders.rp_response.webhook_delivery_ids @> [deliveryId]
-//   3) Fallback único:  exactamente UN pedido web reciente (<=20 min desde
-//                       created_at), no terminal. Si hay ≥2 → ambiguo, no toca.
-// Cuando aciertan 0/2/3, persistimos el alias para que futuros webhooks con
-// ese mismo `deliveryId` matcheen directo y queden trazables.
+// CORRELACIÓN ESTRICTA (v3 — jun-2026):
+// SÓLO matcheamos webhooks a pedidos por identidad fuerte. NUNCA por
+// proximidad temporal ("el único pedido reciente"). RP envía a esta URL
+// webhooks de OTROS deliveries de la cuenta, y un fallback laxo termina
+// secuestrando pedidos ajenos.
+//   1) integration → `delivery_codigointegracion` == orders.id (UUID local
+//                    que enviamos en registrarDelivery). Llave canónica.
+//   2) direct      → orders.rp_pedido_id == deliveryId.
+//   3) alias       → orders.rp_response.webhook_delivery_ids @> [deliveryId],
+//                    pero el alias SOLO se aprende cuando el match original
+//                    fue integration o direct. Nunca desde fallback.
+// Si nada matchea → log `webhook_ignored_external` y 200. Mejor no tocar
+// nada que marcar un pedido al azar como entregado.
 //
-// ANTI-REGRESIÓN: usamos un ranking de estados (enviado<recibido<en_camino<
-// entregado) para descartar eventos atrasados o reintentos fuera de orden.
+// ANTI-REGRESIÓN: ranking de estados (enviado<recibido<en_camino<entregado)
+// descarta eventos atrasados o reintentos fuera de orden.
 //
 // LOG-FIRST: el body crudo siempre se guarda primero en rp_sync_log.
-// FALLO SUAVE: todo error posterior responde 200 para que RP no desactive el
-// webhook por errores recurrentes.
+// FALLO SUAVE: todo error posterior responde 200 para que RP no desactive
+// el webhook por errores recurrentes.
 
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -33,7 +34,7 @@ import { mapWebhookStatusCode } from "@/lib/restaurantpe-normalize";
 import type { Json } from "@/integrations/supabase/types";
 
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
-const FALLBACK_WINDOW_MS = 20 * 60_000; // 20 min desde created_at
+const FALLBACK_WINDOW_MS = 20 * 60_000; // (legacy) ya no se usa para matchear
 const INTEGRATION_WINDOW_MS = 3 * 60 * 60_000; // 3 h desde created_at
 
 // Ranking para detectar regresiones (cancelado/error fuera de progresión).
@@ -168,9 +169,7 @@ type MatchResult =
   | { kind: "integration"; order: OrderLite }
   | { kind: "direct"; order: OrderLite }
   | { kind: "alias"; order: OrderLite }
-  | { kind: "fallback_single"; order: OrderLite; candidatesCount: 1 }
-  | { kind: "ambiguous"; candidates: Array<Pick<OrderLite, "id" | "rp_pedido_id" | "status" | "created_at">> }
-  | { kind: "none"; candidates: Array<Pick<OrderLite, "id" | "rp_pedido_id" | "status" | "created_at">> };
+  | { kind: "none" };
 
 async function resolveByIntegrationCode(integrationCode: string): Promise<OrderLite | null> {
   if (!UUID_RE.test(integrationCode)) return null;
@@ -191,13 +190,13 @@ async function resolveOrderForWebhook(
   deliveryId: string,
   integrationCode: string | null,
 ): Promise<MatchResult> {
-  // 0) Match canónico por integrationCode (con guardarraíles).
+  // 1) Match canónico por integrationCode (UUID que enviamos en registrarDelivery).
   if (integrationCode) {
     const o = await resolveByIntegrationCode(integrationCode);
     if (o) return { kind: "integration", order: o };
   }
 
-  // 1) Match directo por rp_pedido_id == deliveryId.
+  // 2) Match directo por rp_pedido_id == deliveryId.
   const direct = await supabaseAdmin
     .from("orders")
     .select("id, status, cancel_reason, rp_response, rp_pedido_id, created_at")
@@ -208,10 +207,8 @@ async function resolveOrderForWebhook(
     return { kind: "direct", order: direct.data[0] as OrderLite };
   }
 
-  // 2) Alias aprendido (rp_response.webhook_delivery_ids @> [deliveryId]).
-  //    Guardarraíles: solo pedidos NO terminales y dentro de la ventana de 3h.
-  //    Sin esto, un alias aprendido por fallback en un pedido viejo "secuestra"
-  //    para siempre los webhooks futuros con ese mismo deliveryId.
+  // 3) Alias aprendido (sólo se aprende desde integration/direct — ver
+  //    persistAlias). Ventana 3h + no terminal por seguridad extra.
   const aliasSinceIso = new Date(Date.now() - INTEGRATION_WINDOW_MS).toISOString();
   const alias = await supabaseAdmin
     .from("orders")
@@ -225,28 +222,10 @@ async function resolveOrderForWebhook(
     return { kind: "alias", order: alias.data[0] as OrderLite };
   }
 
-  // 3) Fallback por candidato único reciente no terminal.
-  const sinceIso = new Date(Date.now() - FALLBACK_WINDOW_MS).toISOString();
-  const cand = await supabaseAdmin
-    .from("orders")
-    .select("id, status, cancel_reason, rp_response, rp_pedido_id, created_at")
-    .in("status", ["enviado", "recibido", "en_preparacion", "en_camino"])
-    .gte("created_at", sinceIso)
-    .order("created_at", { ascending: false })
-    .limit(5);
-  const candidates = (cand.data ?? []) as OrderLite[];
-  if (candidates.length === 1) {
-    return { kind: "fallback_single", order: candidates[0], candidatesCount: 1 };
-  }
-  const lite = candidates.map((c) => ({
-    id: c.id,
-    rp_pedido_id: c.rp_pedido_id,
-    status: c.status,
-    created_at: c.created_at,
-  }));
-  if (candidates.length > 1) return { kind: "ambiguous", candidates: lite };
-  return { kind: "none", candidates: lite };
+  // Sin match fuerte → no tocamos nada. Mejor ignorar que vincular al azar.
+  return { kind: "none" };
 }
+
 
 async function handleWebhook(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -304,28 +283,19 @@ async function handleWebhook(request: Request): Promise<Response> {
   // 3) Resolver pedido (correlación progresiva, prioriza integrationCode).
   const match = await resolveOrderForWebhook(parsed.deliveryId, parsed.integrationCode);
 
-  if (match.kind === "ambiguous") {
-    await supabaseAdmin.from("rp_sync_log").insert({
-      tipo: "webhook_ambiguous",
-      ok: false,
-      mensaje: `Webhook ambiguo (deliveryId=${parsed.deliveryId}, sc=${parsed.statusCode} → ${mapped}). ${match.candidates.length} candidatos recientes; no se actualizó ningún pedido.`,
-      payload: { ...parsed, candidatos: match.candidates } as unknown as Json,
-    });
-    return new Response("ok", { status: 200 });
-  }
-
   if (match.kind === "none") {
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "webhook_ignored_external",
       ok: true,
-      mensaje: `Pedido externo ignorado (deliveryId=${parsed.deliveryId}, sc=${parsed.statusCode} → ${mapped}). Sin candidatos web recientes.`,
-      payload: { ...parsed, candidatos: match.candidates } as unknown as Json,
+      mensaje: `Webhook ignorado (deliveryId=${parsed.deliveryId}, sc=${parsed.statusCode} → ${mapped}). Sin match fuerte (integration/direct/alias).`,
+      payload: parsed as unknown as Json,
     });
     return new Response("ok", { status: 200 });
   }
 
   const row = match.order;
-  const linkReason: "integration" | "direct" | "alias" | "fallback_single" = match.kind;
+  const linkReason: "integration" | "direct" | "alias" = match.kind;
+
 
   // 4) No-op si ya está en ese estado o terminal.
   if (row.status === mapped || TERMINAL.has(row.status)) {
@@ -432,13 +402,14 @@ async function handleWebhook(request: Request): Promise<Response> {
       mensaje: `Match por integrationCode: ${row.status} → ${mapped}${etaSuffix} (deliveryId=${parsed.deliveryId} ↔ order ${row.id.slice(0, 8)})`,
       payload: { ...parsed, order_id: row.id, via: linkReason } as unknown as Json,
     });
-  } else if (linkReason === "fallback_single") {
+  } else if (linkReason === "direct") {
     await supabaseAdmin.from("rp_sync_log").insert({
-      tipo: "webhook_linked_fallback",
+      tipo: "webhook",
       ok: true,
-      mensaje: `Vinculado por candidato único: ${row.status} → ${mapped}${etaSuffix} (deliveryId=${parsed.deliveryId} ↔ order ${row.id.slice(0, 8)}, rp_pedido_id=${row.rp_pedido_id ?? "n/d"})`,
+      mensaje: `Match directo: ${row.status} → ${mapped}${etaSuffix} (deliveryId=${parsed.deliveryId} ↔ order ${row.id.slice(0, 8)})`,
       payload: { ...parsed, order_id: row.id, via: linkReason } as unknown as Json,
     });
+
   } else if (linkReason === "alias") {
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "webhook_alias_learned",
@@ -466,7 +437,7 @@ async function handleWebhook(request: Request): Promise<Response> {
 async function persistAlias(
   row: OrderLite,
   deliveryId: string,
-  linkReason: "integration" | "alias" | "fallback_single",
+  linkReason: "integration" | "alias",
   mapped: string,
 ): Promise<void> {
   const prev = asObject(row.rp_response);
