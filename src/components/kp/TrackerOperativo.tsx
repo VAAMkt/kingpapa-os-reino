@@ -33,9 +33,12 @@ const BACKOFFS_MS = [60_000, 120_000, 180_000, 300_000, 300_000, 300_000, 300_00
 const ORDER_TTL_MS = 45 * 60_000;
 
 
+// Pasos alineados a los estados que RP emite por webhook hoy:
+// recibido → en_camino → entregado. `en_preparacion` queda soportado en
+// backend pero no se promete como paso visible (RP no lo envía).
 const PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
   { label: "Recibimos tu pedido", emoji: "📋", status: ["enviado", "recibido"] },
-  { label: "Coronando en cocina", emoji: "🧀", status: ["en_preparacion"] },
+  { label: "Cocina confirmó", emoji: "🧀", status: ["en_preparacion"] },
   { label: "Motorizado en camino", emoji: "🛵", status: ["en_camino"] },
   { label: "¡A disfrutarlo!", emoji: "👑", status: ["entregado"] },
 ];
