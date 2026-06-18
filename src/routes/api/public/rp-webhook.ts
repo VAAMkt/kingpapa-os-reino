@@ -209,10 +209,16 @@ async function resolveOrderForWebhook(
   }
 
   // 2) Alias aprendido (rp_response.webhook_delivery_ids @> [deliveryId]).
+  //    Guardarraíles: solo pedidos NO terminales y dentro de la ventana de 3h.
+  //    Sin esto, un alias aprendido por fallback en un pedido viejo "secuestra"
+  //    para siempre los webhooks futuros con ese mismo deliveryId.
+  const aliasSinceIso = new Date(Date.now() - INTEGRATION_WINDOW_MS).toISOString();
   const alias = await supabaseAdmin
     .from("orders")
     .select("id, status, cancel_reason, rp_response, rp_pedido_id, created_at")
     .contains("rp_response", { webhook_delivery_ids: [deliveryId] } as never)
+    .in("status", ["enviado", "recibido", "en_preparacion", "en_camino"])
+    .gte("created_at", aliasSinceIso)
     .order("created_at", { ascending: false })
     .limit(1);
   if (alias.data && alias.data.length > 0) {
