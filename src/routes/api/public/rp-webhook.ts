@@ -437,7 +437,7 @@ async function handleWebhook(request: Request): Promise<Response> {
 async function persistAlias(
   row: OrderLite,
   deliveryId: string,
-  linkReason: "integration" | "alias" | "fallback_single",
+  linkReason: "integration" | "alias",
   mapped: string,
 ): Promise<void> {
   const prev = asObject(row.rp_response);
