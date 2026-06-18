@@ -283,28 +283,19 @@ async function handleWebhook(request: Request): Promise<Response> {
   // 3) Resolver pedido (correlación progresiva, prioriza integrationCode).
   const match = await resolveOrderForWebhook(parsed.deliveryId, parsed.integrationCode);
 
-  if (match.kind === "ambiguous") {
-    await supabaseAdmin.from("rp_sync_log").insert({
-      tipo: "webhook_ambiguous",
-      ok: false,
-      mensaje: `Webhook ambiguo (deliveryId=${parsed.deliveryId}, sc=${parsed.statusCode} → ${mapped}). ${match.candidates.length} candidatos recientes; no se actualizó ningún pedido.`,
-      payload: { ...parsed, candidatos: match.candidates } as unknown as Json,
-    });
-    return new Response("ok", { status: 200 });
-  }
-
   if (match.kind === "none") {
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "webhook_ignored_external",
       ok: true,
-      mensaje: `Pedido externo ignorado (deliveryId=${parsed.deliveryId}, sc=${parsed.statusCode} → ${mapped}). Sin candidatos web recientes.`,
-      payload: { ...parsed, candidatos: match.candidates } as unknown as Json,
+      mensaje: `Webhook ignorado (deliveryId=${parsed.deliveryId}, sc=${parsed.statusCode} → ${mapped}). Sin match fuerte (integration/direct/alias).`,
+      payload: parsed as unknown as Json,
     });
     return new Response("ok", { status: 200 });
   }
 
   const row = match.order;
-  const linkReason: "integration" | "direct" | "alias" | "fallback_single" = match.kind;
+  const linkReason: "integration" | "direct" | "alias" = match.kind;
+
 
   // 4) No-op si ya está en ese estado o terminal.
   if (row.status === mapped || TERMINAL.has(row.status)) {
