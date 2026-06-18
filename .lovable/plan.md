@@ -1,59 +1,142 @@
-# Fix 401 Reconcile — Discovery + Fallback explícito
+## Diagnóstico
 
-## Diagnóstico (sin cambios)
+El webhook de Restaurant.pe sí está llegando a producción en `https://kingpapa.co/api/public/rp-webhook`.
 
-`registrarDelivery` ✅ → `api.restaurant.pe/restaurant/public/v2/...` con `RESTAURANT_PE_TOKEN`.
-`reconcileOrder` ❌ → `https://kingpapa.restaurant.pe/restaurant/api/rest/delivery/get/{id}` devuelve `tipo:"401", tokenValido:"0"` en todos los nodos. El token de dominio **no aplica** al host por tenant.
+La causa visible en logs es otra: Restaurant.pe está enviando `deliveryId` distintos al valor que guardamos como `orders.rp_pedido_id` al crear el pedido.
 
-## Estrategia: dos fases
+Ejemplo real:
 
-### Fase A — Discovery (server-side, sin tocar UI ni schema)
+```text
+Pedido web creado:
+orders.id       = d5387352-321e-454c-acde-f5ec1f1315a2
+rp_pedido_id    = 164071
 
-Antes de escribir cualquier reemplazo, ejecuto pruebas reales con `RESTAURANT_PE_TOKEN` contra `api.restaurant.pe` para descubrir si existe un GET público que devuelva el estado actualizado del delivery. Plan de prueba (con el `rp_pedido_id = 163776` que ya tienes en la DB):
+Webhook recibido minutos después:
+deliveryId      = 163727 / 163726
+statusCode      = 3
+```
 
-1. Escribir un server function **temporal** `rpDiscoverDelivery` que, dado un `delivery_id`, pruebe en orden los candidatos más razonables y devuelva `{ path, status, tipo, mensajes, hasEstado, sample }` para cada uno:
+El endpoint actual busca así:
 
-   - `GET /readonly/rest/delivery/get/{dominio_id}/{id}`
-   - `GET /readonly/rest/delivery/obtenerSyncFull/{dominio_id}/{id}`
-   - `GET /readonly/rest/delivery/obtenerDelivery/{dominio_id}/{id}/0`
-   - `GET /public/v2/rest/delivery/get/{dominio_id}/{id}`
-   - `GET /public/v2/rest/delivery/obtenerSyncFull/{dominio_id}/{id}`
-   - `GET /public/v2/rest/delivery/obtenerDelivery/{dominio_id}/{id}/0`
+```text
+orders.rp_pedido_id == webhook.deliveryId
+```
 
-   Todos con `Authorization: Token token="${RESTAURANT_PE_TOKEN}"`. Mismo header que `registrarDelivery`.
+Como no coincide, lo registra como `webhook_ignored_external` y no actualiza el pedido del cliente.
 
-2. Invocar con `stack_modern--invoke-server-function` y leer la respuesta. Criterio de éxito: al menos un path devuelve `tipo:"1"` y un objeto donde `extractEstado()` encuentra `delivery_estado` no vacío.
+## Causa probable
 
-3. Loggear todo en `rp_sync_log` con `tipo='discovery'` para que quede traza.
+El `response` de `registrarDelivery` no parece ser el mismo identificador que Restaurant.pe usa luego en el webhook `deliveryId`. Puede ser un id de pedido/comanda/venta o un correlativo distinto, mientras que el webhook usa el id interno de delivery.
 
-### Fase B — Decisión basada en evidencia
+Además, el payload de creación ya envía una clave perfecta de correlación:
 
-**Caso 1: hay endpoint público que devuelve estado real**
-- Reemplazo `rpGetDeliveryById` / `rpObtenerSyncFull` por el endpoint descubierto, usando `READ_BASE` o `WRITE_BASE` según corresponda (mismo `rpFetch`, mismo token, misma firma).
-- Elimino `buildTenantBase`, `getDominioHost`, `rpFetchTenant`, `TENANT_TIMEOUT_MS`.
-- `orders.reconcile.functions.ts` solo cambia los nombres de funciones llamadas; el resto (TTL 45 min, rate-limit 20s, mapeo, logging) intacto.
-- Borro el server fn de discovery.
+```text
+delivery_codigointegracion = orders.id
+```
 
-**Caso 2: ningún endpoint público devuelve estado actualizado**
-- Reconcile pull queda **descartado** como tal.
-- Elimino `rpGetDeliveryById`, `rpObtenerSyncFull`, `rpFetchTenant`, `buildTenantBase`, `getDominioHost` — dejan de generar ruido 401 en `rp_sync_log`.
-- En `orders.reconcile.functions.ts`, `reconcileOne` queda **solo** con la regla de Auto-Kill 45 min + el rate-limit; cualquier llamada antes de los 45 min responde `{ source: "noop", message: "reconcile_unavailable" }` y no toca RP.
-- En `TrackerOperativo`, el backoff sigue programando `reconcileOrder` (sin penalidad: server responde noop barato), de modo que cuando una sesión cruza los 45 min dispare el Auto-Kill.
-- Dependemos 100% del webhook + Auto-Kill. Te aviso explícitamente para que decidas si subir prioridad de soporte con RP para obtener un token tenant válido.
+Pero el webhook documentado sólo manda `deliveryId`, `statusCode`, `tiempoEnvio`; no manda `delivery_codigointegracion`. Por eso necesitamos una correlación defensiva para producción.
 
-## Lo que NO se toca en ninguno de los dos casos
+## Plan de implementación
 
-- Webhook `/api/public/rp-webhook`, `registrarDelivery`, `cancelarDelivery`, `verificarProductosAgotados`.
-- TTL 45 min y Auto-Kill en `orders.reconcile.functions.ts`.
-- `extractEstado()`.
-- Frontend: `TrackerOperativo`, `/gracias`, `/admin/integraciones`.
-- Schema, RLS, migrations, secrets.
+### 1. Endurecer `/api/public/rp-webhook`
 
-## Salida que verás al terminar la Fase A
+Modificar el handler para que intente resolver el pedido en este orden:
 
-Te pego en chat:
-- Tabla de los 6 paths probados con `status`, `tipo`, primeros 200 chars de `mensajes` o `data`.
-- Veredicto: **Caso 1** (con el path elegido) o **Caso 2** (sin endpoint viable).
-- Solo entonces implemento la Fase B correspondiente.
+1. Match exacto por `rp_pedido_id = deliveryId`.
+2. Si no hay match, buscar candidatos recientes no terminales de la misma sede/ventana operativa.
+3. Si existe exactamente un candidato web reciente, asociar ese webhook a ese pedido y actualizarlo.
+4. Si hay varios candidatos, no adivinar: guardar el evento como ambiguo con candidatos para auditoría.
 
-¿Procedo con la Fase A?
+Esto evita perder estados cuando Restaurant.pe manda un `deliveryId` diferente al que devuelve `registrarDelivery`, sin actualizar pedidos incorrectos si hay ambigüedad.
+
+### 2. Persistir alias de webhook en `orders.rp_response`
+
+Cuando el fallback resuelva un pedido, guardar dentro de `rp_response` algo como:
+
+```json
+{
+  "webhook_delivery_ids": ["163727"],
+  "webhook_linked_at": "...",
+  "webhook_link_reason": "single_recent_candidate"
+}
+```
+
+Luego, futuros webhooks con ese mismo `deliveryId` podrán matchear directamente contra ese alias.
+
+### 3. Mejorar logs operativos
+
+Agregar tipos/mensajes más explícitos:
+
+- `webhook_linked_fallback`: webhook vinculado a pedido web por candidato único.
+- `webhook_ambiguous`: varios candidatos; no se actualizó por seguridad.
+- Mantener `webhook_ignored_external` para pedidos de otros canales.
+
+Así el panel de integraciones deja evidencia clara de qué ocurrió.
+
+### 4. Ajustar texto de observabilidad en admin
+
+Actualizar `/admin/integraciones` para incluir los nuevos tipos de logs en el filtro y que Miguel pueda ver si los webhooks se están vinculando por fallback o quedando ambiguos.
+
+### 5. Mantener el modo pasivo de reconcile
+
+No reactivar polling al host tenant ni endpoints GET públicos. Ya quedó probado que generan 401/404 y ruido. La solución permanente primaria será webhook + correlación robusta + Auto-Kill 45 min.
+
+## Validación
+
+Después de implementar:
+
+1. Crear un pedido real desde producción.
+2. Cambiar estado en Restaurant.pe.
+3. Verificar en `rp_sync_log` que el webhook pase de `webhook_ignored_external` a `webhook` o `webhook_linked_fallback`.
+4. Verificar que `orders.status` cambie y el cliente lo vea en `/gracias` por Realtime.
+
+## Riesgo controlado
+
+El único punto delicado es el fallback por “candidato único”. Para evitar falsos positivos, sólo debe actuar si hay exactamente un pedido web reciente no terminal. Si hay más de uno, se bloquea como ambiguo y queda logueado para resolver con más evidencia.
+
+&nbsp;
+
+El plan acierta en no reactivar polling al host tenant, porque la documentación pública expone el servidor por tenant `https://{subdominio}.{dominio}/restaurant/api/rest` con autenticación `Authorization: Token token="..."`, pero ya verificaste en producción que ese camino les da 401/404 para reconcile y solo añade ruido.  
+También es coherente asumir que el `deliveryId` del webhook pueda corresponder al ID interno de delivery, mientras que al crear el pedido ustedes podrían estar guardando otro identificador relacionado; la propia API distingue varias claves en distintos endpoints, por ejemplo `id`, `delivery_id`, `codigopedido`, `local_id`, `motorizado_id` y `canalenvio_id`, lo que respalda que no todos los IDs del flujo sean intercambiables.
+
+## **Qué complementaría**
+
+Yo **no** dejaría el fallback solo como “candidato reciente de la misma sede/ventana operativa”. Lo reforzaría con una estrategia de correlación en capas:
+
+- Match directo por `rp_pedido_id = webhook.deliveryId`.
+- Match por alias ya aprendido, por ejemplo `orders.rp_response.webhook_delivery_ids @> [deliveryId]`.
+- Match por evidencias adicionales del pedido si el webhook trae más datos operativos, como local, timestamps o canal.
+- Solo si no hay nada de eso, usar fallback por “candidato único reciente no terminal”.
+
+Eso tiene más lógica con la documentación porque el módulo `delivery` expone rutas donde el mismo proceso puede referirse al pedido usando claves distintas, especialmente `GET /delivery/get/{id}`, `GET /delivery/obtenerDelivery/{delivery_id}/{devolverComandas}` y `GET /delivery/consultarUbicacionPedido/{codigopedido}/{canalenvio_id}`. Esa mezcla de identificadores es una señal fuerte de que [Restaurant.pe](http://Restaurant.pe) maneja más de una clave para el mismo flujo operativo.
+
+## **Ajustes concretos**
+
+Haría estos cambios al plan antes de proceder:
+
+- Guardar no solo `webhook_delivery_ids`, sino un objeto un poco más útil, por ejemplo:
+  - `webhook_delivery_ids`
+  - `webhook_first_seen_at`
+  - `webhook_last_seen_at`
+  - `webhook_link_reason`
+  - `webhook_status_history` opcional  
+  Esto deja trazabilidad operativa real.
+- Endurecer las reglas del fallback:
+  - Ventana de tiempo corta, por ejemplo 15–20 min desde `created_at`.
+  - Solo pedidos web.
+  - Solo estados no terminales.
+  - Mismo local si ese dato existe del lado del webhook o de la orden.
+  - Si hay más de un candidato, bloquear siempre como ambiguo.
+- Añadir un log nuevo para “aprendizaje de alias”, algo como `webhook_alias_learned`, distinto de `webhook_linked_fallback`, para saber cuándo ya quedó establecida la relación entre `deliveryId` externo y pedido interno.
+- En admin, mostrar contadores separados:
+  - `webhook_ok_direct`
+  - `webhook_linked_fallback`
+  - `webhook_ambiguous`
+  - `webhook_ignored_external`  
+  Así se ve si el sistema está sano o si estás sobreviviendo demasiado por heurística.
+
+## **Riesgo y criterio**
+
+El mayor riesgo sigue siendo el mismo que Lovable ya identificó: un fallback mal hecho puede enlazar un webhook al pedido equivocado. Por eso la condición de “**exactamente un** candidato reciente no terminal” es correcta, y yo la mantendría como regla dura.
+
+Mi recomendación: **sí procedería**, pero con una versión un poco más estricta del plan, enfocada en “correlación progresiva y auditable”, no solo “heurística por cercanía”. La documentación de la API no muestra el contrato del webhook, pero sí respalda claramente que el ecosistema `delivery` usa múltiples identificadores según endpoint, así que el supuesto base del plan es razonable.
