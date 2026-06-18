@@ -369,6 +369,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   // 3) Llamar a Restaurant.pe.
   let rpResponse: unknown = null;
   let rpPedidoId: string | null = null;
+  let rpDeliveryId: string | null = null;
   let rpNumeroComanda: string | null = null;
   let rpCabecera: unknown = null;
   try {
@@ -378,35 +379,54 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       if (s) rpPedidoId = s;
     } else {
       const r = (rpResponse ?? {}) as Record<string, unknown>;
-      const candidates = [
+      const data = (r.data as Record<string, unknown> | undefined) ?? undefined;
+      const delivery = (r.delivery as Record<string, unknown> | undefined) ?? undefined;
+
+      // Candidatos para delivery_id (lo que RP usa en webhooks).
+      const deliveryCandidates = [
+        r.delivery_id,
+        r.deliveryId,
+        data?.delivery_id,
+        data?.deliveryId,
+        delivery?.delivery_id,
+        delivery?.id,
+      ];
+      for (const c of deliveryCandidates) {
+        if (c != null && String(c).trim() !== "") {
+          rpDeliveryId = String(c);
+          break;
+        }
+      }
+
+      // Candidatos para pedido_id (legacy / comanda interna).
+      const pedidoCandidates = [
         r.pedido_id,
         r.id,
         r.comanda,
         r.numero,
         r.numero_pedido,
-        (r.data as Record<string, unknown> | undefined)?.pedido_id,
-        (r.data as Record<string, unknown> | undefined)?.id,
+        data?.pedido_id,
+        data?.id,
       ];
-      for (const c of candidates) {
+      for (const c of pedidoCandidates) {
         if (c != null && String(c).trim() !== "") {
           rpPedidoId = String(c);
           break;
         }
       }
+
+      // Si encontramos delivery_id explícito, lo preferimos como rp_pedido_id
+      // (columna que el resolver del webhook ya consulta).
+      if (rpDeliveryId) rpPedidoId = rpDeliveryId;
     }
 
-    // Nota: ya no llamamos a `getPedidoListByDelivery` aquí. Ese endpoint
-    // requiere cookie del POS y devuelve 404 vía API pública. El número corto
-    // de comanda (cuando exista) llegará vía polling/webhook posterior; mientras
-    // tanto, la UI muestra `rp_pedido_id` como referencia.
-
-
-    // Normalizamos rp_response como objeto JSON estructurado para evitar
-    // primitivos (number/string) que rompen merges posteriores (p.ej. al
-    // inyectar eta_min desde el webhook). El raw del POS se preserva en
-    // `raw_pos_response`.
+    // Normalizamos rp_response como objeto JSON estructurado. Guardamos IDs
+    // separados para no perder información de correlación.
     const rpResponseObj = {
       rp_pedido_id: rpPedidoId,
+      rp_delivery_id: rpDeliveryId,
+      rp_numero_comanda: rpNumeroComanda,
+      delivery_codigointegracion: localId,
       registered_at: new Date().toISOString(),
       raw_pos_response: rpResponse,
     };

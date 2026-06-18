@@ -1,142 +1,111 @@
-## Diagnóstico
+# Endurecer correlación del webhook de Restaurant.pe (v2 — con ajustes obligatorios)
 
-El webhook de Restaurant.pe sí está llegando a producción en `https://kingpapa.co/api/public/rp-webhook`.
+## Objetivo
+Cerrar la grieta de correlación entre el webhook de Restaurant.pe y `orders` usando `delivery_codigointegracion` como llave primaria, con guardarraíles de seguridad, anti-regresión y separación clara de semánticas de estado.
 
-La causa visible en logs es otra: Restaurant.pe está enviando `deliveryId` distintos al valor que guardamos como `orders.rp_pedido_id` al crear el pedido.
+## Cambios en código
 
-Ejemplo real:
+### 1. `src/routes/api/public/rp-webhook.ts` — GET público mínimo
+Reemplazar el GET protegido por token por un descriptor sin datos sensibles:
 
-```text
-Pedido web creado:
-orders.id       = d5387352-321e-454c-acde-f5ec1f1315a2
-rp_pedido_id    = 164071
-
-Webhook recibido minutos después:
-deliveryId      = 163727 / 163726
-statusCode      = 3
+```ts
+GET: async () => Response.json({ ok: true, service: "kingpapa-rp-webhook" })
 ```
 
-El endpoint actual busca así:
+El POST sigue siendo el contrato real del webhook.
 
-```text
-orders.rp_pedido_id == webhook.deliveryId
+### 2. Parser tolerante con **semántica explícita** (Ajuste 2)
+Nueva función `parseWebhookPayload(bodyText)`:
+- Intenta `JSON.parse`; si falla, `URLSearchParams`.
+- Acepta alias **solo** dentro de la misma semántica del webhook actual:
+  - `deliveryId | delivery_id | deliveryid | id`
+  - `statusCode | status_code` (**sin** `delivery_estado` ni `estado` — esos tienen mapper distinto y mezclarlos haría que `2` se interprete mal: en webhook es `recibido`, en `delivery_estado` es `en_preparacion`).
+  - `tiempoEnvio | tiempo_envio | eta | eta_min`
+  - `delivery_codigointegracion | codigoIntegracion | codigo_integracion | codigointegracion | external_id | order_id` → `integrationCode`.
+- Devuelve `{ deliveryId, statusCode, tiempoEnvio, integrationCode, raw }`.
+- El mapper usado sigue siendo `mapWebhookStatusCode` exclusivamente. Si en el futuro Restaurant.pe envía estado textual o `delivery_estado`, se añadirá un campo `statusSource` y mappers separados — fuera del alcance de este plan.
+
+### 3. Resolver con **prioridad por `integrationCode` y guardarraíles** (Ajuste 1)
+Nueva `resolveOrderForWebhook({ deliveryId, integrationCode })`:
+
+1. Si `integrationCode` cumple TODAS estas condiciones, match directo:
+   - es UUID v4 válido,
+   - `orders.id == integrationCode`,
+   - `status IN ('enviado','recibido','en_preparacion','en_camino')` (no terminal),
+   - `created_at >= now() - 3h` (no viejo),
+   - `rp_response IS NOT NULL` (efectivamente enviado a RP).
+2. Si no, cae al `resolveOrderForDelivery(deliveryId)` actual: directo (`rp_pedido_id`) → alias aprendido → fallback único reciente.
+
+Cuando matchea por `integrationCode`, persiste `deliveryId` en `rp_response.webhook_delivery_ids` para que webhooks posteriores (que podrían venir sin `integrationCode`) crucen por alias.
+
+### 4. Anti-regresión de estado (Ajuste 3)
+Antes de aplicar el `UPDATE`, comparar rangos:
+
+```ts
+const RANK = { enviado: 0, recibido: 1, en_preparacion: 2, en_camino: 3, entregado: 4, cancelado: 99, error: 99 };
 ```
 
-Como no coincide, lo registra como `webhook_ignored_external` y no actualiza el pedido del cliente.
+Si `RANK[mapped] < RANK[row.status]`, **no** se actualiza; se loguea como `webhook_regression_ignored` y se responde 200. Protege contra reintentos fuera de orden o webhooks atrasados. La protección terminal (`TERMINAL` set) se mantiene encima.
 
-## Causa probable
+### 5. Nuevos tipos de log y filtros admin
+- `webhook_linked_integration` — match por `delivery_codigointegracion`.
+- `webhook_regression_ignored` — descarte por rango.
+- Añadirlos al array `TIPOS` en `src/routes/admin.integraciones.tsx`.
 
-El `response` de `registrarDelivery` no parece ser el mismo identificador que Restaurant.pe usa luego en el webhook `deliveryId`. Puede ser un id de pedido/comanda/venta o un correlativo distinto, mientras que el webhook usa el id interno de delivery.
+### 6. `src/lib/restaurantpe.server.ts` — captura completa de IDs (Ajuste 4)
+Ampliar candidatos al extraer ids del POS, en este orden:
 
-Además, el payload de creación ya envía una clave perfecta de correlación:
-
-```text
-delivery_codigointegracion = orders.id
+```
+r.delivery_id, r.deliveryId,
+r.data?.delivery_id, r.data?.deliveryId,
+r.delivery?.delivery_id, r.delivery?.id,
+// legacy
+r.pedido_id, r.id, r.comanda, r.numero, r.numero_pedido,
+r.data?.pedido_id, r.data?.id
 ```
 
-Pero el webhook documentado sólo manda `deliveryId`, `statusCode`, `tiempoEnvio`; no manda `delivery_codigointegracion`. Por eso necesitamos una correlación defensiva para producción.
+Guardar **separadamente** dentro de `rp_response`:
 
-## Plan de implementación
-
-### 1. Endurecer `/api/public/rp-webhook`
-
-Modificar el handler para que intente resolver el pedido en este orden:
-
-1. Match exacto por `rp_pedido_id = deliveryId`.
-2. Si no hay match, buscar candidatos recientes no terminales de la misma sede/ventana operativa.
-3. Si existe exactamente un candidato web reciente, asociar ese webhook a ese pedido y actualizarlo.
-4. Si hay varios candidatos, no adivinar: guardar el evento como ambiguo con candidatos para auditoría.
-
-Esto evita perder estados cuando Restaurant.pe manda un `deliveryId` diferente al que devuelve `registrarDelivery`, sin actualizar pedidos incorrectos si hay ambigüedad.
-
-### 2. Persistir alias de webhook en `orders.rp_response`
-
-Cuando el fallback resuelva un pedido, guardar dentro de `rp_response` algo como:
-
-```json
+```ts
 {
-  "webhook_delivery_ids": ["163727"],
-  "webhook_linked_at": "...",
-  "webhook_link_reason": "single_recent_candidate"
+  rp_pedido_id,            // mejor candidato pedido
+  rp_delivery_id,          // mejor candidato delivery (si existe)
+  rp_numero_comanda,       // si vino
+  delivery_codigointegracion: localId,
+  registered_at,
+  raw_pos_response,
 }
 ```
 
-Luego, futuros webhooks con ese mismo `deliveryId` podrán matchear directamente contra ese alias.
+`orders.rp_pedido_id` (columna) se sigue alimentando con la misma prioridad de candidatos (para no romper el match directo del resolver), pero `rp_response` queda como fuente de verdad rica.
 
-### 3. Mejorar logs operativos
+### 7. UI — alinear pasos del tracker a estados reales
+`TrackerOperativo` (y vistas relacionadas): pasos visibles
 
-Agregar tipos/mensajes más explícitos:
+```
+Recibimos tu pedido → Cocina confirmó → Motorizado en camino → Entregado
+```
 
-- `webhook_linked_fallback`: webhook vinculado a pedido web por candidato único.
-- `webhook_ambiguous`: varios candidatos; no se actualizó por seguridad.
-- Mantener `webhook_ignored_external` para pedidos de otros canales.
+Eliminar "Coronando en cocina" como paso real. El estado `en_preparacion` queda soportado en backend (por si llega), pero el UI no lo promete porque hoy el webhook no lo emite.
 
-Así el panel de integraciones deja evidencia clara de qué ocurrió.
+## Detalles técnicos
+- Sin migraciones de schema. `rp_response` ya es JSON libre.
+- No se toca `auth-middleware`, RLS, `client.server.ts`, ni se reactiva polling/reconcile (Fase A confirmó 401/404).
+- Auto-Kill TTL 45 min se mantiene como red de seguridad.
+- `mapWebhookStatusCode` intacto: `0→cancelado, 2→recibido, 3→en_camino, 4→entregado`.
 
-### 4. Ajustar texto de observabilidad en admin
-
-Actualizar `/admin/integraciones` para incluir los nuevos tipos de logs en el filtro y que Miguel pueda ver si los webhooks se están vinculando por fallback o quedando ambiguos.
-
-### 5. Mantener el modo pasivo de reconcile
-
-No reactivar polling al host tenant ni endpoints GET públicos. Ya quedó probado que generan 401/404 y ruido. La solución permanente primaria será webhook + correlación robusta + Auto-Kill 45 min.
+## Acción manual (fuera de código)
+Solicitar a Restaurant.pe que el webhook incluya `delivery_codigointegracion` en el body. El código ya queda listo para consumirlo en cuanto llegue; mientras tanto, el resolver opera con direct → alias → fallback como hoy, pero con guardarraíles más estrictos.
 
 ## Validación
+1. Crear pedido real en producción y cambiar estado en el POS.
+2. En `/admin/integraciones` verificar `webhook_raw` + log de éxito (`webhook`, `webhook_linked_fallback`, o `webhook_linked_integration` cuando RP envíe el campo).
+3. Lanzar dos pedidos cuasi-simultáneos y verificar que cuando llegue `integrationCode` ya no aparece `webhook_ambiguous`.
+4. Forzar un webhook "atrasado" (estado anterior) y verificar `webhook_regression_ignored`.
+5. Verificar que `orders.status` actualiza y `TrackerOperativo` se mueve por Realtime sin recargar.
+6. Verificar que el paso "Coronando en cocina" ya no aparece en el tracker.
 
-Después de implementar:
-
-1. Crear un pedido real desde producción.
-2. Cambiar estado en Restaurant.pe.
-3. Verificar en `rp_sync_log` que el webhook pase de `webhook_ignored_external` a `webhook` o `webhook_linked_fallback`.
-4. Verificar que `orders.status` cambie y el cliente lo vea en `/gracias` por Realtime.
-
-## Riesgo controlado
-
-El único punto delicado es el fallback por “candidato único”. Para evitar falsos positivos, sólo debe actuar si hay exactamente un pedido web reciente no terminal. Si hay más de uno, se bloquea como ambiguo y queda logueado para resolver con más evidencia.
-
-&nbsp;
-
-El plan acierta en no reactivar polling al host tenant, porque la documentación pública expone el servidor por tenant `https://{subdominio}.{dominio}/restaurant/api/rest` con autenticación `Authorization: Token token="..."`, pero ya verificaste en producción que ese camino les da 401/404 para reconcile y solo añade ruido.  
-También es coherente asumir que el `deliveryId` del webhook pueda corresponder al ID interno de delivery, mientras que al crear el pedido ustedes podrían estar guardando otro identificador relacionado; la propia API distingue varias claves en distintos endpoints, por ejemplo `id`, `delivery_id`, `codigopedido`, `local_id`, `motorizado_id` y `canalenvio_id`, lo que respalda que no todos los IDs del flujo sean intercambiables.
-
-## **Qué complementaría**
-
-Yo **no** dejaría el fallback solo como “candidato reciente de la misma sede/ventana operativa”. Lo reforzaría con una estrategia de correlación en capas:
-
-- Match directo por `rp_pedido_id = webhook.deliveryId`.
-- Match por alias ya aprendido, por ejemplo `orders.rp_response.webhook_delivery_ids @> [deliveryId]`.
-- Match por evidencias adicionales del pedido si el webhook trae más datos operativos, como local, timestamps o canal.
-- Solo si no hay nada de eso, usar fallback por “candidato único reciente no terminal”.
-
-Eso tiene más lógica con la documentación porque el módulo `delivery` expone rutas donde el mismo proceso puede referirse al pedido usando claves distintas, especialmente `GET /delivery/get/{id}`, `GET /delivery/obtenerDelivery/{delivery_id}/{devolverComandas}` y `GET /delivery/consultarUbicacionPedido/{codigopedido}/{canalenvio_id}`. Esa mezcla de identificadores es una señal fuerte de que [Restaurant.pe](http://Restaurant.pe) maneja más de una clave para el mismo flujo operativo.
-
-## **Ajustes concretos**
-
-Haría estos cambios al plan antes de proceder:
-
-- Guardar no solo `webhook_delivery_ids`, sino un objeto un poco más útil, por ejemplo:
-  - `webhook_delivery_ids`
-  - `webhook_first_seen_at`
-  - `webhook_last_seen_at`
-  - `webhook_link_reason`
-  - `webhook_status_history` opcional  
-  Esto deja trazabilidad operativa real.
-- Endurecer las reglas del fallback:
-  - Ventana de tiempo corta, por ejemplo 15–20 min desde `created_at`.
-  - Solo pedidos web.
-  - Solo estados no terminales.
-  - Mismo local si ese dato existe del lado del webhook o de la orden.
-  - Si hay más de un candidato, bloquear siempre como ambiguo.
-- Añadir un log nuevo para “aprendizaje de alias”, algo como `webhook_alias_learned`, distinto de `webhook_linked_fallback`, para saber cuándo ya quedó establecida la relación entre `deliveryId` externo y pedido interno.
-- En admin, mostrar contadores separados:
-  - `webhook_ok_direct`
-  - `webhook_linked_fallback`
-  - `webhook_ambiguous`
-  - `webhook_ignored_external`  
-  Así se ve si el sistema está sano o si estás sobreviviendo demasiado por heurística.
-
-## **Riesgo y criterio**
-
-El mayor riesgo sigue siendo el mismo que Lovable ya identificó: un fallback mal hecho puede enlazar un webhook al pedido equivocado. Por eso la condición de “**exactamente un** candidato reciente no terminal” es correcta, y yo la mantendría como regla dura.
-
-Mi recomendación: **sí procedería**, pero con una versión un poco más estricta del plan, enfocada en “correlación progresiva y auditable”, no solo “heurística por cercanía”. La documentación de la API no muestra el contrato del webhook, pero sí respalda claramente que el ecosistema `delivery` usa múltiples identificadores según endpoint, así que el supuesto base del plan es razonable.
+## Fuera de alcance
+- Mapper separado para `delivery_estado` y estado textual (se añadirá cuando se confirme payload real).
+- Migración de columnas `rp_delivery_id` / `rp_numero_comanda` como columnas first-class (por ahora viven en `rp_response`).
+- Cualquier reactivación de polling contra RP.
