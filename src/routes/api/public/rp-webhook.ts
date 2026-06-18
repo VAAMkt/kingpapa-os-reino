@@ -1,48 +1,53 @@
 // Webhook público que Restaurant.pe llama cuando cambia el estado de un delivery.
 // Doc oficial: Swagger V2 (2-oas3) POST /webhook
-//   body: { deliveryId: number, statusCode: "0"|"2"|"3"|"4" }
+//   body: { deliveryId: number, statusCode: "0"|"2"|"3"|"4", tiempoEnvio?: number,
+//           delivery_codigointegracion?: string (UUID local) }
 //
 // Configurar en Restaurant.pe: Menú → Mi Restaurant → Integraciones →
 //   URI de actualización de deliverys:
 //   https://kingpapa.co/api/public/rp-webhook
 //
-// CORRELACIÓN PROGRESIVA Y AUDITABLE (jun-2026):
-// Restaurant.pe envía un `deliveryId` que NO siempre coincide con el id que
-// devuelve `registrarDelivery` (lo guardamos como `orders.rp_pedido_id`).
-// Para no perder estados sin nunca enlazar al pedido equivocado, resolvemos
-// el match en capas:
+// CORRELACIÓN PROGRESIVA Y AUDITABLE (v2 — jun-2026):
+// Restaurant.pe puede enviar `delivery_codigointegracion` (UUID local que le
+// enviamos en `registrarDelivery`). Cuando lo hace, es la llave canónica y
+// resuelve la ambigüedad. Si no lo manda, caemos al esquema previo:
+//   0) Si llega integrationCode válido + pedido reciente + no terminal +
+//      enviado a RP → match directo por orders.id.
 //   1) Match directo:   orders.rp_pedido_id == deliveryId
 //   2) Alias aprendido: orders.rp_response.webhook_delivery_ids @> [deliveryId]
 //   3) Fallback único:  exactamente UN pedido web reciente (<=20 min desde
 //                       created_at), no terminal. Si hay ≥2 → ambiguo, no toca.
-// Cuando 2) ó 3) aciertan, persistimos el alias para que futuros webhooks con
+// Cuando aciertan 0/2/3, persistimos el alias para que futuros webhooks con
 // ese mismo `deliveryId` matcheen directo y queden trazables.
+//
+// ANTI-REGRESIÓN: usamos un ranking de estados (enviado<recibido<en_camino<
+// entregado) para descartar eventos atrasados o reintentos fuera de orden.
 //
 // LOG-FIRST: el body crudo siempre se guarda primero en rp_sync_log.
 // FALLO SUAVE: todo error posterior responde 200 para que RP no desactive el
 // webhook por errores recurrentes.
 
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { mapWebhookStatusCode } from "@/lib/restaurantpe-normalize";
 import type { Json } from "@/integrations/supabase/types";
 
-const Payload = z.object({
-  deliveryId: z.union([z.number(), z.string()]).transform((v) => String(v).trim()),
-  statusCode: z.union([z.number(), z.string()]).transform((v) => String(v).trim()),
-  tiempoEnvio: z
-    .union([z.number(), z.string(), z.null()])
-    .optional()
-    .transform((v) => {
-      if (v == null || v === "") return null;
-      const n = Number(v);
-      return Number.isFinite(n) && n > 0 ? n : null;
-    }),
-});
-
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
 const FALLBACK_WINDOW_MS = 20 * 60_000; // 20 min desde created_at
+const INTEGRATION_WINDOW_MS = 3 * 60 * 60_000; // 3 h desde created_at
+
+// Ranking para detectar regresiones (cancelado/error fuera de progresión).
+const STATUS_RANK: Record<string, number> = {
+  enviado: 0,
+  recibido: 1,
+  en_preparacion: 2,
+  en_camino: 3,
+  entregado: 4,
+  cancelado: 99,
+  error: 99,
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type OrderLite = {
   id: string;
@@ -51,6 +56,14 @@ type OrderLite = {
   rp_response: unknown;
   rp_pedido_id: string | null;
   created_at: string;
+};
+
+type ParsedPayload = {
+  deliveryId: string;
+  statusCode: string;
+  tiempoEnvio: number | null;
+  integrationCode: string | null;
+  raw: unknown;
 };
 
 function pickHeaders(request: Request): Record<string, string> {
@@ -89,15 +102,102 @@ function asObject(v: unknown): Record<string, unknown> {
     : {};
 }
 
+function pickFirst(obj: Record<string, unknown>, keys: string[]): string | null {
+  for (const k of keys) {
+    const v = obj[k];
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (s !== "") return s;
+  }
+  return null;
+}
+
+/**
+ * Parser tolerante. Acepta JSON o form-urlencoded.
+ * IMPORTANTE: no aceptamos `delivery_estado` ni `estado` aquí — esos campos
+ * tienen semánticas distintas (mapper diferente). Si en el futuro RP los
+ * envía por webhook, habrá que añadir `statusSource` + mapper separado.
+ */
+function parseWebhookPayload(bodyText: string): ParsedPayload | null {
+  if (!bodyText) return null;
+  let raw: Record<string, unknown> | null = null;
+  try {
+    const j = JSON.parse(bodyText);
+    if (j && typeof j === "object" && !Array.isArray(j)) {
+      raw = j as Record<string, unknown>;
+    }
+  } catch {
+    // Probar form-urlencoded.
+    try {
+      const params = new URLSearchParams(bodyText);
+      const obj: Record<string, unknown> = {};
+      for (const [k, v] of params.entries()) obj[k] = v;
+      if (Object.keys(obj).length > 0) raw = obj;
+    } catch {
+      // ignore
+    }
+  }
+  if (!raw) return null;
+
+  const deliveryId = pickFirst(raw, ["deliveryId", "delivery_id", "deliveryid", "id"]);
+  const statusCode = pickFirst(raw, ["statusCode", "status_code"]);
+  const tiempoEnvioRaw = pickFirst(raw, ["tiempoEnvio", "tiempo_envio", "eta", "eta_min"]);
+  const integrationCode = pickFirst(raw, [
+    "delivery_codigointegracion",
+    "codigoIntegracion",
+    "codigo_integracion",
+    "codigointegracion",
+    "integration_code",
+    "integrationCode",
+    "external_id",
+    "order_id",
+  ]);
+
+  if (!deliveryId || !statusCode) return null;
+
+  let tiempoEnvio: number | null = null;
+  if (tiempoEnvioRaw != null) {
+    const n = Number(tiempoEnvioRaw);
+    if (Number.isFinite(n) && n > 0) tiempoEnvio = n;
+  }
+
+  return { deliveryId, statusCode, tiempoEnvio, integrationCode, raw };
+}
+
 type MatchResult =
+  | { kind: "integration"; order: OrderLite }
   | { kind: "direct"; order: OrderLite }
   | { kind: "alias"; order: OrderLite }
   | { kind: "fallback_single"; order: OrderLite; candidatesCount: 1 }
   | { kind: "ambiguous"; candidates: Array<Pick<OrderLite, "id" | "rp_pedido_id" | "status" | "created_at">> }
   | { kind: "none"; candidates: Array<Pick<OrderLite, "id" | "rp_pedido_id" | "status" | "created_at">> };
 
-async function resolveOrderForDelivery(deliveryId: string): Promise<MatchResult> {
-  // 1) Match directo.
+async function resolveByIntegrationCode(integrationCode: string): Promise<OrderLite | null> {
+  if (!UUID_RE.test(integrationCode)) return null;
+  const sinceIso = new Date(Date.now() - INTEGRATION_WINDOW_MS).toISOString();
+  const r = await supabaseAdmin
+    .from("orders")
+    .select("id, status, cancel_reason, rp_response, rp_pedido_id, created_at")
+    .eq("id", integrationCode)
+    .in("status", ["enviado", "recibido", "en_preparacion", "en_camino"])
+    .gte("created_at", sinceIso)
+    .not("rp_response", "is", null)
+    .maybeSingle();
+  if (r.error || !r.data) return null;
+  return r.data as OrderLite;
+}
+
+async function resolveOrderForWebhook(
+  deliveryId: string,
+  integrationCode: string | null,
+): Promise<MatchResult> {
+  // 0) Match canónico por integrationCode (con guardarraíles).
+  if (integrationCode) {
+    const o = await resolveByIntegrationCode(integrationCode);
+    if (o) return { kind: "integration", order: o };
+  }
+
+  // 1) Match directo por rp_pedido_id == deliveryId.
   const direct = await supabaseAdmin
     .from("orders")
     .select("id, status, cancel_reason, rp_response, rp_pedido_id, created_at")
@@ -119,7 +219,7 @@ async function resolveOrderForDelivery(deliveryId: string): Promise<MatchResult>
     return { kind: "alias", order: alias.data[0] as OrderLite };
   }
 
-  // 3) Fallback por candidato único reciente no terminal (web == todos los nuestros).
+  // 3) Fallback por candidato único reciente no terminal.
   const sinceIso = new Date(Date.now() - FALLBACK_WINDOW_MS).toISOString();
   const cand = await supabaseAdmin
     .from("orders")
@@ -172,15 +272,13 @@ async function handleWebhook(request: Request): Promise<Response> {
     } as unknown as Json,
   });
 
-  // 2) Parseo. A partir de aquí, todo error → 200 (fallo suave).
-  let parsed: z.infer<typeof Payload>;
-  try {
-    parsed = Payload.parse(JSON.parse(bodyText));
-  } catch (err) {
+  // 2) Parseo tolerante. A partir de aquí, todo error → 200 (fallo suave).
+  const parsed = parseWebhookPayload(bodyText);
+  if (!parsed) {
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "webhook",
       ok: false,
-      mensaje: `payload inválido: ${err instanceof Error ? err.message : String(err)}`,
+      mensaje: "payload inválido (no JSON ni form-urlencoded reconocible)",
       payload: { raw: bodyText } as unknown as Json,
     });
     return new Response("ok", { status: 200 });
@@ -197,8 +295,8 @@ async function handleWebhook(request: Request): Promise<Response> {
     return new Response("ok", { status: 200 });
   }
 
-  // 3) Resolver pedido (correlación progresiva).
-  const match = await resolveOrderForDelivery(parsed.deliveryId);
+  // 3) Resolver pedido (correlación progresiva, prioriza integrationCode).
+  const match = await resolveOrderForWebhook(parsed.deliveryId, parsed.integrationCode);
 
   if (match.kind === "ambiguous") {
     await supabaseAdmin.from("rp_sync_log").insert({
@@ -221,12 +319,10 @@ async function handleWebhook(request: Request): Promise<Response> {
   }
 
   const row = match.order;
-  const linkReason: "direct" | "alias" | "fallback_single" = match.kind;
+  const linkReason: "integration" | "direct" | "alias" | "fallback_single" = match.kind;
 
   // 4) No-op si ya está en ese estado o terminal.
   if (row.status === mapped || TERMINAL.has(row.status)) {
-    // Aún así, si vino por fallback/alias, dejamos el alias persistido para
-    // que los próximos eventos matcheen directo.
     if (linkReason !== "direct") {
       await persistAlias(row, parsed.deliveryId, linkReason, mapped);
     }
@@ -234,6 +330,24 @@ async function handleWebhook(request: Request): Promise<Response> {
       tipo: "webhook",
       ok: true,
       mensaje: `no-op (status=${row.status}, recibido=${mapped}, via=${linkReason})`,
+      payload: { ...parsed, order_id: row.id, via: linkReason } as unknown as Json,
+    });
+    return new Response("ok", { status: 200 });
+  }
+
+  // 4.5) Anti-regresión: ignorar eventos que retrocederían la progresión.
+  // Cancelado/error tienen rank 99 — siempre pueden aplicarse (excepto si ya
+  // están en terminal, cubierto arriba).
+  const currentRank = STATUS_RANK[row.status] ?? 0;
+  const nextRank = STATUS_RANK[mapped] ?? 0;
+  if (mapped !== "cancelado" && mapped !== "error" && nextRank < currentRank) {
+    if (linkReason !== "direct") {
+      await persistAlias(row, parsed.deliveryId, linkReason, mapped);
+    }
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "webhook_regression_ignored",
+      ok: true,
+      mensaje: `Regresión ignorada: ${row.status} (rank ${currentRank}) → ${mapped} (rank ${nextRank}) via=${linkReason}`,
       payload: { ...parsed, order_id: row.id, via: linkReason } as unknown as Json,
     });
     return new Response("ok", { status: 200 });
@@ -264,6 +378,7 @@ async function handleWebhook(request: Request): Promise<Response> {
     mapped,
     eta_min: parsed.tiempoEnvio,
     via: linkReason,
+    integration_code: parsed.integrationCode,
   });
 
   const nextRp: Record<string, unknown> = {
@@ -274,6 +389,9 @@ async function handleWebhook(request: Request): Promise<Response> {
     webhook_link_reason: linkReason,
     webhook_status_history: history,
   };
+  if (parsed.integrationCode) {
+    nextRp.webhook_integration_code = parsed.integrationCode;
+  }
   if (mapped === "en_camino" && parsed.tiempoEnvio != null) {
     nextRp.eta_min = parsed.tiempoEnvio;
     nextRp.eta_set_at = nowIso;
@@ -301,7 +419,14 @@ async function handleWebhook(request: Request): Promise<Response> {
       ? ` (ETA ${parsed.tiempoEnvio} min)`
       : "";
 
-  if (linkReason === "fallback_single") {
+  if (linkReason === "integration") {
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "webhook_linked_integration",
+      ok: true,
+      mensaje: `Match por integrationCode: ${row.status} → ${mapped}${etaSuffix} (deliveryId=${parsed.deliveryId} ↔ order ${row.id.slice(0, 8)})`,
+      payload: { ...parsed, order_id: row.id, via: linkReason } as unknown as Json,
+    });
+  } else if (linkReason === "fallback_single") {
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "webhook_linked_fallback",
       ok: true,
@@ -335,7 +460,7 @@ async function handleWebhook(request: Request): Promise<Response> {
 async function persistAlias(
   row: OrderLite,
   deliveryId: string,
-  linkReason: "alias" | "fallback_single",
+  linkReason: "integration" | "alias" | "fallback_single",
   mapped: string,
 ): Promise<void> {
   const prev = asObject(row.rp_response);
@@ -367,14 +492,9 @@ export const Route = createFileRoute("/api/public/rp-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => handleWebhook(request),
-      GET: async ({ request }) => {
-        const url = new URL(request.url);
-        const token = url.searchParams.get("t");
-        if (!token || token !== process.env.RP_WEBHOOK_SECRET) {
-          return new Response("unauthorized", { status: 401 });
-        }
-        return Response.json({ ok: true, hint: "POST { deliveryId, statusCode }" });
-      },
+      // GET público mínimo — Restaurant.pe puede validar la URL con un GET
+      // simple. No exponemos datos sensibles.
+      GET: async () => Response.json({ ok: true, service: "kingpapa-rp-webhook" }),
     },
   },
 });
