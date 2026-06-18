@@ -169,9 +169,7 @@ type MatchResult =
   | { kind: "integration"; order: OrderLite }
   | { kind: "direct"; order: OrderLite }
   | { kind: "alias"; order: OrderLite }
-  | { kind: "fallback_single"; order: OrderLite; candidatesCount: 1 }
-  | { kind: "ambiguous"; candidates: Array<Pick<OrderLite, "id" | "rp_pedido_id" | "status" | "created_at">> }
-  | { kind: "none"; candidates: Array<Pick<OrderLite, "id" | "rp_pedido_id" | "status" | "created_at">> };
+  | { kind: "none" };
 
 async function resolveByIntegrationCode(integrationCode: string): Promise<OrderLite | null> {
   if (!UUID_RE.test(integrationCode)) return null;
@@ -192,13 +190,13 @@ async function resolveOrderForWebhook(
   deliveryId: string,
   integrationCode: string | null,
 ): Promise<MatchResult> {
-  // 0) Match canónico por integrationCode (con guardarraíles).
+  // 1) Match canónico por integrationCode (UUID que enviamos en registrarDelivery).
   if (integrationCode) {
     const o = await resolveByIntegrationCode(integrationCode);
     if (o) return { kind: "integration", order: o };
   }
 
-  // 1) Match directo por rp_pedido_id == deliveryId.
+  // 2) Match directo por rp_pedido_id == deliveryId.
   const direct = await supabaseAdmin
     .from("orders")
     .select("id, status, cancel_reason, rp_response, rp_pedido_id, created_at")
@@ -209,10 +207,8 @@ async function resolveOrderForWebhook(
     return { kind: "direct", order: direct.data[0] as OrderLite };
   }
 
-  // 2) Alias aprendido (rp_response.webhook_delivery_ids @> [deliveryId]).
-  //    Guardarraíles: solo pedidos NO terminales y dentro de la ventana de 3h.
-  //    Sin esto, un alias aprendido por fallback en un pedido viejo "secuestra"
-  //    para siempre los webhooks futuros con ese mismo deliveryId.
+  // 3) Alias aprendido (sólo se aprende desde integration/direct — ver
+  //    persistAlias). Ventana 3h + no terminal por seguridad extra.
   const aliasSinceIso = new Date(Date.now() - INTEGRATION_WINDOW_MS).toISOString();
   const alias = await supabaseAdmin
     .from("orders")
@@ -226,28 +222,10 @@ async function resolveOrderForWebhook(
     return { kind: "alias", order: alias.data[0] as OrderLite };
   }
 
-  // 3) Fallback por candidato único reciente no terminal.
-  const sinceIso = new Date(Date.now() - FALLBACK_WINDOW_MS).toISOString();
-  const cand = await supabaseAdmin
-    .from("orders")
-    .select("id, status, cancel_reason, rp_response, rp_pedido_id, created_at")
-    .in("status", ["enviado", "recibido", "en_preparacion", "en_camino"])
-    .gte("created_at", sinceIso)
-    .order("created_at", { ascending: false })
-    .limit(5);
-  const candidates = (cand.data ?? []) as OrderLite[];
-  if (candidates.length === 1) {
-    return { kind: "fallback_single", order: candidates[0], candidatesCount: 1 };
-  }
-  const lite = candidates.map((c) => ({
-    id: c.id,
-    rp_pedido_id: c.rp_pedido_id,
-    status: c.status,
-    created_at: c.created_at,
-  }));
-  if (candidates.length > 1) return { kind: "ambiguous", candidates: lite };
-  return { kind: "none", candidates: lite };
+  // Sin match fuerte → no tocamos nada. Mejor ignorar que vincular al azar.
+  return { kind: "none" };
 }
+
 
 async function handleWebhook(request: Request): Promise<Response> {
   const url = new URL(request.url);
