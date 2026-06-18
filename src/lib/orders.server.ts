@@ -454,9 +454,10 @@ export async function submitOrder(input: CheckoutInput): Promise<{
         response: rpResponse,
         cabecera: rpCabecera,
         order_id: localId,
+        emitSocket,
       } as unknown as Json,
       ok: true,
-      mensaje: `Pedido enviado a Restaurant.pe (rp_pedido_id=${rpPedidoId ?? "n/d"}, comanda=${rpNumeroComanda ?? "n/d"})`,
+      mensaje: `Pedido enviado a Restaurant.pe (rp_pedido_id=${rpPedidoId ?? "n/d"}, comanda=${rpNumeroComanda ?? "n/d"}, emitSocket=${emitSocket})`,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
