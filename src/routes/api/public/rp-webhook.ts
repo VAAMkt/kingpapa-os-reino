@@ -34,7 +34,7 @@ import { mapWebhookStatusCode } from "@/lib/restaurantpe-normalize";
 import type { Json } from "@/integrations/supabase/types";
 
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
-const FALLBACK_WINDOW_MS = 20 * 60_000; // 20 min desde created_at
+const FALLBACK_WINDOW_MS = 20 * 60_000; // (legacy) ya no se usa para matchear
 const INTEGRATION_WINDOW_MS = 3 * 60 * 60_000; // 3 h desde created_at
 
 // Ranking para detectar regresiones (cancelado/error fuera de progresión).
