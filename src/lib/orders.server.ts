@@ -328,6 +328,10 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   //    Pago: 1=efectivo, 2=tarjeta presencial, 5=online (Swagger V2).
   const tipoPago = input.pago === "efectivo" ? 1 : input.pago === "datafono" ? 2 : 5;
   const sedeLatLng = sede as unknown as { lat: number | null; lng: number | null };
+  // Feature flag para habilitar el push socket de Restaurant.pe → QuipuPOS del local.
+  // En producción debe configurarse: RP_EMIT_SOCKET=true
+  // Rollback sin cambio de código: RP_EMIT_SOCKET=false (puede requerir reinicio del runtime).
+  const emitSocket = process.env.RP_EMIT_SOCKET === "true";
   const payload = {
     delivery: {
       local_id: sede.rp_local_id,
