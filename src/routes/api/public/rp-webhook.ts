@@ -7,25 +7,26 @@
 //   URI de actualización de deliverys:
 //   https://kingpapa.co/api/public/rp-webhook
 //
-// CORRELACIÓN PROGRESIVA Y AUDITABLE (v2 — jun-2026):
-// Restaurant.pe puede enviar `delivery_codigointegracion` (UUID local que le
-// enviamos en `registrarDelivery`). Cuando lo hace, es la llave canónica y
-// resuelve la ambigüedad. Si no lo manda, caemos al esquema previo:
-//   0) Si llega integrationCode válido + pedido reciente + no terminal +
-//      enviado a RP → match directo por orders.id.
-//   1) Match directo:   orders.rp_pedido_id == deliveryId
-//   2) Alias aprendido: orders.rp_response.webhook_delivery_ids @> [deliveryId]
-//   3) Fallback único:  exactamente UN pedido web reciente (<=20 min desde
-//                       created_at), no terminal. Si hay ≥2 → ambiguo, no toca.
-// Cuando aciertan 0/2/3, persistimos el alias para que futuros webhooks con
-// ese mismo `deliveryId` matcheen directo y queden trazables.
+// CORRELACIÓN ESTRICTA (v3 — jun-2026):
+// SÓLO matcheamos webhooks a pedidos por identidad fuerte. NUNCA por
+// proximidad temporal ("el único pedido reciente"). RP envía a esta URL
+// webhooks de OTROS deliveries de la cuenta, y un fallback laxo termina
+// secuestrando pedidos ajenos.
+//   1) integration → `delivery_codigointegracion` == orders.id (UUID local
+//                    que enviamos en registrarDelivery). Llave canónica.
+//   2) direct      → orders.rp_pedido_id == deliveryId.
+//   3) alias       → orders.rp_response.webhook_delivery_ids @> [deliveryId],
+//                    pero el alias SOLO se aprende cuando el match original
+//                    fue integration o direct. Nunca desde fallback.
+// Si nada matchea → log `webhook_ignored_external` y 200. Mejor no tocar
+// nada que marcar un pedido al azar como entregado.
 //
-// ANTI-REGRESIÓN: usamos un ranking de estados (enviado<recibido<en_camino<
-// entregado) para descartar eventos atrasados o reintentos fuera de orden.
+// ANTI-REGRESIÓN: ranking de estados (enviado<recibido<en_camino<entregado)
+// descarta eventos atrasados o reintentos fuera de orden.
 //
 // LOG-FIRST: el body crudo siempre se guarda primero en rp_sync_log.
-// FALLO SUAVE: todo error posterior responde 200 para que RP no desactive el
-// webhook por errores recurrentes.
+// FALLO SUAVE: todo error posterior responde 200 para que RP no desactive
+// el webhook por errores recurrentes.
 
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
