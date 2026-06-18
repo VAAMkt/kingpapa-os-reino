@@ -402,13 +402,14 @@ async function handleWebhook(request: Request): Promise<Response> {
       mensaje: `Match por integrationCode: ${row.status} → ${mapped}${etaSuffix} (deliveryId=${parsed.deliveryId} ↔ order ${row.id.slice(0, 8)})`,
       payload: { ...parsed, order_id: row.id, via: linkReason } as unknown as Json,
     });
-  } else if (linkReason === "fallback_single") {
+  } else if (linkReason === "direct") {
     await supabaseAdmin.from("rp_sync_log").insert({
-      tipo: "webhook_linked_fallback",
+      tipo: "webhook",
       ok: true,
-      mensaje: `Vinculado por candidato único: ${row.status} → ${mapped}${etaSuffix} (deliveryId=${parsed.deliveryId} ↔ order ${row.id.slice(0, 8)}, rp_pedido_id=${row.rp_pedido_id ?? "n/d"})`,
+      mensaje: `Match directo: ${row.status} → ${mapped}${etaSuffix} (deliveryId=${parsed.deliveryId} ↔ order ${row.id.slice(0, 8)})`,
       payload: { ...parsed, order_id: row.id, via: linkReason } as unknown as Json,
     });
+
   } else if (linkReason === "alias") {
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "webhook_alias_learned",
