@@ -349,7 +349,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       delivery_codigointegracion: localId,
       ...(sedeLatLng.lat != null ? { delivery_latitud: String(sedeLatLng.lat) } : {}),
       ...(sedeLatLng.lng != null ? { delivery_longitud: String(sedeLatLng.lng) } : {}),
-      emitSocket: false,
+      emitSocket,
     },
     cliente: {
       cliente_nombres: input.cliente.nombre,
