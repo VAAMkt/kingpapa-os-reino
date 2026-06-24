@@ -50,6 +50,8 @@ export interface Producto {
   esRecomendado?: boolean;
   destacado?: boolean;
   etiquetaCustom?: string | null;
+  etiqueta_custom?: string | null;
+  clasificacion_me?: string | null;
   conArroz?: boolean;
   esBowl?: boolean;
   esEconomico?: boolean;

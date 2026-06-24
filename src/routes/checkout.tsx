@@ -562,8 +562,10 @@ function DetallesEntrega({
   subtotal: number;
   total: number;
 }) {
-  // TODO: enchufar costo de domicilio y tiempo estimado desde Restaurant.pe
-  // cuando estén disponibles en el modelo de sede / getMenuForSede.
+  // TODO: enchufar costo de domicilio desde Restaurant.pe
+  // cuando esté disponible en el modelo de sede / getMenuForSede.
+  // Tiempo estimado: fallback fijo por ahora.
+  const tiempoEstimado = "20–40 min (estimado)";
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="flex items-start justify-between gap-3 text-sm">
       <span className="font-display uppercase opacity-70">{label}</span>
@@ -574,6 +576,7 @@ function DetallesEntrega({
     <BrutalCard tone="cheese" className="p-4 space-y-2">
       <h2 className="font-display uppercase text-lg">Detalles de entrega</h2>
       <Row label="Sede" value={sede?.label ?? "—"} />
+      <Row label="Tiempo estimado" value={tiempoEstimado} />
       <Row label="Tipo" value={esRecoger ? "Recoger en sede" : "Domicilio"} />
       {!esRecoger && (
         <Row label="Dirección" value={direccion || sede?.direccionTexto || "—"} />
