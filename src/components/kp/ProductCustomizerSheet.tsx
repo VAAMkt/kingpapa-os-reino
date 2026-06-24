@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { addItem, type CartModifier } from "@/lib/cart";
 import { useUpsellGroups } from "@/components/kp/UpsellSection";
+import { track } from "@/lib/analytics";
 import type { Producto } from "@/types/kp";
 import { toast } from "sonner";
 
