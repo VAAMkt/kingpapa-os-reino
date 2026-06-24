@@ -1,164 +1,55 @@
-## Objetivo
-
-Permitir editar la foto de cualquier producto desde `/admin/menu` sin que la sincronización con Restaurant.pe la pise. La columna `imagen_url` sigue siendo espejo del POS; se agrega `imagen_override_url` como capa custom del Reino que siempre gana en el frontend.
+Tres cambios localizados en `src/routes/checkout.tsx` (más un retoque mínimo en `ResumenPedido`). No se toca `submitOrder`, `precheckStock`, ni el store del carrito — solo se consumen sus funciones existentes (`incItem`, `decItem`, `removeItem`, todas operan sobre `item.key`).
 
 ---
 
-## PASO 1 — Migración Supabase
+### CAMBIO 1 — Ocultar método de pago "Online"
 
-```sql
-ALTER TABLE public.productos_master
-  ADD COLUMN IF NOT EXISTS imagen_override_url TEXT,
-  ADD COLUMN IF NOT EXISTS imagen_source TEXT NOT NULL DEFAULT 'rp'
-    CHECK (imagen_source IN ('rp', 'admin', 'ugc')),
-  ADD COLUMN IF NOT EXISTS imagen_updated_at TIMESTAMPTZ;
-```
+En el bloque "Método de pago" (líneas 353–380):
 
-Sin tocar políticas (la tabla ya tiene RLS y grants definidos).
+- Definir flag: `const PAYMENTS_ENABLED = import.meta.env.VITE_PAYMENTS_ENABLED === "true";` (TanStack/Vite usa `VITE_*`, no `NEXT_PUBLIC_*` — equivalente funcional).
+- Construir la lista de opciones condicionalmente: siempre `efectivo` y `datafono`; agregar `online` solo si `PAYMENTS_ENABLED`.
+- Eliminar el `<p>` de "Pasarela online próximamente…" por completo.
+- Si `persisted.pago === "online"` y la pasarela está apagada, inicializar `pago` en `"efectivo"` para no dejar el estado en un método invisible.
 
-## Storage bucket
+### CAMBIO 2 — Editar cantidades y eliminar desde `ResumenPedido`
 
-Crear bucket público `product-images` con `supabase--storage_create_bucket`. Políticas en `storage.objects`:
+Refactor de `ResumenPedido` (líneas 436–480):
 
-- `SELECT` público (anon + authenticated) sobre `bucket_id = 'product-images'`.
-- `INSERT/UPDATE/DELETE` sólo si `public.has_role(auth.uid(), 'super_admin')` OR `'editor'` OR `'marketing'` (mismos roles que ya pueden editar menú).
+- Importar `incItem`, `decItem`, `removeItem` desde `@/lib/cart` (los tres ya existen y usan `item.key`, lo cual respeta la persistencia en localStorage del store).
+- Por cada `<li>`:
+  - Mantener la primera línea con nombre + subtotal del ítem.
+  - Debajo, agregar una fila de controles thumb-friendly (mínimo 44×44 px de área tocable, `min-w-[44px] min-h-[44px]`):
+    - Botón `−` → `decItem(i.key)` (el store ya elimina al llegar a 0; verificar comportamiento — si no, llamar `removeItem` cuando `i.cantidad === 1`).
+    - Contador `i.cantidad` centrado.
+    - Botón `+` → `incItem(i.key)`.
+    - Botón "Eliminar" (icono 🗑 + sr-only) → `removeItem(i.key)` con `toast.success("Eliminado del pedido")` como confirmación visual breve.
+- Estilo brutal consistente: `border-2 border-kp-ink bg-kp-cheese` para los botones, `disabled` visual cuando `cantidad <= 1` no es necesario porque `decItem` ya elimina.
+- El `total` recibido por props ya se recalcula en tiempo real porque `useCart()` en el padre es reactivo al store; no requiere cambio adicional.
 
-Path convenido: `productos/{producto_id}-{timestamp}.webp` (o `.jpg`/`.png` si la conversión a WebP no fue posible).
+### CAMBIO 3 — Bloque "Detalles de entrega" siempre visible antes del CTA
 
----
+Nuevo `<BrutalCard>` insertado en el `<form>` justo después de la card de "Pago" (antes de `<details>` de notas), y también renderizado dentro del `ResumenPedido` desktop para que esté visible al hacer scroll. Contenido:
 
-## PASO 2 — Render frontend (la override siempre gana)
+- **Sede que despacha:** `sede?.label`
+- **Tipo de entrega:** "Domicilio" | "Recoger en sede"
+- **Dirección de entrega** (si `!esRecoger`): `direccion`
+- **Subtotal:** `cop(subtotal)`
+- **Costo de domicilio:** el modelo actual de `sede` no expone tarifa de domicilio → renderizar literal "A confirmar por WhatsApp" cuando `!esRecoger`; ocultar cuando `esRecoger`. (No se agrega campo nuevo al modelo.)
+- **Total final:** `cop(total)` (hoy = subtotal; si en el futuro se suma fee, se actualiza aquí).
+- **Tiempo estimado:** el modelo de sede tampoco lo expone hoy → omitir la línea si no hay dato (regla "si no existe, no existe"). Dejar comentario `TODO` apuntando a `getMenuForSede` / Restaurant.pe para enchufarlo cuando esté disponible.
 
-Archivo `src/lib/rp.functions.ts`, función `getMenuForSede`:
-
-1. Añadir `imagen_override_url` al `select` y al tipo `OvrRow.productos_master`.
-2. Cambiar el map:
-   ```ts
-   imagen_url: pm.imagen_override_url ?? pm.imagen_url,
-   ```
-   (Se mantiene la key `imagen_url` para no tocar `src/lib/menu.ts` ni `ProductCard`. El fallback `/fallback-product.webp` ya lo maneja la UI con `imagen ?? ""`.)
-
-**Sincronización RP intacta:** el upsert en `syncMenuFromRP` (líneas ~122-140) sólo escribe `imagen_url`, nunca toca `imagen_override_url`, así que la sync ya respeta la override por construcción.
-
----
-
-## PASO 3 — Server function de override
-
-Nueva server fn en `src/lib/rp.functions.ts` (mismo archivo, junto a `updateAdminProducto`):
-
-```ts
-export const setProductoImagenOverride = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({
-      id: z.string().uuid(),
-      imagen_override_url: z.string().url().nullable(), // null = revertir
-    }).parse(input),
-  )
-  .handler(async ({ data, context }) => {
-    const patch = {
-      imagen_override_url: data.imagen_override_url,
-      imagen_source: data.imagen_override_url ? "admin" : "rp",
-      imagen_updated_at: new Date().toISOString(),
-    };
-    const { error } = await context.supabase
-      .from("productos_master")
-      .update(patch as never).eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-```
-
-Actualizar `listAdminMenu` para que el select incluya `imagen_override_url, imagen_source, imagen_updated_at`. La función `updateAdminProducto` NO se toca (la imagen tiene su propio endpoint, evita mezclar booleanos con URL larga); el plan original pedía añadir los campos ahí, pero un endpoint dedicado es más limpio y atómico — confirmar si se prefiere lo contrario.
+Layout mobile-first: stack vertical con `text-sm`, etiquetas en `font-display uppercase opacity-70` y valores en `font-display`. Fila Total destacada con borde superior.
 
 ---
 
-## PASO 4 — UI en `/admin/menu`
+### Criterios verificados
 
-Tipo `Prod` añade: `imagen_override_url`, `imagen_source`, `imagen_updated_at`.
+- `submitOrder` y `precheckStock` no se tocan.
+- `clearCart` / `localStorage` del store no se tocan; `incItem/decItem/removeItem` ya escriben al mismo store persistente.
+- Botones +/− con área ≥ 44 px.
+- Total reactivo porque el padre consume `useCart()`.
+- `VITE_PAYMENTS_ENABLED` documentado implícitamente; sin la var, "Online" no aparece.
 
-En `SortableProductRow` (línea ~408), reemplazar la mini-thumb por un botón clickable:
+### Archivos
 
-- `displayImagen = prod.imagen_override_url ?? prod.imagen_url`
-- Badge encima: `prod.imagen_override_url ? "Custom" : "Restaurant.pe"` (chip pequeño, esquina inferior).
-- Click → abre `ProductImageDialog` (componente nuevo).
-
-**Nuevo componente** `src/components/admin/ProductImageDialog.tsx`:
-
-- Usa `Dialog` de shadcn ya disponible.
-- Zona drag & drop + `<input type="file" accept="image/jpeg,image/png,image/webp">`.
-- Preview inmediato del File seleccionado (object URL).
-- Botón **"Guardar foto"**:
-  1. `convertToWebp(file)` con `<canvas>` (max 1200px lado largo, quality 0.85). Si falla por CORS/format, sube el archivo original.
-  2. `supabase.storage.from("product-images").upload(path, blob, { contentType, upsert: true })` con `path = productos/${prod.id}-${Date.now()}.webp`.
-  3. `getPublicUrl(path)` → llama `setProductoImagenOverride({ id, imagen_override_url: url })`.
-- Botón **"Revertir a original"** → `setProductoImagenOverride({ id, imagen_override_url: null })`.
-- Estados: `idle | uploading | saving | error`. Toasts con `sonner`.
-
-**Optimistic update** vía React Query:
-```ts
-const imageMut = useMutation({
-  mutationFn: (v: { id: string; url: string | null }) =>
-    setOverride({ data: { id: v.id, imagen_override_url: v.url } }),
-  onMutate: async ({ id, url }) => {
-    await queryClient.cancelQueries({ queryKey: ["admin-menu-master"] });
-    const prev = queryClient.getQueryData(["admin-menu-master"]);
-    queryClient.setQueryData(["admin-menu-master"], (old: any) => ({
-      ...old,
-      productos: old.productos.map((p: Prod) =>
-        p.id === id ? { ...p, imagen_override_url: url, imagen_source: url ? "admin" : "rp" } : p
-      ),
-    }));
-    return { prev };
-  },
-  onError: (_e, _v, ctx) => ctx && queryClient.setQueryData(["admin-menu-master"], ctx.prev),
-  onSuccess: () => queryClient.invalidateQueries({ queryKey: ["menu"] }),
-});
-```
-
----
-
-## Conversión a WebP (cliente)
-
-Helper local en el dialog:
-
-```ts
-async function toWebp(file: File, max = 1200, quality = 0.85): Promise<Blob> {
-  const img = await createImageBitmap(file);
-  const ratio = Math.min(1, max / Math.max(img.width, img.height));
-  const w = Math.round(img.width * ratio);
-  const h = Math.round(img.height * ratio);
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-  return await new Promise<Blob>((res, rej) =>
-    canvas.toBlob(b => b ? res(b) : rej(new Error("webp encode failed")), "image/webp", quality)
-  );
-}
-```
-
-Si `toBlob` retorna null (raro en Safari viejos), fallback: subir el File original con su `contentType`, path con la extensión original.
-
----
-
-## Archivos a tocar
-
-1. **Migración Supabase** — columnas + bucket + policies storage.
-2. `src/lib/rp.functions.ts` — `getMenuForSede` (override en map), `listAdminMenu` (select), nueva `setProductoImagenOverride`.
-3. `src/routes/admin.menu.tsx` — tipo `Prod`, thumb clickable + badge, integración del dialog y mutation.
-4. `src/components/admin/ProductImageDialog.tsx` — nuevo.
-5. *(Sin cambios)* `src/lib/menu.ts`, `ProductCard`, sync RP — la override se inyecta upstream.
-
-## Criterios verificados
-
-- ✅ Sync RP nunca pisa `imagen_override_url` (upsert sólo escribe `imagen_url`).
-- ✅ Override gana siempre en frontend (`pm.imagen_override_url ?? pm.imagen_url`).
-- ✅ Optimistic update sin recargar.
-- ✅ Storage path estable por producto + timestamp (cache busting).
-- ✅ Revertir = `NULL` + `source='rp'`.
-
-## Fuera de alcance
-
-- UGC desde clientes finales (el enum lo soporta, pero no hay UI).
-- Cropper avanzado / focal point.
-- Recalcular `imagen_updated_at` desde sync RP.
+- `src/routes/checkout.tsx` (único archivo modificado).

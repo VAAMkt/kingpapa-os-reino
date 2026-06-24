@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
-import { useCart, clearCart, setOrderType, type OrderType } from "@/lib/cart";
+import { useCart, clearCart, setOrderType, incItem, decItem, removeItem, type OrderType } from "@/lib/cart";
 import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-sede";
 import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/checkout")({
 });
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
+const PAYMENTS_ENABLED = import.meta.env.VITE_PAYMENTS_ENABLED === "true";
 type PagoMetodo = "efectivo" | "datafono" | "online";
 type FieldErrors = Partial<Record<"nombre" | "telefono" | "direccion", string>>;
 
@@ -61,7 +62,10 @@ function CheckoutPage() {
   const [direccion, setDireccion] = useState(persisted.direccion ?? sede?.direccionTexto ?? "");
   const [detalles, setDetalles] = useState(persisted.detalles ?? sede?.detalles ?? "");
   const [notas, setNotas] = useState(persisted.notas ?? "");
-  const [pago, setPago] = useState<PagoMetodo>(persisted.pago ?? "efectivo");
+  const [pago, setPago] = useState<PagoMetodo>(() => {
+    const p = persisted.pago ?? "efectivo";
+    return p === "online" && !PAYMENTS_ENABLED ? "efectivo" : p;
+  });
   const [enviando, setEnviando] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [resumenAbierto, setResumenAbierto] = useState(false);
@@ -353,11 +357,11 @@ function CheckoutPage() {
           <BrutalCard tone="cheese" className="p-4 space-y-2">
             <h2 className="font-display uppercase text-lg">Método de pago</h2>
             <div className="flex flex-wrap gap-2">
-              {([
+              {(([
                 { id: "efectivo", label: "💵 Efectivo" },
                 { id: "datafono", label: "💳 Datáfono" },
-                { id: "online", label: "🌐 Online" },
-              ] as { id: PagoMetodo; label: string }[]).map((opt) => (
+                ...(PAYMENTS_ENABLED ? [{ id: "online", label: "🌐 Online" }] : []),
+              ]) as { id: PagoMetodo; label: string }[]).map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
@@ -372,12 +376,17 @@ function CheckoutPage() {
                 </button>
               ))}
             </div>
-            {pago === "online" && (
-              <p className="text-xs opacity-70">
-                Pasarela online próximamente — el equipo confirmará por WhatsApp.
-              </p>
-            )}
           </BrutalCard>
+
+          {/* Detalles de entrega siempre visibles */}
+          <DetallesEntrega
+            sede={sede}
+            esRecoger={esRecoger}
+            direccion={direccion}
+            subtotal={subtotal}
+            total={total}
+          />
+
 
           {/* Notas colapsadas */}
           <details className="border-2 border-kp-ink/30 bg-kp-cheese px-3 py-2">
@@ -447,15 +456,13 @@ function ResumenPedido({
       <h2 className="font-display uppercase text-lg mb-2">Tu pedido</h2>
       <ul className="divide-y-2 divide-kp-ink/20">
         {items.map((i) => (
-          <li key={i.key} className="py-2">
+          <li key={i.key} className="py-2 space-y-2">
             <div className="flex justify-between gap-3">
-              <span className="font-display uppercase text-sm">
-                {i.cantidad}× {i.nombre}
-              </span>
+              <span className="font-display uppercase text-sm">{i.nombre}</span>
               <span className="font-display text-sm">{cop(i.precio * i.cantidad)}</span>
             </div>
             {i.modificadores && i.modificadores.length > 0 && (
-              <ul className="text-[11px] opacity-70 mt-1 pl-3 list-disc">
+              <ul className="text-[11px] opacity-70 pl-3 list-disc">
                 {i.modificadores.map((m) => (
                   <li key={`${m.grupoId}-${m.opcionId}`}>
                     {m.nombre}
@@ -464,6 +471,41 @@ function ResumenPedido({
                 ))}
               </ul>
             )}
+            <div className="flex items-center justify-between gap-2">
+              <div className="inline-flex items-center border-2 border-kp-ink bg-kp-cheese">
+                <button
+                  type="button"
+                  aria-label="Disminuir cantidad"
+                  onClick={() => decItem(i.key)}
+                  className="min-w-[44px] min-h-[44px] font-display text-lg leading-none flex items-center justify-center hover:bg-kp-yellow"
+                >
+                  −
+                </button>
+                <span className="min-w-[44px] min-h-[44px] flex items-center justify-center font-display text-sm border-x-2 border-kp-ink">
+                  {i.cantidad}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Aumentar cantidad"
+                  onClick={() => incItem(i.key)}
+                  className="min-w-[44px] min-h-[44px] font-display text-lg leading-none flex items-center justify-center hover:bg-kp-yellow"
+                >
+                  +
+                </button>
+              </div>
+              <button
+                type="button"
+                aria-label="Eliminar del pedido"
+                onClick={() => {
+                  removeItem(i.key);
+                  toast.success("Eliminado del pedido");
+                }}
+                className="min-w-[44px] min-h-[44px] px-3 border-2 border-kp-ink bg-kp-cheese font-display uppercase text-xs hover:bg-kp-red hover:text-kp-cheese inline-flex items-center gap-1"
+              >
+                <span aria-hidden>🗑</span>
+                <span>Eliminar</span>
+              </button>
+            </div>
           </li>
         ))}
       </ul>
@@ -478,3 +520,47 @@ function ResumenPedido({
     </BrutalCard>
   );
 }
+
+function DetallesEntrega({
+  sede,
+  esRecoger,
+  direccion,
+  subtotal,
+  total,
+}: {
+  sede: ReturnType<typeof useActiveSede>;
+  esRecoger: boolean;
+  direccion: string;
+  subtotal: number;
+  total: number;
+}) {
+  // TODO: enchufar costo de domicilio y tiempo estimado desde Restaurant.pe
+  // cuando estén disponibles en el modelo de sede / getMenuForSede.
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-start justify-between gap-3 text-sm">
+      <span className="font-display uppercase opacity-70">{label}</span>
+      <span className="font-display text-right">{value}</span>
+    </div>
+  );
+  return (
+    <BrutalCard tone="cheese" className="p-4 space-y-2">
+      <h2 className="font-display uppercase text-lg">Detalles de entrega</h2>
+      <Row label="Sede" value={sede?.label ?? "—"} />
+      <Row label="Tipo" value={esRecoger ? "Recoger en sede" : "Domicilio"} />
+      {!esRecoger && (
+        <Row label="Dirección" value={direccion || sede?.direccionTexto || "—"} />
+      )}
+      <div className="border-t-2 border-kp-ink/30 pt-2 space-y-1">
+        <Row label="Subtotal" value={cop(subtotal)} />
+        {!esRecoger && (
+          <Row label="Domicilio" value="A confirmar por WhatsApp" />
+        )}
+        <div className="flex items-center justify-between pt-2 mt-1 border-t-2 border-kp-ink">
+          <span className="font-display uppercase">Total</span>
+          <span className="font-display text-2xl">{cop(total)}</span>
+        </div>
+      </div>
+    </BrutalCard>
+  );
+}
+
