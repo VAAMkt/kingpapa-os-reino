@@ -4,7 +4,8 @@ import { BrutalLink, BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { useActiveSede } from "@/lib/active-sede";
 import { openLocationGate } from "@/components/kp/LocationGate";
-import crown from "@/assets/crown.png";
+import wordmarkBlack from "@/assets/kingpapa-wordmark-black.png.asset.json";
+import wordmarkYellow from "@/assets/kingpapa-wordmark-yellow.png.asset.json";
 
 const nav = [
   { to: "/menu", label: "Menú" },
@@ -47,9 +48,8 @@ export function TopAppBar() {
   return (
     <header className="sticky top-0 z-40 bg-kp-yellow border-b-4 border-kp-ink">
       <div className="mx-auto max-w-7xl px-4 md:px-6 py-3 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center gap-2">
-          <img src={crown} alt="KINGPAPA" width={36} height={36} className="w-9 h-9" />
-          <span className="font-display text-2xl md:text-3xl tracking-wide">KINGPAPA</span>
+        <Link to="/" className="flex items-center">
+          <img src={wordmarkBlack.url} alt="KINGPAPA" className="h-7 md:h-9 w-auto" />
         </Link>
 
         <nav className="hidden lg:flex items-center gap-1">
@@ -114,9 +114,8 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 md:px-6 py-10">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2">
-            <div className="flex items-center gap-2 mb-3">
-              <img src={crown} alt="" width={40} height={40} className="w-10 h-10" />
-              <span className="font-display text-3xl text-kp-yellow">KINGPAPA</span>
+            <div className="mb-3">
+              <img src={wordmarkYellow.url} alt="KINGPAPA" className="h-10 md:h-12 w-auto" />
             </div>
             <p className="text-sm text-kp-cheese/80 max-w-sm">
               Los REYES de esta pendeja’. Salchipapas monstruosas, bowls coronados y retos
