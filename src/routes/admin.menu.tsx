@@ -56,6 +56,9 @@ type Prod = {
   descripcion_override: string | null;
   precio: number;
   imagen_url: string | null;
+  imagen_override_url: string | null;
+  imagen_source: string | null;
+  imagen_updated_at: string | null;
   disponible: boolean;
   orden: number;
   destacado: boolean;
@@ -66,6 +69,7 @@ type Prod = {
   clasificacion_me: MEClass;
   margen_pct: number | null;
 };
+
 
 
 function AdminMenuPage() {
