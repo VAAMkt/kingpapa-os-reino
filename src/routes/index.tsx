@@ -14,7 +14,7 @@ import { listPublicSedes } from "@/lib/sedes";
 import { listPublicPosts } from "@/lib/posts";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { rpProductoToProducto, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
-import heroImg from "@/assets/hero-salchipapa.png";
+import heroAsset from "@/assets/salchitender-lto.jpeg.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -91,8 +91,8 @@ function HomePage() {
             </div>
             <div className="aspect-square bg-kp-ink border-2 border-kp-ink shadow-brutal-lg overflow-hidden">
               <img
-                src={heroImg}
-                alt="Salchipapa monstruosa KINGPAPA"
+                src={heroAsset.url}
+                alt="SalchiTender LTO — La Nueva Reina llegó al Reino KINGPAPA"
                 width={1280}
                 height={1280}
                 className="w-full h-full object-cover"
