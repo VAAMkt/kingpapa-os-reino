@@ -288,7 +288,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         `disponible, precio_override, stock_cache,
          productos_master!inner (
            id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio,
-           imagen_url, disponible, almacen_id, orden,
+           imagen_url, imagen_override_url, disponible, almacen_id, orden,
            destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom,
            modificadores, modificadores_raw
          )`,
@@ -311,6 +311,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         descripcion_override: string | null;
         precio: number | string;
         imagen_url: string | null;
+        imagen_override_url: string | null;
         disponible: boolean;
         almacen_id: number | null;
         orden: number;
@@ -335,7 +336,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
           nombre: pm.nombre_override ?? pm.nombre,
           descripcion: pm.descripcion_override ?? pm.descripcion,
           precio: r.precio_override ?? pm.precio,
-          imagen_url: pm.imagen_url,
+          imagen_url: pm.imagen_override_url ?? pm.imagen_url,
           disponible: true,
           almacen_id: pm.almacen_id,
           orden: pm.orden,
@@ -349,6 +350,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         };
       })
       .sort((a, b) => a.orden - b.orden);
+
 
     // Categorías que efectivamente tienen productos visibles en esta sede.
     const catIds = Array.from(
