@@ -62,7 +62,10 @@ function CheckoutPage() {
   const [direccion, setDireccion] = useState(persisted.direccion ?? sede?.direccionTexto ?? "");
   const [detalles, setDetalles] = useState(persisted.detalles ?? sede?.detalles ?? "");
   const [notas, setNotas] = useState(persisted.notas ?? "");
-  const [pago, setPago] = useState<PagoMetodo>(persisted.pago ?? "efectivo");
+  const [pago, setPago] = useState<PagoMetodo>(() => {
+    const p = persisted.pago ?? "efectivo";
+    return p === "online" && !PAYMENTS_ENABLED ? "efectivo" : p;
+  });
   const [enviando, setEnviando] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [resumenAbierto, setResumenAbierto] = useState(false);
