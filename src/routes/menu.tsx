@@ -241,8 +241,10 @@ function MenuPage() {
                     onClick={() => handleNavClick(s.categoria.id)}
                     data-cat-nav={s.categoria.id}
                     className={cn(
-                      "shrink-0 px-3 py-2 font-display uppercase text-xs border-2 border-kp-ink whitespace-nowrap shadow-brutal-sm transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-                      isActive ? "bg-kp-ink text-kp-cheese" : "bg-kp-cheese text-kp-ink",
+                      "shrink-0 px-4 py-2 font-display uppercase text-xs border-2 border-kp-ink whitespace-nowrap shadow-brutal-sm transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
+                      isActive
+                        ? "bg-kp-ink text-kp-yellow"
+                        : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow",
                     )}
                   >
                     {s.categoria.nombre}
