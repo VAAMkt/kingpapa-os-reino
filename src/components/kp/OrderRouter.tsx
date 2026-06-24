@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalChip } from "@/components/ui-kp/Brutal";
-import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
+import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { listPublicSedes } from "@/lib/sedes";
 
 /**
  * OrderRouter
- * Captura ciudad/sede/canal y dispara deeplink (Rappi/DiDi/WhatsApp).
+ * Jerarquía: pedido directo (CTA principal) > recoger en sede > apps de terceros colapsadas.
  */
 export function OrderRouter({ compact = false }: { compact?: boolean }) {
   const { data: sedes = [] } = useQuery({
@@ -35,6 +35,9 @@ export function OrderRouter({ compact = false }: { compact?: boolean }) {
 
   const rappiUrl = "https://www.rappi.com.co/restaurantes/kingpapa";
   const didiUrl = "https://web.didi-food.com/co";
+
+  const checkoutDirecto = "/checkout";
+  const checkoutRecoger = `/checkout?modo=recoger${sede?.slug ? `&sede=${sede.slug}` : ""}`;
 
   return (
     <BrutalCard tone="yellow" className={compact ? "p-4" : "p-5 md:p-7"}>
@@ -65,26 +68,39 @@ export function OrderRouter({ compact = false }: { compact?: boolean }) {
         ))}
       </select>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <BrutalLink href={rappiUrl} external variant="fire" size="md" block>
-          Pedir por Rappi
-        </BrutalLink>
-        <BrutalLink href={didiUrl} external variant="neon" size="md" block>
-          Pedir por DiDi
-        </BrutalLink>
-        <BrutalLink href={waUrl} external variant="dark" size="md" block>
-          WhatsApp al Reino
+      {/* CTA primario */}
+      <BrutalLink href={checkoutDirecto} variant="fire" size="lg" block>
+        Pedir directo al Reino
+      </BrutalLink>
+
+      {/* CTA secundario */}
+      <div className="mt-3">
+        <BrutalLink href={checkoutRecoger} variant="ghost" size="md" block>
+          Recoger en sede
         </BrutalLink>
       </div>
 
-      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-        <BrutalButton variant="ghost" size="md" block>
-          Pedir directo al Reino
-        </BrutalButton>
-        <BrutalButton variant="ghost" size="md" block>
-          Recoger en sede
-        </BrutalButton>
-      </div>
+      {/* Apps de terceros: colapsado, fallback */}
+      <details className="mt-5 border-t-2 border-kp-ink/20 pt-3 group">
+        <summary className="cursor-pointer font-display uppercase text-xs tracking-wider text-kp-ink/70 list-none flex items-center justify-between">
+          <span>También estamos en apps</span>
+          <span aria-hidden className="transition-transform group-open:rotate-180">▾</span>
+        </summary>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
+          <BrutalLink href={rappiUrl} external variant="ghost" size="sm" block>
+            Rappi
+          </BrutalLink>
+          <BrutalLink href={didiUrl} external variant="ghost" size="sm" block>
+            DiDi
+          </BrutalLink>
+          <BrutalLink href={waUrl} external variant="ghost" size="sm" block>
+            WhatsApp
+          </BrutalLink>
+        </div>
+        <p className="mt-3 text-[10px] font-body text-kp-ink/60 leading-tight">
+          Tip: pedir directo te suma puntos del Reino y evita comisiones.
+        </p>
+      </details>
     </BrutalCard>
   );
 }
