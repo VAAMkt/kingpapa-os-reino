@@ -190,6 +190,9 @@ export type Database = {
           es_recomendado: boolean
           etiqueta_custom: string | null
           id: string
+          imagen_override_url: string | null
+          imagen_source: string
+          imagen_updated_at: string | null
           imagen_url: string | null
           margen_pct: number | null
           modificadores: Json
@@ -215,6 +218,9 @@ export type Database = {
           es_recomendado?: boolean
           etiqueta_custom?: string | null
           id?: string
+          imagen_override_url?: string | null
+          imagen_source?: string
+          imagen_updated_at?: string | null
           imagen_url?: string | null
           margen_pct?: number | null
           modificadores?: Json
@@ -240,6 +246,9 @@ export type Database = {
           es_recomendado?: boolean
           etiqueta_custom?: string | null
           id?: string
+          imagen_override_url?: string | null
+          imagen_source?: string
+          imagen_updated_at?: string | null
           imagen_url?: string | null
           margen_pct?: number | null
           modificadores?: Json
