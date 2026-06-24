@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, ArrowUp, ArrowDown } from "lucide-react";
+import { GripVertical, ArrowUp, ArrowDown, EyeOff, TrendingUp } from "lucide-react";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,8 @@ type Prod = {
   etiqueta_custom: string | null;
   clasificacion_me: MEClass;
   margen_pct: number | null;
+  oculto_en_web: boolean | null;
+  es_alto_margen: boolean | null;
 };
 
 
@@ -119,6 +121,8 @@ function AdminMenuPage() {
     margen_pct?: number | null;
     nombre_override?: string | null;
     descripcion_override?: string | null;
+    oculto_en_web?: boolean;
+    es_alto_margen?: boolean;
   };
   const prodMut = useMutation({
     mutationFn: (v: ProdPatch) => updateProd({ data: v }),
@@ -392,6 +396,8 @@ function SortableProdRow({
     clasificacion_me: MEClass;
     margen_pct: number | null;
     nombre_override: string | null;
+    oculto_en_web: boolean;
+    es_alto_margen: boolean;
   }>) => void;
   onEditImagen: () => void;
 }) {
@@ -542,6 +548,30 @@ function SortableProdRow({
           onClick={() => onPatch({ es_recomendado: !prod.es_recomendado })}
           title="Badge Recomendado del chef"
         />
+        <button
+          type="button"
+          onClick={() => onPatch({ oculto_en_web: !prod.oculto_en_web })}
+          title="Ocultar en web (sin afectar POS)"
+          aria-label="Ocultar en web"
+          className={`h-7 px-2 border-2 border-kp-ink font-display uppercase text-[10px] shadow-brutal-sm transition-all inline-flex items-center gap-1 ${
+            prod.oculto_en_web ? "bg-kp-red text-kp-cheese" : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
+          }`}
+        >
+          <EyeOff className="size-3" />
+          {prod.oculto_en_web ? "Oculto web" : "Visible"}
+        </button>
+        <button
+          type="button"
+          onClick={() => onPatch({ es_alto_margen: !prod.es_alto_margen })}
+          title="Producto de alto margen"
+          aria-label="Alto margen"
+          className={`h-7 px-2 border-2 border-kp-ink font-display uppercase text-[10px] shadow-brutal-sm transition-all inline-flex items-center gap-1 ${
+            prod.es_alto_margen ? "bg-emerald-500 text-kp-ink" : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
+          }`}
+        >
+          <TrendingUp className="size-3" />
+          Alto margen
+        </button>
         <select
           value={prod.clasificacion_me ?? ""}
           onChange={(e) =>

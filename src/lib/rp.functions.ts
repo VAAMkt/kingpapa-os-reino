@@ -290,6 +290,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
            id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio,
            imagen_url, imagen_override_url, disponible, almacen_id, orden,
            destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom, clasificacion_me,
+           oculto_en_web,
            modificadores, modificadores_raw
          )`,
       )
@@ -321,13 +322,14 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         es_recomendado: boolean;
         etiqueta_custom: string | null;
         clasificacion_me: string | null;
+        oculto_en_web: boolean | null;
         modificadores: unknown;
         modificadores_raw: unknown;
       };
     };
 
     const productos = ((ovr ?? []) as unknown as OvrRow[])
-      .filter((r) => r.productos_master?.disponible)
+      .filter((r) => r.productos_master?.disponible && r.productos_master.oculto_en_web !== true)
       .map((r) => {
         const pm = r.productos_master;
         return {
@@ -539,7 +541,7 @@ export const listAdminMenu = createServerFn({ method: "GET" })
         supabase
           .from("productos_master")
           .select(
-            "id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio, imagen_url, imagen_override_url, imagen_source, imagen_updated_at, disponible, orden, destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom, clasificacion_me, margen_pct",
+            "id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio, imagen_url, imagen_override_url, imagen_source, imagen_updated_at, disponible, orden, destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom, clasificacion_me, margen_pct, oculto_en_web, es_alto_margen",
           )
           .order("orden")
           .order("nombre"),
@@ -598,6 +600,8 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
           .nullable()
           .optional(),
         margen_pct: z.number().min(0).max(100).nullable().optional(),
+        oculto_en_web: z.boolean().optional(),
+        es_alto_margen: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -612,6 +616,8 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
       "es_recomendado",
       "clasificacion_me",
       "margen_pct",
+      "oculto_en_web",
+      "es_alto_margen",
     ] as const;
     for (const k of keys) {
       if (data[k] !== undefined) patch[k] = data[k];
