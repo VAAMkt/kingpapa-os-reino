@@ -456,15 +456,13 @@ function ResumenPedido({
       <h2 className="font-display uppercase text-lg mb-2">Tu pedido</h2>
       <ul className="divide-y-2 divide-kp-ink/20">
         {items.map((i) => (
-          <li key={i.key} className="py-2">
+          <li key={i.key} className="py-2 space-y-2">
             <div className="flex justify-between gap-3">
-              <span className="font-display uppercase text-sm">
-                {i.cantidad}× {i.nombre}
-              </span>
+              <span className="font-display uppercase text-sm">{i.nombre}</span>
               <span className="font-display text-sm">{cop(i.precio * i.cantidad)}</span>
             </div>
             {i.modificadores && i.modificadores.length > 0 && (
-              <ul className="text-[11px] opacity-70 mt-1 pl-3 list-disc">
+              <ul className="text-[11px] opacity-70 pl-3 list-disc">
                 {i.modificadores.map((m) => (
                   <li key={`${m.grupoId}-${m.opcionId}`}>
                     {m.nombre}
@@ -473,6 +471,41 @@ function ResumenPedido({
                 ))}
               </ul>
             )}
+            <div className="flex items-center justify-between gap-2">
+              <div className="inline-flex items-center border-2 border-kp-ink bg-kp-cheese">
+                <button
+                  type="button"
+                  aria-label="Disminuir cantidad"
+                  onClick={() => decItem(i.key)}
+                  className="min-w-[44px] min-h-[44px] font-display text-lg leading-none flex items-center justify-center hover:bg-kp-yellow"
+                >
+                  −
+                </button>
+                <span className="min-w-[44px] min-h-[44px] flex items-center justify-center font-display text-sm border-x-2 border-kp-ink">
+                  {i.cantidad}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Aumentar cantidad"
+                  onClick={() => incItem(i.key)}
+                  className="min-w-[44px] min-h-[44px] font-display text-lg leading-none flex items-center justify-center hover:bg-kp-yellow"
+                >
+                  +
+                </button>
+              </div>
+              <button
+                type="button"
+                aria-label="Eliminar del pedido"
+                onClick={() => {
+                  removeItem(i.key);
+                  toast.success("Eliminado del pedido");
+                }}
+                className="min-w-[44px] min-h-[44px] px-3 border-2 border-kp-ink bg-kp-cheese font-display uppercase text-xs hover:bg-kp-red hover:text-kp-cheese inline-flex items-center gap-1"
+              >
+                <span aria-hidden>🗑</span>
+                <span>Eliminar</span>
+              </button>
+            </div>
           </li>
         ))}
       </ul>
