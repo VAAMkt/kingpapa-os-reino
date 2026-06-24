@@ -1,215 +1,164 @@
-
 ## Objetivo
 
-Convertir `/menu` en una experiencia mobile-first tipo carta:
-1. Secciones con título cuando el filtro es "Todas".
-2. Barra sticky de categorías con scroll suave y resaltado por scroll.
-3. `OrderRouter`: jerarquía clara — pedido directo primero, apps de terceros colapsadas.
-
-Sin tocar carrito, `submitOrder`, integración Restaurant.pe ni lógica craving-first.
+Permitir editar la foto de cualquier producto desde `/admin/menu` sin que la sincronización con Restaurant.pe la pise. La columna `imagen_url` sigue siendo espejo del POS; se agrega `imagen_override_url` como capa custom del Reino que siempre gana en el frontend.
 
 ---
 
-## CAMBIO 1 — Menú por secciones
+## PASO 1 — Migración Supabase
 
-**Archivo:** `src/routes/menu.tsx`
-
-Reemplazar el bloque GRID actual (líneas ~162-198) por render condicional:
-
-- Si `filtro !== "all"` → grid plano actual (sin cambios).
-- Si `filtro === "all"` → render por secciones.
-
-**Construcción de secciones** (en `useMemo`):
-
-```ts
-// Sección sintética "Más pedidos"
-const masPedidos = productos.filter(p => p.destacado || p.esMasVendido);
-
-// Secciones reales = categoriasUI menos "all", filtradas a las que tienen productos
-const seccionesReales = categoriasUI
-  .filter(c => c.id !== "all")
-  .map(c => ({ categoria: c, productos: productos.filter(p => p.categorias.includes(c.id)) }))
-  .filter(s => s.productos.length > 0);
-
-// Orden prioritario por heurística sobre el slug/nombre de categoría
-const prioridad = (slug: string, nombre: string) => {
-  const s = `${slug} ${nombre}`.toLowerCase();
-  if (s.includes("combo")) return 1;
-  if (s.includes("uno") || s.includes("personal") || s.includes("individual")) return 2;
-  if (s.includes("salchipapa")) return 3;
-  if (s.includes("adicion") || s.includes("acompan")) return 4;
-  if (s.includes("bebida") || s.includes("drink")) return 5;
-  return 99;
-};
-seccionesReales.sort((a, b) =>
-  prioridad(a.categoria.id, a.categoria.nombre) - prioridad(b.categoria.id, b.categoria.nombre)
-);
-
-// Sección "Más pedidos" va primero si hay productos
-const secciones = [
-  ...(masPedidos.length ? [{ categoria: { id: "mas-pedidos", nombre: "Más pedidos", filtro: "Más pedidos" }, productos: masPedidos }] : []),
-  ...seccionesReales,
-];
+```sql
+ALTER TABLE public.productos_master
+  ADD COLUMN IF NOT EXISTS imagen_override_url TEXT,
+  ADD COLUMN IF NOT EXISTS imagen_source TEXT NOT NULL DEFAULT 'rp'
+    CHECK (imagen_source IN ('rp', 'admin', 'ugc')),
+  ADD COLUMN IF NOT EXISTS imagen_updated_at TIMESTAMPTZ;
 ```
 
-**Render por sección:**
+Sin tocar políticas (la tabla ya tiene RLS y grants definidos).
 
-```tsx
-{secciones.map(({ categoria, productos: items }) => (
-  <section
-    key={categoria.id}
-    id={`sec-${categoria.id}`}
-    data-cat-section={categoria.id}
-    className="scroll-mt-32"
-  >
-    <div className="flex items-end justify-between mb-3 mt-8 border-b-4 border-kp-ink pb-2">
-      <h2 className="font-display text-3xl md:text-4xl uppercase leading-none">
-        {categoria.nombre}
-      </h2>
-      <span className="text-xs font-display uppercase text-kp-ink/60">
-        {items.length} {items.length === 1 ? "opción" : "opciones"}
-      </span>
-    </div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {items.map(p => (
-        <div key={p.id} className={p.destacado ? "sm:col-span-2" : ""}>
-          <ProductCard producto={p} destacado={p.destacado} />
-        </div>
-      ))}
-    </div>
-  </section>
-))}
-```
+## Storage bucket
 
-**"Coronas del rey" (líneas 142-158):** se elimina ese bloque para evitar duplicar con "Más pedidos" cuando `filtro === "all"`. Ahorra confusión.
+Crear bucket público `product-images` con `supabase--storage_create_bucket`. Políticas en `storage.objects`:
 
-`scroll-mt-32` deja espacio bajo el header sticky al hacer anchor scroll.
+- `SELECT` público (anon + authenticated) sobre `bucket_id = 'product-images'`.
+- `INSERT/UPDATE/DELETE` sólo si `public.has_role(auth.uid(), 'super_admin')` OR `'editor'` OR `'marketing'` (mismos roles que ya pueden editar menú).
+
+Path convenido: `productos/{producto_id}-{timestamp}.webp` (o `.jpg`/`.png` si la conversión a WebP no fue posible).
 
 ---
 
-## CAMBIO 2 — Sticky category nav
+## PASO 2 — Render frontend (la override siempre gana)
 
-**Mismo archivo `src/routes/menu.tsx`.** Reemplazar el bloque FILTROS (líneas 128-139) por una barra sticky:
+Archivo `src/lib/rp.functions.ts`, función `getMenuForSede`:
 
-```tsx
-<nav
-  className="sticky top-0 z-30 bg-kp-cheese border-b-4 border-kp-ink"
-  aria-label="Categorías"
->
-  <div className="mx-auto max-w-7xl px-4 md:px-6">
-    <div
-      className="flex gap-2 overflow-x-auto py-3 scrollbar-none"
-      style={{ scrollbarWidth: "none" }}
-    >
-      {sections para nav.map(c => (
-        <button
-          key={c.id}
-          onClick={() => handleNavClick(c.id)}
-          data-cat-nav={c.id}
-          className={cn(
-            "shrink-0 px-3 py-2 font-display uppercase text-xs border-2 border-kp-ink whitespace-nowrap",
-            activeCat === c.id ? "bg-kp-ink text-kp-cheese" : "bg-kp-cheese"
-          )}
-        >
-          {c.nombre}
-        </button>
-      ))}
-    </div>
-  </div>
-</nav>
-```
+1. Añadir `imagen_override_url` al `select` y al tipo `OvrRow.productos_master`.
+2. Cambiar el map:
+   ```ts
+   imagen_url: pm.imagen_override_url ?? pm.imagen_url,
+   ```
+   (Se mantiene la key `imagen_url` para no tocar `src/lib/menu.ts` ni `ProductCard`. El fallback `/fallback-product.webp` ya lo maneja la UI con `imagen ?? ""`.)
 
-Donde `sections para nav` = mismas `secciones` calculadas arriba (incluye "Más pedidos"). Cuando `filtro !== "all"`, ocultar barra (modo filtrado clásico) o seguir mostrando sin scrollspy — decisión: mantener visible siempre; tap en una pill resetea `filtro="all"` y hace scroll a esa sección.
+**Sincronización RP intacta:** el upsert en `syncMenuFromRP` (líneas ~122-140) sólo escribe `imagen_url`, nunca toca `imagen_override_url`, así que la sync ya respeta la override por construcción.
 
-**Scrollspy con IntersectionObserver:**
+---
+
+## PASO 3 — Server function de override
+
+Nueva server fn en `src/lib/rp.functions.ts` (mismo archivo, junto a `updateAdminProducto`):
 
 ```ts
-const [activeCat, setActiveCat] = useState<string | null>(null);
-useEffect(() => {
-  const nodes = document.querySelectorAll<HTMLElement>("[data-cat-section]");
-  if (!nodes.length) return;
-  const obs = new IntersectionObserver(
-    (entries) => {
-      const visible = entries
-        .filter(e => e.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-      if (visible) setActiveCat(visible.target.getAttribute("data-cat-section"));
-    },
-    { rootMargin: "-140px 0px -60% 0px", threshold: 0 }
-  );
-  nodes.forEach(n => obs.observe(n));
-  return () => obs.disconnect();
-}, [secciones.length, filtro]);
-
-const handleNavClick = (id: string) => {
-  if (filtro !== "all") setFiltro("all");
-  requestAnimationFrame(() => {
-    document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+export const setProductoImagenOverride = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      id: z.string().uuid(),
+      imagen_override_url: z.string().url().nullable(), // null = revertir
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const patch = {
+      imagen_override_url: data.imagen_override_url,
+      imagen_source: data.imagen_override_url ? "admin" : "rp",
+      imagen_updated_at: new Date().toISOString(),
+    };
+    const { error } = await context.supabase
+      .from("productos_master")
+      .update(patch as never).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
-};
 ```
 
-**Hide scrollbar mobile:** añadir clase utilitaria `.scrollbar-none { scrollbar-width: none; } .scrollbar-none::-webkit-scrollbar { display: none; }` en `src/styles.css`.
-
-Auto-scroll horizontal de la pill activa: cuando `activeCat` cambie, `document.querySelector('[data-cat-nav="X"]')?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" })`.
+Actualizar `listAdminMenu` para que el select incluya `imagen_override_url, imagen_source, imagen_updated_at`. La función `updateAdminProducto` NO se toca (la imagen tiene su propio endpoint, evita mezclar booleanos con URL larga); el plan original pedía añadir los campos ahí, pero un endpoint dedicado es más limpio y atómico — confirmar si se prefiere lo contrario.
 
 ---
 
-## CAMBIO 3 — OrderRouter: pedido directo primero
+## PASO 4 — UI en `/admin/menu`
 
-**Archivo:** `src/components/kp/OrderRouter.tsx`
+Tipo `Prod` añade: `imagen_override_url`, `imagen_source`, `imagen_updated_at`.
 
-Nueva jerarquía dentro del `BrutalCard`:
+En `SortableProductRow` (línea ~408), reemplazar la mini-thumb por un botón clickable:
 
-```tsx
-{/* CTA primario */}
-<BrutalLink href="/checkout" variant="primary" size="lg" block>
-  Pedir directo al Reino
-</BrutalLink>
+- `displayImagen = prod.imagen_override_url ?? prod.imagen_url`
+- Badge encima: `prod.imagen_override_url ? "Custom" : "Restaurant.pe"` (chip pequeño, esquina inferior).
+- Click → abre `ProductImageDialog` (componente nuevo).
 
-{/* CTA secundario */}
-<BrutalLink href={`/checkout?modo=recoger&sede=${sede?.slug ?? ""}`} variant="ghost" size="md" block className="mt-3">
-  Recoger en sede
-</BrutalLink>
+**Nuevo componente** `src/components/admin/ProductImageDialog.tsx`:
 
-{/* Dropdown colapsado al fondo */}
-<details className="mt-5 border-t-2 border-kp-ink/20 pt-3">
-  <summary className="cursor-pointer font-display uppercase text-xs tracking-wider text-kp-ink/70 list-none flex items-center justify-between">
-    También estamos en apps
-    <span aria-hidden>▾</span>
-  </summary>
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
-    <BrutalLink href={rappiUrl} external variant="ghost" size="sm" block>Rappi</BrutalLink>
-    <BrutalLink href={didiUrl} external variant="ghost" size="sm" block>DiDi</BrutalLink>
-    <BrutalLink href={waUrl} external variant="ghost" size="sm" block>WhatsApp</BrutalLink>
-  </div>
-</details>
+- Usa `Dialog` de shadcn ya disponible.
+- Zona drag & drop + `<input type="file" accept="image/jpeg,image/png,image/webp">`.
+- Preview inmediato del File seleccionado (object URL).
+- Botón **"Guardar foto"**:
+  1. `convertToWebp(file)` con `<canvas>` (max 1200px lado largo, quality 0.85). Si falla por CORS/format, sube el archivo original.
+  2. `supabase.storage.from("product-images").upload(path, blob, { contentType, upsert: true })` con `path = productos/${prod.id}-${Date.now()}.webp`.
+  3. `getPublicUrl(path)` → llama `setProductoImagenOverride({ id, imagen_override_url: url })`.
+- Botón **"Revertir a original"** → `setProductoImagenOverride({ id, imagen_override_url: null })`.
+- Estados: `idle | uploading | saving | error`. Toasts con `sonner`.
+
+**Optimistic update** vía React Query:
+```ts
+const imageMut = useMutation({
+  mutationFn: (v: { id: string; url: string | null }) =>
+    setOverride({ data: { id: v.id, imagen_override_url: v.url } }),
+  onMutate: async ({ id, url }) => {
+    await queryClient.cancelQueries({ queryKey: ["admin-menu-master"] });
+    const prev = queryClient.getQueryData(["admin-menu-master"]);
+    queryClient.setQueryData(["admin-menu-master"], (old: any) => ({
+      ...old,
+      productos: old.productos.map((p: Prod) =>
+        p.id === id ? { ...p, imagen_override_url: url, imagen_source: url ? "admin" : "rp" } : p
+      ),
+    }));
+    return { prev };
+  },
+  onError: (_e, _v, ctx) => ctx && queryClient.setQueryData(["admin-menu-master"], ctx.prev),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ["menu"] }),
+});
 ```
 
-El selector de ciudad/sede permanece arriba (necesario para construir `waUrl` y para preseleccionar sede en checkout). El destino real del CTA "Pedir directo" será `/checkout` (ya existe). Si la sede no está confirmada, el flujo existente de `OrderIntentDialog` / location gate ya intercepta al primer add-to-cart.
+---
 
-Rappi/DiDi conservan los enlaces actuales pero degradados visualmente, sin colores `fire/neon` que compitan.
+## Conversión a WebP (cliente)
+
+Helper local en el dialog:
+
+```ts
+async function toWebp(file: File, max = 1200, quality = 0.85): Promise<Blob> {
+  const img = await createImageBitmap(file);
+  const ratio = Math.min(1, max / Math.max(img.width, img.height));
+  const w = Math.round(img.width * ratio);
+  const h = Math.round(img.height * ratio);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+  return await new Promise<Blob>((res, rej) =>
+    canvas.toBlob(b => b ? res(b) : rej(new Error("webp encode failed")), "image/webp", quality)
+  );
+}
+```
+
+Si `toBlob` retorna null (raro en Safari viejos), fallback: subir el File original con su `contentType`, path con la extensión original.
 
 ---
 
-## Detalles técnicos
+## Archivos a tocar
 
-- `cn` helper: ya existe en `src/lib/utils.ts`.
-- `BrutalLink block` y `size="sm"`: verificar variantes disponibles en `src/components/ui-kp/BrutalButton.tsx`; si no existen `sm` o `block`, usar las más cercanas (`md` y `w-full`).
-- IntersectionObserver es safe en SSR si se llama dentro de `useEffect` (solo cliente).
-- `scroll-mt-32` (Tailwind) ya disponible en v4.
-- No se tocan: `submitOrder`, `restaurantpe.server.ts`, `cart.ts`, `OrderIntentDialog`, integración RP webhook.
+1. **Migración Supabase** — columnas + bucket + policies storage.
+2. `src/lib/rp.functions.ts` — `getMenuForSede` (override en map), `listAdminMenu` (select), nueva `setProductoImagenOverride`.
+3. `src/routes/admin.menu.tsx` — tipo `Prod`, thumb clickable + badge, integración del dialog y mutation.
+4. `src/components/admin/ProductImageDialog.tsx` — nuevo.
+5. *(Sin cambios)* `src/lib/menu.ts`, `ProductCard`, sync RP — la override se inyecta upstream.
 
----
+## Criterios verificados
 
-## Archivos a modificar
-
-1. `src/routes/menu.tsx` — secciones + sticky nav + scrollspy + quitar "Coronas".
-2. `src/components/kp/OrderRouter.tsx` — reordenar CTAs.
-3. `src/styles.css` — utilidad `.scrollbar-none`.
-4. Si falta variante: `src/components/ui-kp/BrutalButton.tsx` (verificación mínima, no rediseño).
+- ✅ Sync RP nunca pisa `imagen_override_url` (upsert sólo escribe `imagen_url`).
+- ✅ Override gana siempre en frontend (`pm.imagen_override_url ?? pm.imagen_url`).
+- ✅ Optimistic update sin recargar.
+- ✅ Storage path estable por producto + timestamp (cache busting).
+- ✅ Revertir = `NULL` + `source='rp'`.
 
 ## Fuera de alcance
 
-- Cambios en `ProductCard`, carrito, checkout, RP, auth.
-- Reordenar categorías desde admin (la prioridad va por heurística de slug; si después quieren orden manual, sería otro plan).
+- UGC desde clientes finales (el enum lo soporta, pero no hay UI).
+- Cropper avanzado / focal point.
+- Recalcular `imagen_updated_at` desde sync RP.
