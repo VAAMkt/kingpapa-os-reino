@@ -177,7 +177,10 @@ export type Database = {
       }
       productos_master: {
         Row: {
+          adicion_rec_ids: string[] | null
           almacen_id: number | null
+          bebida_rec_ids: string[] | null
+          carrito_rec_ids: string[] | null
           categoria_id: string | null
           clasificacion_me: string | null
           created_at: string
@@ -185,6 +188,7 @@ export type Database = {
           descripcion_override: string | null
           destacado: boolean
           disponible: boolean
+          es_alto_margen: boolean | null
           es_mas_vendido: boolean
           es_nuevo: boolean
           es_recomendado: boolean
@@ -199,13 +203,18 @@ export type Database = {
           modificadores_raw: Json
           nombre: string
           nombre_override: string | null
+          oculto_en_web: boolean | null
           orden: number
           precio: number
           rp_id: number
           updated_at: string
+          upsell_ids: string[] | null
         }
         Insert: {
+          adicion_rec_ids?: string[] | null
           almacen_id?: number | null
+          bebida_rec_ids?: string[] | null
+          carrito_rec_ids?: string[] | null
           categoria_id?: string | null
           clasificacion_me?: string | null
           created_at?: string
@@ -213,6 +222,7 @@ export type Database = {
           descripcion_override?: string | null
           destacado?: boolean
           disponible?: boolean
+          es_alto_margen?: boolean | null
           es_mas_vendido?: boolean
           es_nuevo?: boolean
           es_recomendado?: boolean
@@ -227,13 +237,18 @@ export type Database = {
           modificadores_raw?: Json
           nombre: string
           nombre_override?: string | null
+          oculto_en_web?: boolean | null
           orden?: number
           precio?: number
           rp_id: number
           updated_at?: string
+          upsell_ids?: string[] | null
         }
         Update: {
+          adicion_rec_ids?: string[] | null
           almacen_id?: number | null
+          bebida_rec_ids?: string[] | null
+          carrito_rec_ids?: string[] | null
           categoria_id?: string | null
           clasificacion_me?: string | null
           created_at?: string
@@ -241,6 +256,7 @@ export type Database = {
           descripcion_override?: string | null
           destacado?: boolean
           disponible?: boolean
+          es_alto_margen?: boolean | null
           es_mas_vendido?: boolean
           es_nuevo?: boolean
           es_recomendado?: boolean
@@ -255,10 +271,12 @@ export type Database = {
           modificadores_raw?: Json
           nombre?: string
           nombre_override?: string | null
+          oculto_en_web?: boolean | null
           orden?: number
           precio?: number
           rp_id?: number
           updated_at?: string
+          upsell_ids?: string[] | null
         }
         Relationships: [
           {
