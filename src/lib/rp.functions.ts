@@ -537,7 +537,7 @@ export const listAdminMenu = createServerFn({ method: "GET" })
         supabase
           .from("productos_master")
           .select(
-            "id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio, imagen_url, disponible, orden, destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom, clasificacion_me, margen_pct",
+            "id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio, imagen_url, imagen_override_url, imagen_source, imagen_updated_at, disponible, orden, destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom, clasificacion_me, margen_pct",
           )
           .order("orden")
           .order("nombre"),
@@ -546,6 +546,7 @@ export const listAdminMenu = createServerFn({ method: "GET" })
     if (prodErr) throw new Error(prodErr.message);
     return { categorias: categorias ?? [], productos: productos ?? [] };
   });
+
 
 export const updateAdminCategoria = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
