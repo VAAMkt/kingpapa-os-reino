@@ -216,6 +216,24 @@ function AdminMenuPage() {
         </p>
       </header>
 
+      <details className="border-2 border-kp-ink bg-kp-cheese">
+        <summary className="font-display uppercase text-sm cursor-pointer select-none px-3 py-2 bg-kp-yellow border-b-2 border-kp-ink flex items-center justify-between">
+          <span>¿Cómo funciona este panel?</span>
+          <span aria-hidden className="text-xs">▼</span>
+        </summary>
+        <ul className="p-4 space-y-2 text-sm list-disc pl-5">
+          <li>Arrastra categorías o productos para reordenarlos → ese es el orden que verá el cliente</li>
+          <li>El toggle de disponibilidad oculta o muestra el producto en la web sin borrarlo</li>
+          <li>Para cambiar la foto del producto: haz clic en la miniatura → sube tu imagen → se muestra en la web sin tocar la foto del POS (Restaurant.pe conserva la original)</li>
+          <li>"Revertir foto" devuelve la imagen original del POS</li>
+          <li>Estrella (★) = producto destacado → aparece en "Más pedidos"</li>
+          <li>Clasificación ME: Star = mostrar arriba / Plowhorse = vender con upsell / Puzzle = mejor foto+copy / Dog = esconder o reformular</li>
+          <li>Los cambios se guardan automáticamente, no hay botón "Guardar"</li>
+        </ul>
+      </details>
+
+
+
       <BrutalCard tone="cheese" className="p-4 flex items-center gap-4">
         <label className="flex items-center gap-2 font-display uppercase text-sm">
           <Switch checked={hideInactive} onCheckedChange={setHideInactive} />

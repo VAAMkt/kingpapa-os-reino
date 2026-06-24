@@ -435,6 +435,9 @@ function CheckoutPage() {
             <BrutalButton type="submit" variant="fire" size="lg" block disabled={enviando}>
               {ctaLabel}
             </BrutalButton>
+            <p className="text-xs text-center opacity-60 font-display uppercase tracking-wide mt-2">
+              Pedido directo al Reino · Sin comisiones de apps · Precio web
+            </p>
           </div>
         </form>
 
@@ -456,6 +459,9 @@ function CheckoutPage() {
         >
           {ctaLabel}
         </BrutalButton>
+        <p className="text-xs text-center opacity-60 font-display uppercase tracking-wide mt-2">
+          Pedido directo al Reino · Sin comisiones de apps · Precio web
+        </p>
       </div>
     </section>
   );
@@ -509,7 +515,7 @@ function ResumenPedido({
                 >
                   −
                 </button>
-                <span className="min-w-[44px] min-h-[44px] flex items-center justify-center font-display text-sm border-x-2 border-kp-ink">
+                <span className="w-8 min-w-[32px] min-h-[44px] flex items-center justify-center text-center font-display text-sm font-bold bg-kp-yellow text-kp-ink border-x-2 border-kp-ink">
                   {i.cantidad}
                 </span>
                 <button
