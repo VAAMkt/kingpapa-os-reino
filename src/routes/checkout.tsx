@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
-import { useCart, clearCart, setOrderType, type OrderType } from "@/lib/cart";
+import { useCart, clearCart, setOrderType, incItem, decItem, removeItem, type OrderType } from "@/lib/cart";
 import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-sede";
 import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
