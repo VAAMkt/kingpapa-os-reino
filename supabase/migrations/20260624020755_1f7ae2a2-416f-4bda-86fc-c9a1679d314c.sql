@@ -1,0 +1,50 @@
+ALTER TABLE public.productos_master
+  ADD COLUMN IF NOT EXISTS imagen_override_url TEXT,
+  ADD COLUMN IF NOT EXISTS imagen_source TEXT NOT NULL DEFAULT 'rp'
+    CHECK (imagen_source IN ('rp', 'admin', 'ugc')),
+  ADD COLUMN IF NOT EXISTS imagen_updated_at TIMESTAMPTZ;
+
+DROP POLICY IF EXISTS "product_images_public_read" ON storage.objects;
+CREATE POLICY "product_images_public_read"
+  ON storage.objects FOR SELECT
+  TO anon, authenticated
+  USING (bucket_id = 'product-images');
+
+DROP POLICY IF EXISTS "product_images_admin_insert" ON storage.objects;
+CREATE POLICY "product_images_admin_insert"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'product-images'
+    AND (
+      app_private.has_role(auth.uid(), 'super_admin'::app_role)
+      OR app_private.has_role(auth.uid(), 'editor'::app_role)
+      OR app_private.has_role(auth.uid(), 'marketing'::app_role)
+    )
+  );
+
+DROP POLICY IF EXISTS "product_images_admin_update" ON storage.objects;
+CREATE POLICY "product_images_admin_update"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'product-images'
+    AND (
+      app_private.has_role(auth.uid(), 'super_admin'::app_role)
+      OR app_private.has_role(auth.uid(), 'editor'::app_role)
+      OR app_private.has_role(auth.uid(), 'marketing'::app_role)
+    )
+  );
+
+DROP POLICY IF EXISTS "product_images_admin_delete" ON storage.objects;
+CREATE POLICY "product_images_admin_delete"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'product-images'
+    AND (
+      app_private.has_role(auth.uid(), 'super_admin'::app_role)
+      OR app_private.has_role(auth.uid(), 'editor'::app_role)
+      OR app_private.has_role(auth.uid(), 'marketing'::app_role)
+    )
+  );

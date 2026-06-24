@@ -24,6 +24,8 @@ import { GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { ProductImageDialog } from "@/components/admin/ProductImageDialog";
+
 import {
   listAdminMenu,
   updateAdminCategoria,
@@ -56,6 +58,9 @@ type Prod = {
   descripcion_override: string | null;
   precio: number;
   imagen_url: string | null;
+  imagen_override_url: string | null;
+  imagen_source: string | null;
+  imagen_updated_at: string | null;
   disponible: boolean;
   orden: number;
   destacado: boolean;
@@ -68,9 +73,12 @@ type Prod = {
 };
 
 
+
 function AdminMenuPage() {
   const queryClient = useQueryClient();
   const [hideInactive, setHideInactive] = useState(false);
+  const [editImageProd, setEditImageProd] = useState<Prod | null>(null);
+
 
   const fetchMenu = useServerFn(listAdminMenu);
   const menuQ = useQuery({
@@ -263,7 +271,9 @@ function AdminMenuPage() {
                         total={list.length}
                         onMove={(d) => moveProd(c.id, idx, d)}
                         onPatch={(patch) => prodMut.mutate({ id: p.id, ...patch })}
+                        onEditImagen={() => setEditImageProd(p)}
                       />
+
                     ))}
                   </div>
                 </SortableContext>
@@ -277,8 +287,17 @@ function AdminMenuPage() {
           El catálogo maestro está vacío. Ve a Sincronización para importarlo desde Restaurant.pe.
         </p>
       )}
+
+      <ProductImageDialog
+        open={!!editImageProd}
+        onOpenChange={(v) => {
+          if (!v) setEditImageProd(null);
+        }}
+        producto={editImageProd}
+      />
     </div>
   );
+
 }
 
 function SortableCatRow({
@@ -339,6 +358,7 @@ function SortableProdRow({
   total,
   onMove,
   onPatch,
+  onEditImagen,
 }: {
   prod: Prod;
   idx: number;
@@ -355,7 +375,9 @@ function SortableProdRow({
     margen_pct: number | null;
     nombre_override: string | null;
   }>) => void;
+  onEditImagen: () => void;
 }) {
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: prod.id });
   const style = {
@@ -405,18 +427,35 @@ function SortableProdRow({
         >
           <GripVertical className="size-4" />
         </button>
-        <div className="w-12 h-12 border-2 border-kp-ink bg-kp-yellow overflow-hidden">
-          {prod.imagen_url ? (
-            <img
-              src={prod.imagen_url}
-              alt=""
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-              }}
-            />
-          ) : null}
-        </div>
+        <button
+          type="button"
+          onClick={onEditImagen}
+          className="relative w-12 h-12 border-2 border-kp-ink bg-kp-yellow overflow-hidden group"
+          title="Cambiar foto"
+          aria-label="Cambiar foto"
+        >
+          {(() => {
+            const src = prod.imagen_override_url ?? prod.imagen_url;
+            return src ? (
+              <img
+                src={src}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            ) : null;
+          })()}
+          <span
+            className={`absolute -bottom-px -right-px text-[8px] font-display uppercase px-1 border-l-2 border-t-2 border-kp-ink ${
+              prod.imagen_override_url ? "bg-kp-yellow text-kp-ink" : "bg-kp-ink text-kp-cheese"
+            }`}
+          >
+            {prod.imagen_override_url ? "Custom" : "RP"}
+          </span>
+        </button>
+
         <div className="min-w-0">
           <p className="font-display uppercase text-sm truncate">
             {displayName}
