@@ -201,6 +201,12 @@ function CheckoutPage() {
       return;
     }
     setEnviando(true);
+    track("order_submitted", {
+      items_count: count,
+      subtotal,
+      sede_id: sede.sedeId,
+      metodo_pago: pago,
+    });
     try {
       // P2 — Pre-check de stock con fallo suave (timeout 3s server-side).
       // Si el POS responde a tiempo y marca algo como agotado, bloqueamos.
@@ -218,15 +224,25 @@ function CheckoutPage() {
         });
         if (!pre.soft && pre.agotados && pre.agotados.length > 0) {
           const nombres = (pre.agotadosNombres ?? []).join(", ") || "algunos productos";
+          track("order_error", { error_type: "stock", mensaje: nombres });
           toast.error(`Sin stock ahora mismo: ${nombres}. Ajusta tu pedido.`);
           setEnviando(false);
           return;
         }
-      } catch {
-        // Fallo suave: continuamos.
+      } catch (preErr) {
+        // Fallo suave: continuamos pero registramos.
+        track("order_error", {
+          error_type: "precheck",
+          mensaje: preErr instanceof Error ? preErr.message : String(preErr),
+        });
       }
       const result = await submitOrder({ data: buildOrderPayload() });
       const orderId = result.orderId;
+      track("order_success", {
+        order_id: orderId,
+        total: result.total,
+        sede_id: sede.sedeId,
+      });
       const lastOrder = {
         orderId,
         createdAt: Date.now(),
@@ -251,6 +267,7 @@ function CheckoutPage() {
       navigate({ to: "/gracias", search: { order_id: orderId } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "No pudimos enviar tu pedido";
+      track("order_error", { error_type: "submit", mensaje: msg });
       toast.error(msg);
       setEnviando(false);
     }
