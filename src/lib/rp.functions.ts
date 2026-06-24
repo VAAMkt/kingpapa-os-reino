@@ -707,19 +707,8 @@ export const toggleSedeProductoOverride = createServerFn({ method: "POST" })
 // La columna imagen_url (espejo del POS) nunca se toca desde aquí.
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 365 * 10; // 10 años
+const IMAGE_EDITOR_ROLES = new Set(["super_admin", "editor", "marketing"]);
 
-async function userIsImageEditor(supabaseClient: {
-  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
-}, userId: string): Promise<boolean> {
-  // app_private.has_role no es invocable vía PostgREST; chequeamos directamente la tabla user_roles.
-  return Promise.resolve(true).then(() => false).then(async () => {
-    // delegado al handler real abajo
-    void supabaseClient;
-    void userId;
-    return false;
-  });
-}
-void userIsImageEditor;
 
 export const uploadProductoImagen = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
