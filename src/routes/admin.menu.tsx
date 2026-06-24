@@ -418,18 +418,35 @@ function SortableProdRow({
         >
           <GripVertical className="size-4" />
         </button>
-        <div className="w-12 h-12 border-2 border-kp-ink bg-kp-yellow overflow-hidden">
-          {prod.imagen_url ? (
-            <img
-              src={prod.imagen_url}
-              alt=""
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-              }}
-            />
-          ) : null}
-        </div>
+        <button
+          type="button"
+          onClick={onEditImagen}
+          className="relative w-12 h-12 border-2 border-kp-ink bg-kp-yellow overflow-hidden group"
+          title="Cambiar foto"
+          aria-label="Cambiar foto"
+        >
+          {(() => {
+            const src = prod.imagen_override_url ?? prod.imagen_url;
+            return src ? (
+              <img
+                src={src}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            ) : null;
+          })()}
+          <span
+            className={`absolute -bottom-px -right-px text-[8px] font-display uppercase px-1 border-l-2 border-t-2 border-kp-ink ${
+              prod.imagen_override_url ? "bg-kp-yellow text-kp-ink" : "bg-kp-ink text-kp-cheese"
+            }`}
+          >
+            {prod.imagen_override_url ? "Custom" : "RP"}
+          </span>
+        </button>
+
         <div className="min-w-0">
           <p className="font-display uppercase text-sm truncate">
             {displayName}
