@@ -22,6 +22,7 @@ export const Route = createFileRoute("/checkout")({
 });
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
+const PAYMENTS_ENABLED = import.meta.env.VITE_PAYMENTS_ENABLED === "true";
 type PagoMetodo = "efectivo" | "datafono" | "online";
 type FieldErrors = Partial<Record<"nombre" | "telefono" | "direccion", string>>;
 
