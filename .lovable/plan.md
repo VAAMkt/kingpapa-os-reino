@@ -1,63 +1,215 @@
-## Problema
 
-El pedido `0d44af4a` (rp_pedido_id=**164184**) recibió webhooks para `deliveryId=163982` y `163993` — pedidos que **no son suyos** — y fue marcado `en_camino` → `entregado` sin que Restaurant.pe haya enviado un solo webhook con su deliveryId real (164184).
+## Objetivo
 
-Causa raíz confirmada en BD: ambos webhooks matchearon vía **`fallback_single`** (el match "si hay exactamente un pedido web reciente, es ese"). Esa regla es estructuralmente insegura:
+Convertir `/menu` en una experiencia mobile-first tipo carta:
+1. Secciones con título cuando el filtro es "Todas".
+2. Barra sticky de categorías con scroll suave y resaltado por scroll.
+3. `OrderRouter`: jerarquía clara — pedido directo primero, apps de terceros colapsadas.
 
-- Restaurant.pe parece enviar webhooks de **otros deliveries de la cuenta** a nuestra URL (no sólo los nuestros).
-- Mientras haya un único pedido web reciente no terminal, cualquier webhook ajeno lo "secuestra".
-- Peor: tras matchear por fallback, persistimos el alias en `rp_response.webhook_delivery_ids`, así que el siguiente webhook de ese deliveryId ajeno vuelve a caer en el mismo pedido vía `alias`.
+Sin tocar carrito, `submitOrder`, integración Restaurant.pe ni lógica craving-first.
 
-El guardarraíl que pusimos la vuelta pasada (alias sólo si no terminal + reciente) **no ayuda aquí** porque el daño ocurre en el primer fallback, antes de que el pedido sea terminal.
+---
 
-## Fix propuesto (quirúrgico)
+## CAMBIO 1 — Menú por secciones
 
-### 1. Eliminar `fallback_single` del webhook
+**Archivo:** `src/routes/menu.tsx`
 
-En `src/routes/api/public/rp-webhook.ts`:
+Reemplazar el bloque GRID actual (líneas ~162-198) por render condicional:
 
-- Quitar la rama `fallback_single` de `resolveOrderForWebhook`. Sólo quedan tres rutas válidas:
-  1. `integration` — match por `delivery_codigointegracion` (UUID local, lo que ya enviamos en `registrarDelivery`).
-  2. `direct` — `orders.rp_pedido_id == deliveryId`.
-  3. `alias` — pero **sólo si fue aprendido por `integration` o `direct`** (ver punto 2).
-- Si nada matchea → log `webhook_ignored_external` y 200 OK. Mejor ignorar que contaminar.
+- Si `filtro !== "all"` → grid plano actual (sin cambios).
+- Si `filtro === "all"` → render por secciones.
 
-### 2. Dejar de aprender alias desde matches débiles
+**Construcción de secciones** (en `useMemo`):
 
-- `persistAlias()` y la rama de update sólo agregan a `webhook_delivery_ids` cuando `linkReason ∈ {integration, direct}`.
-- Nunca cuando viene de match laxo. Esto evita que un alias erróneo del pasado se perpetúe.
+```ts
+// Sección sintética "Más pedidos"
+const masPedidos = productos.filter(p => p.destacado || p.esMasVendido);
 
-### 3. Log claro cuando llega webhook ajeno
+// Secciones reales = categoriasUI menos "all", filtradas a las que tienen productos
+const seccionesReales = categoriasUI
+  .filter(c => c.id !== "all")
+  .map(c => ({ categoria: c, productos: productos.filter(p => p.categorias.includes(c.id)) }))
+  .filter(s => s.productos.length > 0);
 
-- Mantener `webhook_ignored_external` con el deliveryId y statusCode para diagnóstico, sin tocar ningún pedido.
-- Esto deja visible en el panel "esto es de otro restaurante / otro pedido, ignorado correctamente".
+// Orden prioritario por heurística sobre el slug/nombre de categoría
+const prioridad = (slug: string, nombre: string) => {
+  const s = `${slug} ${nombre}`.toLowerCase();
+  if (s.includes("combo")) return 1;
+  if (s.includes("uno") || s.includes("personal") || s.includes("individual")) return 2;
+  if (s.includes("salchipapa")) return 3;
+  if (s.includes("adicion") || s.includes("acompan")) return 4;
+  if (s.includes("bebida") || s.includes("drink")) return 5;
+  return 99;
+};
+seccionesReales.sort((a, b) =>
+  prioridad(a.categoria.id, a.categoria.nombre) - prioridad(b.categoria.id, b.categoria.nombre)
+);
 
-### 4. Limpieza de datos contaminados
+// Sección "Más pedidos" va primero si hay productos
+const secciones = [
+  ...(masPedidos.length ? [{ categoria: { id: "mas-pedidos", nombre: "Más pedidos", filtro: "Más pedidos" }, productos: masPedidos }] : []),
+  ...seccionesReales,
+];
+```
 
-Migración / UPDATE de un solo uso:
+**Render por sección:**
 
-- Para el pedido `0d44af4a`: revertir `status` al último estado **confirmado por el flujo de envío** (probablemente `enviado` — fue lo que dejó `orders.server.ts` tras `registrarDelivery`; no hubo confirmación real del POS).
-- Limpiar `rp_response.webhook_delivery_ids`, `webhook_status_history`, `webhook_link_reason` para que no quede el alias 163982/163993.
-- Barrer cualquier otro pedido con `webhook_link_reason = 'fallback_single'` y deshacer los cambios derivados (revertir a `enviado`, limpiar aliases).
+```tsx
+{secciones.map(({ categoria, productos: items }) => (
+  <section
+    key={categoria.id}
+    id={`sec-${categoria.id}`}
+    data-cat-section={categoria.id}
+    className="scroll-mt-32"
+  >
+    <div className="flex items-end justify-between mb-3 mt-8 border-b-4 border-kp-ink pb-2">
+      <h2 className="font-display text-3xl md:text-4xl uppercase leading-none">
+        {categoria.nombre}
+      </h2>
+      <span className="text-xs font-display uppercase text-kp-ink/60">
+        {items.length} {items.length === 1 ? "opción" : "opciones"}
+      </span>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {items.map(p => (
+        <div key={p.id} className={p.destacado ? "sm:col-span-2" : ""}>
+          <ProductCard producto={p} destacado={p.destacado} />
+        </div>
+      ))}
+    </div>
+  </section>
+))}
+```
 
-Antes de ejecutar la limpieza te muestro la lista de pedidos afectados para que la apruebes.
+**"Coronas del rey" (líneas 142-158):** se elimina ese bloque para evitar duplicar con "Más pedidos" cuando `filtro === "all"`. Ahorra confusión.
 
-## Lo que NO cambia
+`scroll-mt-32` deja espacio bajo el header sticky al hacer anchor scroll.
 
-- `registrarDelivery` sigue mandando `delivery_codigointegracion` (UUID) — es la llave canónica. Si RP la respeta en el webhook, todo matchea por `integration` sin ambigüedad.
-- `RP_EMIT_SOCKET` sigue controlado por env (la decisión anterior).
-- No se toca el flujo de envío al POS, ni la creación de pedidos, ni el tracker.
+---
 
-## Riesgo conocido / trade-off
+## CAMBIO 2 — Sticky category nav
 
-Si Restaurant.pe **no** envía `delivery_codigointegracion` en algún webhook y el `deliveryId` que sí manda no coincide con nuestro `rp_pedido_id` guardado, ese pedido **no se actualizará automáticamente** y quedará en `enviado` hasta que el operador lo mueva o llegue un webhook bien identificado. Es preferible a marcar pedidos al azar como entregados.
+**Mismo archivo `src/routes/menu.tsx`.** Reemplazar el bloque FILTROS (líneas 128-139) por una barra sticky:
 
-Para mitigar: dejar el log `webhook_ignored_external` muy visible en `/admin/integraciones` para detectar el patrón y, si pasa seguido, abrir ticket con RP pidiendo que respete `delivery_codigointegracion`.
+```tsx
+<nav
+  className="sticky top-0 z-30 bg-kp-cheese border-b-4 border-kp-ink"
+  aria-label="Categorías"
+>
+  <div className="mx-auto max-w-7xl px-4 md:px-6">
+    <div
+      className="flex gap-2 overflow-x-auto py-3 scrollbar-none"
+      style={{ scrollbarWidth: "none" }}
+    >
+      {sections para nav.map(c => (
+        <button
+          key={c.id}
+          onClick={() => handleNavClick(c.id)}
+          data-cat-nav={c.id}
+          className={cn(
+            "shrink-0 px-3 py-2 font-display uppercase text-xs border-2 border-kp-ink whitespace-nowrap",
+            activeCat === c.id ? "bg-kp-ink text-kp-cheese" : "bg-kp-cheese"
+          )}
+        >
+          {c.nombre}
+        </button>
+      ))}
+    </div>
+  </div>
+</nav>
+```
+
+Donde `sections para nav` = mismas `secciones` calculadas arriba (incluye "Más pedidos"). Cuando `filtro !== "all"`, ocultar barra (modo filtrado clásico) o seguir mostrando sin scrollspy — decisión: mantener visible siempre; tap en una pill resetea `filtro="all"` y hace scroll a esa sección.
+
+**Scrollspy con IntersectionObserver:**
+
+```ts
+const [activeCat, setActiveCat] = useState<string | null>(null);
+useEffect(() => {
+  const nodes = document.querySelectorAll<HTMLElement>("[data-cat-section]");
+  if (!nodes.length) return;
+  const obs = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter(e => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (visible) setActiveCat(visible.target.getAttribute("data-cat-section"));
+    },
+    { rootMargin: "-140px 0px -60% 0px", threshold: 0 }
+  );
+  nodes.forEach(n => obs.observe(n));
+  return () => obs.disconnect();
+}, [secciones.length, filtro]);
+
+const handleNavClick = (id: string) => {
+  if (filtro !== "all") setFiltro("all");
+  requestAnimationFrame(() => {
+    document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+};
+```
+
+**Hide scrollbar mobile:** añadir clase utilitaria `.scrollbar-none { scrollbar-width: none; } .scrollbar-none::-webkit-scrollbar { display: none; }` en `src/styles.css`.
+
+Auto-scroll horizontal de la pill activa: cuando `activeCat` cambie, `document.querySelector('[data-cat-nav="X"]')?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" })`.
+
+---
+
+## CAMBIO 3 — OrderRouter: pedido directo primero
+
+**Archivo:** `src/components/kp/OrderRouter.tsx`
+
+Nueva jerarquía dentro del `BrutalCard`:
+
+```tsx
+{/* CTA primario */}
+<BrutalLink href="/checkout" variant="primary" size="lg" block>
+  Pedir directo al Reino
+</BrutalLink>
+
+{/* CTA secundario */}
+<BrutalLink href={`/checkout?modo=recoger&sede=${sede?.slug ?? ""}`} variant="ghost" size="md" block className="mt-3">
+  Recoger en sede
+</BrutalLink>
+
+{/* Dropdown colapsado al fondo */}
+<details className="mt-5 border-t-2 border-kp-ink/20 pt-3">
+  <summary className="cursor-pointer font-display uppercase text-xs tracking-wider text-kp-ink/70 list-none flex items-center justify-between">
+    También estamos en apps
+    <span aria-hidden>▾</span>
+  </summary>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
+    <BrutalLink href={rappiUrl} external variant="ghost" size="sm" block>Rappi</BrutalLink>
+    <BrutalLink href={didiUrl} external variant="ghost" size="sm" block>DiDi</BrutalLink>
+    <BrutalLink href={waUrl} external variant="ghost" size="sm" block>WhatsApp</BrutalLink>
+  </div>
+</details>
+```
+
+El selector de ciudad/sede permanece arriba (necesario para construir `waUrl` y para preseleccionar sede en checkout). El destino real del CTA "Pedir directo" será `/checkout` (ya existe). Si la sede no está confirmada, el flujo existente de `OrderIntentDialog` / location gate ya intercepta al primer add-to-cart.
+
+Rappi/DiDi conservan los enlaces actuales pero degradados visualmente, sin colores `fire/neon` que compitan.
+
+---
 
 ## Detalles técnicos
 
-Archivos a tocar:
-- `src/routes/api/public/rp-webhook.ts` — eliminar `fallback_single`, restringir `persistAlias` a integration/direct.
-- Migración SQL — revertir pedidos contaminados (lista a confirmar contigo antes).
+- `cn` helper: ya existe en `src/lib/utils.ts`.
+- `BrutalLink block` y `size="sm"`: verificar variantes disponibles en `src/components/ui-kp/BrutalButton.tsx`; si no existen `sm` o `block`, usar las más cercanas (`md` y `w-full`).
+- IntersectionObserver es safe en SSR si se llama dentro de `useEffect` (solo cliente).
+- `scroll-mt-32` (Tailwind) ya disponible en v4.
+- No se tocan: `submitOrder`, `restaurantpe.server.ts`, `cart.ts`, `OrderIntentDialog`, integración RP webhook.
 
-Sin cambios en: `orders.server.ts`, `restaurantpe.server.ts`, UI, Realtime, Auto-Kill TTL.
+---
+
+## Archivos a modificar
+
+1. `src/routes/menu.tsx` — secciones + sticky nav + scrollspy + quitar "Coronas".
+2. `src/components/kp/OrderRouter.tsx` — reordenar CTAs.
+3. `src/styles.css` — utilidad `.scrollbar-none`.
+4. Si falta variante: `src/components/ui-kp/BrutalButton.tsx` (verificación mínima, no rediseño).
+
+## Fuera de alcance
+
+- Cambios en `ProductCard`, carrito, checkout, RP, auth.
+- Reordenar categorías desde admin (la prioridad va por heurística de slug; si después quieren orden manual, sería otro plan).

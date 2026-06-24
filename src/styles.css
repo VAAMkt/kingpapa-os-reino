@@ -205,3 +205,7 @@
   box-shadow: var(--shadow-brutal-sm);
   text-decoration: none;
 }
+
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
