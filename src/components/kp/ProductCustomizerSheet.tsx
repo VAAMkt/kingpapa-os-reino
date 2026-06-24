@@ -167,6 +167,7 @@ function CustomizerBody({
           <img
             src={producto.imagen}
             alt={producto.nombre}
+            loading="lazy"
             className="w-full h-full object-cover"
           />
         )}
@@ -271,6 +272,7 @@ function CustomizerBody({
                     <img
                       src={b.imagen}
                       alt=""
+                      loading="lazy"
                       className="w-full aspect-square object-cover border-2 border-kp-ink"
                     />
                   ) : (
