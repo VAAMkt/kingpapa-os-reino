@@ -10,6 +10,7 @@ import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
 import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
 import { toast } from "sonner";
+import { track } from "@/lib/analytics";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -69,6 +70,13 @@ function CheckoutPage() {
   const [enviando, setEnviando] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [resumenAbierto, setResumenAbierto] = useState(false);
+
+  // checkout_started: dispara una vez al montar si hay carrito.
+  useEffect(() => {
+    if (count > 0) track("checkout_started", { items_count: count, subtotal });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   // Persiste el formulario en localStorage para que recargar la página
   // o editar por error no borre lo que el usuario ya escribió.
@@ -193,6 +201,12 @@ function CheckoutPage() {
       return;
     }
     setEnviando(true);
+    track("order_submitted", {
+      items_count: count,
+      subtotal,
+      sede_id: sede.sedeId,
+      metodo_pago: pago,
+    });
     try {
       // P2 — Pre-check de stock con fallo suave (timeout 3s server-side).
       // Si el POS responde a tiempo y marca algo como agotado, bloqueamos.
@@ -210,15 +224,25 @@ function CheckoutPage() {
         });
         if (!pre.soft && pre.agotados && pre.agotados.length > 0) {
           const nombres = (pre.agotadosNombres ?? []).join(", ") || "algunos productos";
+          track("order_error", { error_type: "stock", mensaje: nombres });
           toast.error(`Sin stock ahora mismo: ${nombres}. Ajusta tu pedido.`);
           setEnviando(false);
           return;
         }
-      } catch {
-        // Fallo suave: continuamos.
+      } catch (preErr) {
+        // Fallo suave: continuamos pero registramos.
+        track("order_error", {
+          error_type: "precheck",
+          mensaje: preErr instanceof Error ? preErr.message : String(preErr),
+        });
       }
       const result = await submitOrder({ data: buildOrderPayload() });
       const orderId = result.orderId;
+      track("order_success", {
+        order_id: orderId,
+        total: result.total,
+        sede_id: sede.sedeId,
+      });
       const lastOrder = {
         orderId,
         createdAt: Date.now(),
@@ -243,6 +267,7 @@ function CheckoutPage() {
       navigate({ to: "/gracias", search: { order_id: orderId } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "No pudimos enviar tu pedido";
+      track("order_error", { error_type: "submit", mensaje: msg });
       toast.error(msg);
       setEnviando(false);
     }
@@ -365,7 +390,10 @@ function CheckoutPage() {
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setPago(opt.id)}
+                  onClick={() => {
+                    setPago(opt.id);
+                    track("payment_method_selected", { metodo: opt.id });
+                  }}
                   className={`px-3 py-2 border-2 font-display uppercase text-xs ${
                     pago === opt.id
                       ? "bg-kp-ink text-kp-cheese border-kp-ink"

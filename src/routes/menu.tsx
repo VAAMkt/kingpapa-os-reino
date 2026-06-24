@@ -12,6 +12,7 @@ import { listPublicSedes } from "@/lib/sedes";
 import { rpProductoToProducto, buildCategorias, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
 import { useActiveSede, setExploringSede } from "@/lib/active-sede";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 import type { Producto, Categoria } from "@/types/kp";
 
 export const Route = createFileRoute("/menu")({
@@ -146,10 +147,22 @@ function MenuPage() {
 
   const handleNavClick = (id: string) => {
     if (filtro !== "all") setFiltro("all");
+    const nombre =
+      id === "all"
+        ? "Todas"
+        : secciones.find((s) => s.categoria.id === id)?.categoria.nombre ?? id;
+    track("category_clicked", { categoria_id: id, categoria_nombre: nombre });
     requestAnimationFrame(() => {
       document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   };
+
+  // Evento menu_view cuando la sede activa está disponible
+  useEffect(() => {
+    if (!activeSede?.sedeId) return;
+    track("menu_view", { sede_id: activeSede.sedeId, sede_nombre: activeSede.label });
+  }, [activeSede?.sedeId, activeSede?.label]);
+
 
   return (
     <>

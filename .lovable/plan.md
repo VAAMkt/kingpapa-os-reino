@@ -1,80 +1,60 @@
-Tres cambios localizados en `src/components/kp/ProductCustomizerSheet.tsx`. La lógica de modificadores (min/max, `extra`, `mods`, `valido`, `faltantes`, `addItem`) se mantiene íntegra.
+Crear helper `src/lib/analytics.ts` y disparar `track()` en los puntos exactos del flujo. Fire-and-forget, sin await, sin datos personales.
 
 ---
 
-### CAMBIO 1 — Visual del sheet
-
-Reestructurar `CustomizerBody` como columna flex de altura completa para que el footer sea **siempre visible**, no solo sticky-en-scroll:
-
-- `SheetContent`: cambiar a `max-h-[92vh] p-0 flex flex-col` (quitar `overflow-y-auto` global).
-- `CustomizerBody`: contenedor `flex flex-col h-full min-h-0`.
-  - **Hero** (`flex-shrink-0`): foto con `h-[42vh] min-h-[260px]` y `object-cover` (≥40% de altura visible en mobile). Fallback: bloque `bg-kp-ink` mismo alto.
-  - **Scroll area** (`flex-1 overflow-y-auto p-5 space-y-4`): nombre + descripción + grupos + upsell.
-    - Nombre: `font-display text-3xl uppercase font-bold`.
-    - Descripción: `text-sm opacity-80`.
-    - Precio base: igual.
-  - **Footer sticky** (`flex-shrink-0 border-t-2 bg-kp-cheese p-4 space-y-3`): selector cantidad + CTA full-width siempre visible.
-
-Modificador groups:
-- Badge "Obligatorio" / "Opcional" con `BrutalBadge` (rojo suave si obligatorio sin selección, ink si opcional).
-- Borde rojo suave cuando `g.min > 0 && (sel[g.id]?.size ?? 0) < g.min`: clase `border-kp-red/70` en lugar de `border-kp-ink`.
-- Subtítulo "Elige 1" / "Hasta N" se mantiene.
-
-CTA: `Agregar · ${cop(total)}` cuando válido (con punto medio "·"). Disabled state ya existente.
-
-### CAMBIO 2 — Upsell de bebida contextual
-
-Reemplazar el `<UpsellSection excludeIds={[producto.id]} />` actual (genérico, cicla entre grupos) por un bloque **dedicado a bebidas** justo antes del footer:
-
-- Detectar si el producto **ya incluye bebida**:
-  - `incluyeBebida = grupos.some(g => /bebida/i.test(g.nombre))`
-  - `esBebida = producto.categorias?.some(c => /bebida/i.test(c))`
-  - Si `incluyeBebida || esBebida` → no renderizar el bloque.
-- Usar el hook existente `useUpsellGroups({ excludeIds: [producto.id], maxPerGroup: 3 })` y tomar **solo** el grupo `key === "bebida"`.
-- Si no hay bebidas en la sede → no renderizar.
-- Render inline (no usar `<UpsellSection>` para no heredar su lógica de "siguiente grupo"):
-  - Título: "¿Le sumás una bebida?" (`font-display uppercase text-lg`).
-  - Subtítulo corto: "Una fría siempre cae bien 👑".
-  - Grid horizontal scroll en mobile (`flex gap-2 overflow-x-auto snap-x` con cards `min-w-[140px]`): foto cuadrada pequeña, nombre truncate, precio, botón `+` (BrutalButton sm) que llama `addItem({ ..., silent: true })` y muestra `toast.success`.
-  - Al agregar, la bebida queda en el carrito junto al producto principal cuando el usuario presione "Agregar al carrito" del producto.
-  - Bloque omisible: no bloquea CTA; el usuario simplemente no toca nada.
-
-### CAMBIO 3 — Copy vendedor (mapeo local de nombres)
-
-En el módulo (top-level constante):
+### Helper — `src/lib/analytics.ts` (nuevo)
 
 ```ts
-const GROUP_NAME_MAP: Record<string, string> = {
-  "salsas": "Elige tu salsa",
-  "salsa": "Elige tu salsa",
-  "extras": "Agrégale más pecado",
-  "adiciones": "Agrégale más pecado",
-  "adición": "Agrégale más pecado",
-  "bebidas": "Combínalo con bebida",
-  "bebida": "Combínalo con bebida",
-  "complementos": "Combínalo con bebida",
-  "acompañamientos": "Pídele un acompañamiento",
-  "acompañamiento": "Pídele un acompañamiento",
-  "postres": "Cierra con un postre",
-  "postre": "Cierra con un postre",
-};
-function prettyGroupName(raw: string): string {
-  const key = raw.trim().toLowerCase();
-  return GROUP_NAME_MAP[key] ?? raw;
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
+export function track(event: string, payload?: Record<string, unknown>): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log("[KP Analytics]", event, payload ?? {});
+      return;
+    }
+    window.gtag?.("event", event, payload ?? {});
+  } catch {
+    /* never break UX por analytics */
+  }
 }
 ```
 
-Aplicar `prettyGroupName(g.nombre)` en el `<h3>` del grupo y en `faltantes.push(...)`. El valor original (`g.nombre`) sigue usándose como key/fuente para la detección de "incluyeBebida" en el CAMBIO 2 (regex contra el nombre crudo, no mapeado).
+Notas:
+- Vite expone `import.meta.env.DEV` (no `process.env.NODE_ENV`, que no existe en el bundle del browser de TanStack Start).
+- `try/catch` defensivo: si gtag falla, el flujo continúa.
+- No se instala GA4 en este cambio; el helper queda no-op en prod hasta que el snippet de gtag se monte (fuera del alcance solicitado).
 
----
+### Instrumentación por evento
 
-### Criterios verificados
+| # | Evento | Archivo | Punto exacto |
+|---|---|---|---|
+| 1 | `menu_view` | `src/routes/menu.tsx` | `useEffect` que dispare cuando `sede?.sedeId` cambie y exista. Payload: `{ sede_id: sede.sedeId, sede_nombre: sede.label }`. |
+| 2 | `category_clicked` | `src/routes/menu.tsx` | Dentro de `handleNavClick(cat)` (o el handler del pill de categorías), antes del scroll. Payload: `{ categoria_id: cat.id, categoria_nombre: cat.nombre }`. Se omite cuando `cat.id === "all"` opcionalmente; lo incluimos también con `categoria_id: "all"` para medir el reset. |
+| 3 | `product_view` | `src/components/kp/ProductCustomizerSheet.tsx` | `useEffect` dentro de `CustomizerBody` con dep `[producto.id]` (sólo se monta cuando el sheet abre con un producto). Payload: `{ producto_id, producto_nombre: producto.nombre, precio_base: producto.precioDesde }`. |
+| 4 | `add_to_cart` | `src/components/kp/ProductCustomizerSheet.tsx` | Dentro de `agregar()`, justo después de `addItem(...)` y antes de `onDone()`. Payload: `{ producto_id: producto.id, producto_nombre: producto.nombre, precio_final: unit, tiene_modificadores: mods.length > 0, tiene_upsell: bebidasSugeridas.length > 0 }`. |
+| 5 | `checkout_started` | `src/routes/checkout.tsx` | `useEffect` con `[]` (mount), guard `count > 0`. Payload: `{ items_count: count, subtotal }`. |
+| 6 | `payment_method_selected` | `src/routes/checkout.tsx` | En el `onClick` del botón de método de pago, antes/después de `setPago(opt.id)`. Payload: `{ metodo: opt.id }`. |
+| 7 | `order_submitted` | `src/routes/checkout.tsx` | Dentro de `confirmar()`, justo antes del `try` que llama `submitOrder`. Payload: `{ items_count: count, subtotal, sede_id: sede.sedeId, metodo_pago: pago }`. |
+| 8 | `order_success` | `src/routes/checkout.tsx` | Inmediatamente después de recibir `result` de `submitOrder`, antes de `clearCart()`/`navigate`. Payload: `{ order_id: result.orderId, total: result.total, sede_id: sede.sedeId }`. |
+| 9 | `order_error` | `src/routes/checkout.tsx` | Dos puntos: (a) dentro del `catch` del `precheckFn` — `error_type: "precheck"`, (b) en el `catch` final de `submitOrder` — `error_type: "submit"`. Payload: `{ error_type, mensaje: err instanceof Error ? err.message : String(err) }`. También cuando `precheck` retorna agotados: `error_type: "stock"`, `mensaje: nombres`. |
 
-- `min/max` se valida igual (`valido`, `faltantes`).
-- `extra`, `unit`, `total`, `addItem` sin cambios.
-- Upsell de bebida es opt-in, no bloquea CTA, omitible (basta con no tocar).
-- Mobile-first: hero 42vh, footer siempre visible vía flex layout, cards horizontales con snap.
+### Privacidad
+
+- Ninguno de los payloads incluye `nombre`, `telefono`, `direccion`, `detalles` ni `notas`.
+- `order_id` y `sede_id` son IDs internos, no PII.
 
 ### Archivos
 
-- `src/components/kp/ProductCustomizerSheet.tsx` (único archivo modificado).
+- `src/lib/analytics.ts` (nuevo)
+- `src/routes/menu.tsx` (eventos 1, 2)
+- `src/components/kp/ProductCustomizerSheet.tsx` (eventos 3, 4)
+- `src/routes/checkout.tsx` (eventos 5, 6, 7, 8, 9)
+
+No se toca `submitCheckoutOrder`, `precheckStock`, ni el store del carrito.
