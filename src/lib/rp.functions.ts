@@ -733,8 +733,8 @@ export const uploadProductoImagen = createServerFn({ method: "POST" })
       .select("role")
       .eq("user_id", context.userId);
     if (rolesErr) throw new Error(rolesErr.message);
-    const allowed = new Set(["super_admin", "editor", "marketing"]);
-    const isEditor = ((roles ?? []) as Array<{ role: string }>).some((r) => allowed.has(r.role));
+    const isEditor = ((roles ?? []) as Array<{ role: string }>).some((r) => IMAGE_EDITOR_ROLES.has(r.role));
+
     if (!isEditor) throw new Error("No autorizado");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
