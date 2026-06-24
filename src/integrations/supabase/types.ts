@@ -24,6 +24,7 @@ export type Database = {
           nombre_override: string | null
           orden: number
           rp_id: number
+          slug: string | null
           updated_at: string
         }
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           nombre_override?: string | null
           orden?: number
           rp_id: number
+          slug?: string | null
           updated_at?: string
         }
         Update: {
@@ -46,6 +48,7 @@ export type Database = {
           nombre_override?: string | null
           orden?: number
           rp_id?: number
+          slug?: string | null
           updated_at?: string
         }
         Relationships: []
