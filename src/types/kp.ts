@@ -62,6 +62,7 @@ export interface Categoria {
   id: string;
   nombre: string;
   filtro: string; // chip label
+  orden?: number;
 }
 
 export interface Sede {

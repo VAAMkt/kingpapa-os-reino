@@ -94,9 +94,11 @@ export function rpProductoToProducto(
 }
 
 export function buildCategorias(cats: RpCategoriaRow[]): Categoria[] {
+  // Preserva el orden tal como llega del servidor (ya viene ordenado por
+  // categorias_master.orden, que controla el admin desde /admin/menu).
   const base: Categoria[] = [{ id: "all", nombre: "Todas", filtro: "Todas" }];
   for (const c of cats) {
-    base.push({ id: slugify(c.nombre), nombre: c.nombre, filtro: c.nombre });
+    base.push({ id: slugify(c.nombre), nombre: c.nombre, filtro: c.nombre, orden: c.orden });
   }
   return base;
 }

@@ -34,34 +34,9 @@ export const Route = createFileRoute("/menu")({
 
 type Seccion = { categoria: Categoria; productos: Producto[] };
 
-// Orden editorial fijo de secciones KINGPAPA.
-// Matching: toLowerCase().includes() sobre slug e id de categoría.
-// Categorías sin match van al final en el orden de Restaurant.pe.
-const CATEGORY_ORDER = [
-  "mas-pedidos",
-  "combos-solo-web",
-  "combo",
-  "salchipapa",
-  "hamburguesa",
-  "perro",
-  "sandwich",
-  "lomito",
-  "bowl",
-  "entrada",
-  "snack",
-  "adicion",
-  "acompan",
-  "postre",
-  "bebida",
-];
-
-function categoryRank(id: string, nombre: string): number {
-  const s = `${id} ${nombre}`.toLowerCase();
-  for (let i = 0; i < CATEGORY_ORDER.length; i++) {
-    if (s.includes(CATEGORY_ORDER[i])) return i;
-  }
-  return CATEGORY_ORDER.length + 1;
-}
+// El orden de secciones lo controla el admin desde /admin/menu (drag & drop
+// sobre categorias_master.orden). El servidor ya devuelve las categorías
+// ordenadas; aquí solo se respeta ese orden.
 
 function MenuPage() {
   const { sede: sedeParam } = Route.useSearch();
