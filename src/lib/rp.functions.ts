@@ -600,6 +600,8 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
           .nullable()
           .optional(),
         margen_pct: z.number().min(0).max(100).nullable().optional(),
+        oculto_en_web: z.boolean().optional(),
+        es_alto_margen: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -614,6 +616,8 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
       "es_recomendado",
       "clasificacion_me",
       "margen_pct",
+      "oculto_en_web",
+      "es_alto_margen",
     ] as const;
     for (const k of keys) {
       if (data[k] !== undefined) patch[k] = data[k];
