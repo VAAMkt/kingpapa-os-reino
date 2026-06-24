@@ -520,3 +520,47 @@ function ResumenPedido({
     </BrutalCard>
   );
 }
+
+function DetallesEntrega({
+  sede,
+  esRecoger,
+  direccion,
+  subtotal,
+  total,
+}: {
+  sede: ReturnType<typeof useActiveSede>;
+  esRecoger: boolean;
+  direccion: string;
+  subtotal: number;
+  total: number;
+}) {
+  // TODO: enchufar costo de domicilio y tiempo estimado desde Restaurant.pe
+  // cuando estén disponibles en el modelo de sede / getMenuForSede.
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-start justify-between gap-3 text-sm">
+      <span className="font-display uppercase opacity-70">{label}</span>
+      <span className="font-display text-right">{value}</span>
+    </div>
+  );
+  return (
+    <BrutalCard tone="cheese" className="p-4 space-y-2">
+      <h2 className="font-display uppercase text-lg">Detalles de entrega</h2>
+      <Row label="Sede" value={sede?.label ?? "—"} />
+      <Row label="Tipo" value={esRecoger ? "Recoger en sede" : "Domicilio"} />
+      {!esRecoger && (
+        <Row label="Dirección" value={direccion || sede?.direccionTexto || "—"} />
+      )}
+      <div className="border-t-2 border-kp-ink/30 pt-2 space-y-1">
+        <Row label="Subtotal" value={cop(subtotal)} />
+        {!esRecoger && (
+          <Row label="Domicilio" value="A confirmar por WhatsApp" />
+        )}
+        <div className="flex items-center justify-between pt-2 mt-1 border-t-2 border-kp-ink">
+          <span className="font-display uppercase">Total</span>
+          <span className="font-display text-2xl">{cop(total)}</span>
+        </div>
+      </div>
+    </BrutalCard>
+  );
+}
+
