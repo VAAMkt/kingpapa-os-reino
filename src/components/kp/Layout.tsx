@@ -4,7 +4,8 @@ import { BrutalLink, BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { useActiveSede } from "@/lib/active-sede";
 import { openLocationGate } from "@/components/kp/LocationGate";
-import crown from "@/assets/crown.png";
+import wordmarkBlack from "@/assets/kingpapa-wordmark-black.png.asset.json";
+import wordmarkYellow from "@/assets/kingpapa-wordmark-yellow.png.asset.json";
 
 const nav = [
   { to: "/menu", label: "Menú" },
