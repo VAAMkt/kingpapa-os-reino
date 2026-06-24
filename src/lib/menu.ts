@@ -27,6 +27,10 @@ export type RpCategoriaRow = {
   orden: number;
 };
 
+// NOTA: para renombrar una categoría visible al cliente, usar `nombre_override`
+// desde /admin/menu — NO editar `nombre` directamente en DB (es la fuente que
+// llega de Restaurant.pe y la sincronización la puede volver a pisar). La
+// columna generada `categorias_master.slug` se deriva del `nombre` original.
 function slugify(s: string): string {
   return s
     .toLowerCase()
