@@ -15,6 +15,7 @@ export type RpProductoRow = {
   es_mas_vendido?: boolean;
   es_recomendado?: boolean;
   etiqueta_custom?: string | null;
+  clasificacion_me?: string | null;
   modificadores?: unknown;
   modificadores_raw?: unknown;
 };
@@ -86,6 +87,8 @@ export function rpProductoToProducto(
     esRecomendado: row.es_recomendado ?? false,
     destacado: row.destacado ?? false,
     etiquetaCustom: row.etiqueta_custom ?? null,
+    etiqueta_custom: row.etiqueta_custom ?? null,
+    clasificacion_me: row.clasificacion_me ?? null,
     modificadores: coerceModificadores(row.modificadores),
   };
 }
