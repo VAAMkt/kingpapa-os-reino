@@ -71,6 +71,13 @@ function CheckoutPage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [resumenAbierto, setResumenAbierto] = useState(false);
 
+  // checkout_started: dispara una vez al montar si hay carrito.
+  useEffect(() => {
+    if (count > 0) track("checkout_started", { items_count: count, subtotal });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
   // Persiste el formulario en localStorage para que recargar la página
   // o editar por error no borre lo que el usuario ya escribió.
   useEffect(() => {
