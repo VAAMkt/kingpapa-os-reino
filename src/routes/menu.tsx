@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { BrutalCard, BrutalBadge, BrutalChip } from "@/components/ui-kp/Brutal";
+import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { OrderRouter } from "@/components/kp/OrderRouter";
 import { ProductCard } from "@/components/kp/ProductCard";
@@ -11,6 +11,8 @@ import { getMenuForSede } from "@/lib/rp.functions";
 import { listPublicSedes } from "@/lib/sedes";
 import { rpProductoToProducto, buildCategorias, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
 import { useActiveSede, setExploringSede } from "@/lib/active-sede";
+import { cn } from "@/lib/utils";
+import type { Producto, Categoria } from "@/types/kp";
 
 export const Route = createFileRoute("/menu")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -29,17 +31,28 @@ export const Route = createFileRoute("/menu")({
   component: MenuPage,
 });
 
+type Seccion = { categoria: Categoria; productos: Producto[] };
+
+function prioridad(slug: string, nombre: string): number {
+  const s = `${slug} ${nombre}`.toLowerCase();
+  if (s.includes("combo")) return 1;
+  if (s.includes("uno") || s.includes("personal") || s.includes("individual")) return 2;
+  if (s.includes("salchipapa")) return 3;
+  if (s.includes("adicion") || s.includes("acompan")) return 4;
+  if (s.includes("bebida") || s.includes("drink")) return 5;
+  return 99;
+}
+
 function MenuPage() {
   const { sede: sedeParam } = Route.useSearch();
   const navigate = Route.useNavigate();
   const [filtro, setFiltro] = useState<string>("all");
+  const [activeCat, setActiveCat] = useState<string | null>(null);
 
   const sedesQ = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
   const sedes = sedesQ.data ?? [];
   const activeSede = useActiveSede();
 
-  // CRAVING FIRST: si no hay sede activa, auto-seleccionamos "vitrina" para
-  // que el menú renderice sin pedir ubicación. El gate solo se abre al pedir.
   useEffect(() => {
     if (!activeSede && sedes.length > 0) {
       setExploringSede(sedes[0]);
@@ -71,17 +84,72 @@ function MenuPage() {
     [productosRp, catsById],
   );
 
-  const lista = useMemo(() => {
+  const secciones = useMemo<Seccion[]>(() => {
+    const masPedidos = productos.filter((p) => p.destacado || p.esMasVendido);
+    const reales = categoriasUI
+      .filter((c) => c.id !== "all")
+      .map<Seccion>((c) => ({
+        categoria: c,
+        productos: productos.filter((p) => p.categorias.includes(c.id)),
+      }))
+      .filter((s) => s.productos.length > 0);
+    reales.sort(
+      (a, b) =>
+        prioridad(a.categoria.id, a.categoria.nombre) -
+        prioridad(b.categoria.id, b.categoria.nombre),
+    );
+    return [
+      ...(masPedidos.length
+        ? [
+            {
+              categoria: { id: "mas-pedidos", nombre: "Más pedidos", filtro: "Más pedidos" } as Categoria,
+              productos: masPedidos,
+            },
+          ]
+        : []),
+      ...reales,
+    ];
+  }, [productos, categoriasUI]);
+
+  const listaFiltrada = useMemo(() => {
     if (filtro === "all") return productos;
     return productos.filter((p) => p.categorias.includes(filtro));
   }, [filtro, productos]);
 
-  // "Coronas del rey": destacados + más vendidos del catálogo entero (no filtrados).
-  const coronas = useMemo(
-    () => productos.filter((p) => p.destacado || p.esMasVendido).slice(0, 4),
-    [productos],
-  );
+  // Scrollspy
+  useEffect(() => {
+    if (filtro !== "all") return;
+    const nodes = document.querySelectorAll<HTMLElement>("[data-cat-section]");
+    if (!nodes.length) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) {
+          const id = visible.target.getAttribute("data-cat-section");
+          if (id) setActiveCat(id);
+        }
+      },
+      { rootMargin: "-140px 0px -60% 0px", threshold: 0 },
+    );
+    nodes.forEach((n) => obs.observe(n));
+    return () => obs.disconnect();
+  }, [filtro, secciones.length]);
 
+  // Auto-scroll pill activa
+  useEffect(() => {
+    if (!activeCat) return;
+    const pill = document.querySelector<HTMLElement>(`[data-cat-nav="${activeCat}"]`);
+    pill?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [activeCat]);
+
+  const handleNavClick = (id: string) => {
+    if (filtro !== "all") setFiltro("all");
+    requestAnimationFrame(() => {
+      document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   return (
     <>
@@ -108,7 +176,7 @@ function MenuPage() {
         <OrderRouter />
       </section>
 
-      {/* SELECTOR DE SEDE — el pill de ubicación vive en el header */}
+      {/* SELECTOR DE SEDE */}
       {sedes.length > 1 && (
         <section className="mx-auto max-w-7xl px-4 md:px-6 flex items-center gap-3 flex-wrap">
           <select
@@ -125,41 +193,37 @@ function MenuPage() {
         </section>
       )}
 
-      {/* FILTROS */}
-      {categoriasUI.length > 1 && (
-        <section className="mx-auto max-w-7xl px-4 md:px-6 mt-4">
-          <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1">
-            {categoriasUI.map((c) => (
-              <BrutalChip key={c.id} active={filtro === c.id} onClick={() => setFiltro(c.id)}>
-                {c.filtro}
-              </BrutalChip>
-            ))}
+      {/* STICKY CATEGORY NAV */}
+      {secciones.length > 0 && (
+        <nav
+          className="sticky top-0 z-30 bg-kp-cheese border-y-4 border-kp-ink mt-4"
+          aria-label="Categorías"
+        >
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
+            <div className="flex gap-2 overflow-x-auto py-3 scrollbar-none">
+              {secciones.map((s) => {
+                const isActive = filtro === "all" ? activeCat === s.categoria.id : filtro === s.categoria.id;
+                return (
+                  <button
+                    key={s.categoria.id}
+                    type="button"
+                    onClick={() => handleNavClick(s.categoria.id)}
+                    data-cat-nav={s.categoria.id}
+                    className={cn(
+                      "shrink-0 px-3 py-2 font-display uppercase text-xs border-2 border-kp-ink whitespace-nowrap shadow-brutal-sm transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
+                      isActive ? "bg-kp-ink text-kp-cheese" : "bg-kp-cheese text-kp-ink",
+                    )}
+                  >
+                    {s.categoria.nombre}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </section>
+        </nav>
       )}
 
-      {/* CORONAS DEL REY — destacados + más vendidos. Solo si NO hay filtro activo. */}
-      {filtro === "all" && coronas.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 md:px-6 pt-6">
-          <div className="flex items-end justify-between mb-3">
-            <h2 className="font-display text-3xl uppercase leading-none">
-              ★ Coronas del rey
-            </h2>
-            <span className="text-xs font-display uppercase text-kp-ink/60">
-              Las imperdibles
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {coronas.map((p) => (
-              <ProductCard key={p.id} producto={p} compact />
-            ))}
-          </div>
-        </section>
-      )}
-
-
-
-      {/* GRID */}
+      {/* CONTENIDO */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-8">
         {menuQ.isLoading && (
           <p className="text-center py-10 font-display uppercase text-xl">Cargando menú…</p>
@@ -169,34 +233,69 @@ function MenuPage() {
             No se pudo cargar el menú: {(menuQ.error as Error).message}
           </p>
         )}
-        {!menuQ.isLoading && !menuQ.error && lista.length === 0 && (
+        {!menuQ.isLoading && !menuQ.error && productos.length === 0 && (
           <div className="text-center py-10 space-y-3">
             <p className="font-display uppercase text-2xl">
-              {productos.length === 0
-                ? "Esta sede aún no tiene menú sincronizado."
-                : "No hay productos en esta categoría… aún."}
+              Esta sede aún no tiene menú sincronizado.
             </p>
-            {productos.length === 0 && (
-              <Link
-                to="/admin/sincronizacion"
-                className="font-display uppercase underline underline-offset-4 decoration-4 decoration-kp-yellow"
-              >
-                Ir a sincronización →
-              </Link>
-            )}
+            <Link
+              to="/admin/sincronizacion"
+              className="font-display uppercase underline underline-offset-4 decoration-4 decoration-kp-yellow"
+            >
+              Ir a sincronización →
+            </Link>
           </div>
         )}
-        {lista.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {lista.map((p) => (
-              <div key={p.id} className={p.destacado ? "sm:col-span-2" : ""}>
-                <ProductCard producto={p} destacado={p.destacado} />
-              </div>
+
+        {/* Modo "Todas": por secciones */}
+        {!menuQ.isLoading && !menuQ.error && filtro === "all" && secciones.length > 0 && (
+          <div>
+            {secciones.map(({ categoria, productos: items }) => (
+              <section
+                key={categoria.id}
+                id={`sec-${categoria.id}`}
+                data-cat-section={categoria.id}
+                className="scroll-mt-32 mb-10"
+              >
+                <div className="flex items-end justify-between mb-3 mt-2 border-b-4 border-kp-ink pb-2">
+                  <h2 className="font-display text-3xl md:text-4xl uppercase leading-none">
+                    {categoria.nombre}
+                  </h2>
+                  <span className="text-xs font-display uppercase text-kp-ink/60">
+                    {items.length} {items.length === 1 ? "opción" : "opciones"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {items.map((p) => (
+                    <div key={p.id} className={p.destacado ? "sm:col-span-2" : ""}>
+                      <ProductCard producto={p} destacado={p.destacado} />
+                    </div>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
-      </section>
 
+        {/* Modo filtro específico: grid plano */}
+        {!menuQ.isLoading && !menuQ.error && filtro !== "all" && (
+          <>
+            {listaFiltrada.length === 0 ? (
+              <p className="text-center py-10 font-display uppercase text-2xl">
+                No hay productos en esta categoría… aún.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {listaFiltrada.map((p) => (
+                  <div key={p.id} className={p.destacado ? "sm:col-span-2" : ""}>
+                    <ProductCard producto={p} destacado={p.destacado} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
       {/* COMBO IMÁN */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-12">
