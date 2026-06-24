@@ -10,6 +10,7 @@ import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
 import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
 import { toast } from "sonner";
+import { track } from "@/lib/analytics";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
