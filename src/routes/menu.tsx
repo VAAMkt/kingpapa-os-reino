@@ -102,15 +102,8 @@ function MenuPage() {
       }))
       .filter((s) => s.productos.length > 0);
 
-    // Orden editorial estable: rank ascendente; ties conservan orden original (RP).
-    const indexed = reales.map((s, i) => ({ s, i }));
-    indexed.sort((a, b) => {
-      const ra = categoryRank(a.s.categoria.id, a.s.categoria.nombre);
-      const rb = categoryRank(b.s.categoria.id, b.s.categoria.nombre);
-      if (ra !== rb) return ra - rb;
-      return a.i - b.i;
-    });
-    const realesOrdenadas = indexed.map((x) => x.s);
+    // Las categorías ya vienen ordenadas desde el servidor por
+    // categorias_master.orden (controlado por el admin). NO re-sortear aquí.
 
     return [
       ...(masPedidos.length
@@ -133,7 +126,7 @@ function MenuPage() {
             },
           ]
         : []),
-      ...realesOrdenadas,
+      ...reales,
     ];
   }, [productos, categoriasUI]);
 
