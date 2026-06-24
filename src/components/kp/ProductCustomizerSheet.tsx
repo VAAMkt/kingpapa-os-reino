@@ -125,6 +125,16 @@ function CustomizerBody({
     return g?.productos ?? [];
   }, [incluyeBebida, esBebida, upsellGroups]);
 
+  // product_view: dispara una vez por producto cuando el sheet abre.
+  useEffect(() => {
+    track("product_view", {
+      producto_id: producto.id,
+      producto_nombre: producto.nombre,
+      precio_base: producto.precioDesde,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [producto.id]);
+
   function agregar() {
     if (!valido) {
       toast.error(faltantes[0] ?? "Faltan opciones");
@@ -137,6 +147,13 @@ function CustomizerBody({
       imagen: producto.imagen,
       modificadores: mods,
       cantidad,
+    });
+    track("add_to_cart", {
+      producto_id: producto.id,
+      producto_nombre: producto.nombre,
+      precio_final: unit,
+      tiene_modificadores: mods.length > 0,
+      tiene_upsell: bebidasSugeridas.length > 0,
     });
     toast.success(`${producto.nombre} al carrito`);
     onDone();
