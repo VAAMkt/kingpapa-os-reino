@@ -12,6 +12,7 @@ import { listPublicSedes } from "@/lib/sedes";
 import { rpProductoToProducto, buildCategorias, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
 import { useActiveSede, setExploringSede } from "@/lib/active-sede";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 import type { Producto, Categoria } from "@/types/kp";
 
 export const Route = createFileRoute("/menu")({
