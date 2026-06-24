@@ -287,8 +287,17 @@ function AdminMenuPage() {
           El catálogo maestro está vacío. Ve a Sincronización para importarlo desde Restaurant.pe.
         </p>
       )}
+
+      <ProductImageDialog
+        open={!!editImageProd}
+        onOpenChange={(v) => {
+          if (!v) setEditImageProd(null);
+        }}
+        producto={editImageProd}
+      />
     </div>
   );
+
 }
 
 function SortableCatRow({
