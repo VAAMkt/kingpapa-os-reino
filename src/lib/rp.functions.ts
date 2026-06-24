@@ -290,6 +290,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
            id, rp_id, categoria_id, nombre, nombre_override, descripcion, descripcion_override, precio,
            imagen_url, imagen_override_url, disponible, almacen_id, orden,
            destacado, es_nuevo, es_mas_vendido, es_recomendado, etiqueta_custom, clasificacion_me,
+           oculto_en_web,
            modificadores, modificadores_raw
          )`,
       )
@@ -321,6 +322,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         es_recomendado: boolean;
         etiqueta_custom: string | null;
         clasificacion_me: string | null;
+        oculto_en_web: boolean | null;
         modificadores: unknown;
         modificadores_raw: unknown;
       };
