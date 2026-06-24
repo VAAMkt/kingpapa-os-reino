@@ -349,6 +349,7 @@ function SortableProdRow({
   total,
   onMove,
   onPatch,
+  onEditImagen,
 }: {
   prod: Prod;
   idx: number;
@@ -365,7 +366,9 @@ function SortableProdRow({
     margen_pct: number | null;
     nombre_override: string | null;
   }>) => void;
+  onEditImagen: () => void;
 }) {
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: prod.id });
   const style = {
