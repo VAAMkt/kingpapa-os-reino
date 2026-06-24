@@ -373,7 +373,10 @@ function CheckoutPage() {
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setPago(opt.id)}
+                  onClick={() => {
+                    setPago(opt.id);
+                    track("payment_method_selected", { metodo: opt.id });
+                  }}
                   className={`px-3 py-2 border-2 font-display uppercase text-xs ${
                     pago === opt.id
                       ? "bg-kp-ink text-kp-cheese border-kp-ink"
