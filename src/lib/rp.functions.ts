@@ -329,7 +329,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
     };
 
     const productos = ((ovr ?? []) as unknown as OvrRow[])
-      .filter((r) => r.productos_master?.disponible)
+      .filter((r) => r.productos_master?.disponible && r.productos_master.oculto_en_web !== true)
       .map((r) => {
         const pm = r.productos_master;
         return {
