@@ -175,7 +175,8 @@ export async function rpCancelarDelivery(input: {
       const msg = json.mensajes?.join("; ") || `Error tipo=${json.tipo}`;
       throw new Error(`Restaurant.pe: ${msg}`);
     }
-    return json.data;
+    // Devolvemos el envelope completo porque necesitamos json.data y json.delivery
+    return json;
   } finally {
     clearTimeout(timeout);
   }
@@ -261,7 +262,8 @@ export async function rpRegistrarDelivery(
       const msg = json.mensajes?.join("; ") || `Error tipo=${json.tipo}`;
       throw new Error(`Restaurant.pe: ${msg}`);
     }
-    return json.data;
+    // Devolvemos el envelope completo porque necesitamos json.data y json.delivery
+    return json;
   } finally {
     clearTimeout(timeout);
   }

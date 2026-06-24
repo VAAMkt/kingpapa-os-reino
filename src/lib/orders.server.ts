@@ -378,12 +378,15 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   let rpCabecera: unknown = null;
   try {
     rpResponse = await rpRegistrarDelivery(payload);
+    // As we changed rpRegistrarDelivery to return the full envelope, r is the full envelope.
+    const r = (rpResponse ?? {}) as Record<string, unknown>;
+
+    // Some responses might still mistakenly be primitives if the structure changed
     if (typeof rpResponse === "number" || typeof rpResponse === "string") {
       const s = String(rpResponse).trim();
       if (s) rpPedidoId = s;
-    } else {
-      const r = (rpResponse ?? {}) as Record<string, unknown>;
-      const data = (r.data as Record<string, unknown> | undefined) ?? undefined;
+    } else if (r && typeof r === "object") {
+      const data = (r.data as Record<string, unknown> | undefined) ?? (typeof r.data === "number" || typeof r.data === "string" ? { id: r.data, pedido_id: r.data } : undefined);
       const delivery = (r.delivery as Record<string, unknown> | undefined) ?? undefined;
 
       // Candidatos para delivery_id (lo que RP usa en webhooks).
