@@ -700,3 +700,116 @@ export const toggleSedeProductoOverride = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ========== FOTO CUSTOM POR PRODUCTO ==========
+// Sube una imagen al bucket privado `product-images` y guarda una signed URL
+// de larga duración como override en productos_master.imagen_override_url.
+// La columna imagen_url (espejo del POS) nunca se toca desde aquí.
+
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 365 * 10; // 10 años
+
+async function userIsImageEditor(supabaseClient: {
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+}, userId: string): Promise<boolean> {
+  // app_private.has_role no es invocable vía PostgREST; chequeamos directamente la tabla user_roles.
+  return Promise.resolve(true).then(() => false).then(async () => {
+    // delegado al handler real abajo
+    void supabaseClient;
+    void userId;
+    return false;
+  });
+}
+void userIsImageEditor;
+
+export const uploadProductoImagen = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => {
+    if (!(input instanceof FormData)) {
+      throw new Error("Se requiere FormData");
+    }
+    const productoId = String(input.get("producto_id") ?? "");
+    const file = input.get("file");
+    if (!productoId) throw new Error("producto_id requerido");
+    if (!(file instanceof File)) throw new Error("file requerido");
+    if (file.size > 8 * 1024 * 1024) throw new Error("Imagen > 8MB");
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      throw new Error("Formato no soportado (jpeg/png/webp)");
+    }
+    return { productoId, file };
+  })
+  .handler(async ({ data, context }) => {
+    // Verifica rol editor
+    const { data: roles, error: rolesErr } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId);
+    if (rolesErr) throw new Error(rolesErr.message);
+    const allowed = new Set(["super_admin", "editor", "marketing"]);
+    const isEditor = ((roles ?? []) as Array<{ role: string }>).some((r) => allowed.has(r.role));
+    if (!isEditor) throw new Error("No autorizado");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Verifica que el producto existe
+    const { data: prod, error: prodErr } = await supabaseAdmin
+      .from("productos_master")
+      .select("id")
+      .eq("id", data.productoId)
+      .maybeSingle();
+    if (prodErr) throw new Error(prodErr.message);
+    if (!prod) throw new Error("Producto no encontrado");
+
+    const ext = data.file.type === "image/png" ? "png" : data.file.type === "image/jpeg" ? "jpg" : "webp";
+    const path = `productos/${data.productoId}-${Date.now()}.${ext}`;
+    const buffer = new Uint8Array(await data.file.arrayBuffer());
+
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("product-images")
+      .upload(path, buffer, { contentType: data.file.type, upsert: true });
+    if (upErr) throw new Error(`Upload: ${upErr.message}`);
+
+    const { data: signed, error: sErr } = await supabaseAdmin.storage
+      .from("product-images")
+      .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+    if (sErr || !signed?.signedUrl) throw new Error(`Signed URL: ${sErr?.message ?? "sin URL"}`);
+
+    const { error: updErr } = await supabaseAdmin
+      .from("productos_master")
+      .update({
+        imagen_override_url: signed.signedUrl,
+        imagen_source: "admin",
+        imagen_updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", data.productoId);
+    if (updErr) throw new Error(updErr.message);
+
+    return { ok: true, url: signed.signedUrl, path };
+  });
+
+export const revertProductoImagen = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: roles, error: rolesErr } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId);
+    if (rolesErr) throw new Error(rolesErr.message);
+    const allowed = new Set(["super_admin", "editor", "marketing"]);
+    const isEditor = ((roles ?? []) as Array<{ role: string }>).some((r) => allowed.has(r.role));
+    if (!isEditor) throw new Error("No autorizado");
+
+    const { error } = await context.supabase
+      .from("productos_master")
+      .update({
+        imagen_override_url: null,
+        imagen_source: "rp",
+        imagen_updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
