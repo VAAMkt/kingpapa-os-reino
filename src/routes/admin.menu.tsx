@@ -24,6 +24,8 @@ import { GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { ProductImageDialog } from "@/components/admin/ProductImageDialog";
+
 import {
   listAdminMenu,
   updateAdminCategoria,
