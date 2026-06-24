@@ -1,55 +1,80 @@
-Tres cambios localizados en `src/routes/checkout.tsx` (más un retoque mínimo en `ResumenPedido`). No se toca `submitOrder`, `precheckStock`, ni el store del carrito — solo se consumen sus funciones existentes (`incItem`, `decItem`, `removeItem`, todas operan sobre `item.key`).
+Tres cambios localizados en `src/components/kp/ProductCustomizerSheet.tsx`. La lógica de modificadores (min/max, `extra`, `mods`, `valido`, `faltantes`, `addItem`) se mantiene íntegra.
 
 ---
 
-### CAMBIO 1 — Ocultar método de pago "Online"
+### CAMBIO 1 — Visual del sheet
 
-En el bloque "Método de pago" (líneas 353–380):
+Reestructurar `CustomizerBody` como columna flex de altura completa para que el footer sea **siempre visible**, no solo sticky-en-scroll:
 
-- Definir flag: `const PAYMENTS_ENABLED = import.meta.env.VITE_PAYMENTS_ENABLED === "true";` (TanStack/Vite usa `VITE_*`, no `NEXT_PUBLIC_*` — equivalente funcional).
-- Construir la lista de opciones condicionalmente: siempre `efectivo` y `datafono`; agregar `online` solo si `PAYMENTS_ENABLED`.
-- Eliminar el `<p>` de "Pasarela online próximamente…" por completo.
-- Si `persisted.pago === "online"` y la pasarela está apagada, inicializar `pago` en `"efectivo"` para no dejar el estado en un método invisible.
+- `SheetContent`: cambiar a `max-h-[92vh] p-0 flex flex-col` (quitar `overflow-y-auto` global).
+- `CustomizerBody`: contenedor `flex flex-col h-full min-h-0`.
+  - **Hero** (`flex-shrink-0`): foto con `h-[42vh] min-h-[260px]` y `object-cover` (≥40% de altura visible en mobile). Fallback: bloque `bg-kp-ink` mismo alto.
+  - **Scroll area** (`flex-1 overflow-y-auto p-5 space-y-4`): nombre + descripción + grupos + upsell.
+    - Nombre: `font-display text-3xl uppercase font-bold`.
+    - Descripción: `text-sm opacity-80`.
+    - Precio base: igual.
+  - **Footer sticky** (`flex-shrink-0 border-t-2 bg-kp-cheese p-4 space-y-3`): selector cantidad + CTA full-width siempre visible.
 
-### CAMBIO 2 — Editar cantidades y eliminar desde `ResumenPedido`
+Modificador groups:
+- Badge "Obligatorio" / "Opcional" con `BrutalBadge` (rojo suave si obligatorio sin selección, ink si opcional).
+- Borde rojo suave cuando `g.min > 0 && (sel[g.id]?.size ?? 0) < g.min`: clase `border-kp-red/70` en lugar de `border-kp-ink`.
+- Subtítulo "Elige 1" / "Hasta N" se mantiene.
 
-Refactor de `ResumenPedido` (líneas 436–480):
+CTA: `Agregar · ${cop(total)}` cuando válido (con punto medio "·"). Disabled state ya existente.
 
-- Importar `incItem`, `decItem`, `removeItem` desde `@/lib/cart` (los tres ya existen y usan `item.key`, lo cual respeta la persistencia en localStorage del store).
-- Por cada `<li>`:
-  - Mantener la primera línea con nombre + subtotal del ítem.
-  - Debajo, agregar una fila de controles thumb-friendly (mínimo 44×44 px de área tocable, `min-w-[44px] min-h-[44px]`):
-    - Botón `−` → `decItem(i.key)` (el store ya elimina al llegar a 0; verificar comportamiento — si no, llamar `removeItem` cuando `i.cantidad === 1`).
-    - Contador `i.cantidad` centrado.
-    - Botón `+` → `incItem(i.key)`.
-    - Botón "Eliminar" (icono 🗑 + sr-only) → `removeItem(i.key)` con `toast.success("Eliminado del pedido")` como confirmación visual breve.
-- Estilo brutal consistente: `border-2 border-kp-ink bg-kp-cheese` para los botones, `disabled` visual cuando `cantidad <= 1` no es necesario porque `decItem` ya elimina.
-- El `total` recibido por props ya se recalcula en tiempo real porque `useCart()` en el padre es reactivo al store; no requiere cambio adicional.
+### CAMBIO 2 — Upsell de bebida contextual
 
-### CAMBIO 3 — Bloque "Detalles de entrega" siempre visible antes del CTA
+Reemplazar el `<UpsellSection excludeIds={[producto.id]} />` actual (genérico, cicla entre grupos) por un bloque **dedicado a bebidas** justo antes del footer:
 
-Nuevo `<BrutalCard>` insertado en el `<form>` justo después de la card de "Pago" (antes de `<details>` de notas), y también renderizado dentro del `ResumenPedido` desktop para que esté visible al hacer scroll. Contenido:
+- Detectar si el producto **ya incluye bebida**:
+  - `incluyeBebida = grupos.some(g => /bebida/i.test(g.nombre))`
+  - `esBebida = producto.categorias?.some(c => /bebida/i.test(c))`
+  - Si `incluyeBebida || esBebida` → no renderizar el bloque.
+- Usar el hook existente `useUpsellGroups({ excludeIds: [producto.id], maxPerGroup: 3 })` y tomar **solo** el grupo `key === "bebida"`.
+- Si no hay bebidas en la sede → no renderizar.
+- Render inline (no usar `<UpsellSection>` para no heredar su lógica de "siguiente grupo"):
+  - Título: "¿Le sumás una bebida?" (`font-display uppercase text-lg`).
+  - Subtítulo corto: "Una fría siempre cae bien 👑".
+  - Grid horizontal scroll en mobile (`flex gap-2 overflow-x-auto snap-x` con cards `min-w-[140px]`): foto cuadrada pequeña, nombre truncate, precio, botón `+` (BrutalButton sm) que llama `addItem({ ..., silent: true })` y muestra `toast.success`.
+  - Al agregar, la bebida queda en el carrito junto al producto principal cuando el usuario presione "Agregar al carrito" del producto.
+  - Bloque omisible: no bloquea CTA; el usuario simplemente no toca nada.
 
-- **Sede que despacha:** `sede?.label`
-- **Tipo de entrega:** "Domicilio" | "Recoger en sede"
-- **Dirección de entrega** (si `!esRecoger`): `direccion`
-- **Subtotal:** `cop(subtotal)`
-- **Costo de domicilio:** el modelo actual de `sede` no expone tarifa de domicilio → renderizar literal "A confirmar por WhatsApp" cuando `!esRecoger`; ocultar cuando `esRecoger`. (No se agrega campo nuevo al modelo.)
-- **Total final:** `cop(total)` (hoy = subtotal; si en el futuro se suma fee, se actualiza aquí).
-- **Tiempo estimado:** el modelo de sede tampoco lo expone hoy → omitir la línea si no hay dato (regla "si no existe, no existe"). Dejar comentario `TODO` apuntando a `getMenuForSede` / Restaurant.pe para enchufarlo cuando esté disponible.
+### CAMBIO 3 — Copy vendedor (mapeo local de nombres)
 
-Layout mobile-first: stack vertical con `text-sm`, etiquetas en `font-display uppercase opacity-70` y valores en `font-display`. Fila Total destacada con borde superior.
+En el módulo (top-level constante):
+
+```ts
+const GROUP_NAME_MAP: Record<string, string> = {
+  "salsas": "Elige tu salsa",
+  "salsa": "Elige tu salsa",
+  "extras": "Agrégale más pecado",
+  "adiciones": "Agrégale más pecado",
+  "adición": "Agrégale más pecado",
+  "bebidas": "Combínalo con bebida",
+  "bebida": "Combínalo con bebida",
+  "complementos": "Combínalo con bebida",
+  "acompañamientos": "Pídele un acompañamiento",
+  "acompañamiento": "Pídele un acompañamiento",
+  "postres": "Cierra con un postre",
+  "postre": "Cierra con un postre",
+};
+function prettyGroupName(raw: string): string {
+  const key = raw.trim().toLowerCase();
+  return GROUP_NAME_MAP[key] ?? raw;
+}
+```
+
+Aplicar `prettyGroupName(g.nombre)` en el `<h3>` del grupo y en `faltantes.push(...)`. El valor original (`g.nombre`) sigue usándose como key/fuente para la detección de "incluyeBebida" en el CAMBIO 2 (regex contra el nombre crudo, no mapeado).
 
 ---
 
 ### Criterios verificados
 
-- `submitOrder` y `precheckStock` no se tocan.
-- `clearCart` / `localStorage` del store no se tocan; `incItem/decItem/removeItem` ya escriben al mismo store persistente.
-- Botones +/− con área ≥ 44 px.
-- Total reactivo porque el padre consume `useCart()`.
-- `VITE_PAYMENTS_ENABLED` documentado implícitamente; sin la var, "Online" no aparece.
+- `min/max` se valida igual (`valido`, `faltantes`).
+- `extra`, `unit`, `total`, `addItem` sin cambios.
+- Upsell de bebida es opt-in, no bloquea CTA, omitible (basta con no tocar).
+- Mobile-first: hero 42vh, footer siempre visible vía flex layout, cards horizontales con snap.
 
 ### Archivos
 
-- `src/routes/checkout.tsx` (único archivo modificado).
+- `src/components/kp/ProductCustomizerSheet.tsx` (único archivo modificado).
