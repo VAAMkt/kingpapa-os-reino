@@ -34,14 +34,33 @@ export const Route = createFileRoute("/menu")({
 
 type Seccion = { categoria: Categoria; productos: Producto[] };
 
-function prioridad(slug: string, nombre: string): number {
-  const s = `${slug} ${nombre}`.toLowerCase();
-  if (s.includes("combo")) return 1;
-  if (s.includes("uno") || s.includes("personal") || s.includes("individual")) return 2;
-  if (s.includes("salchipapa")) return 3;
-  if (s.includes("adicion") || s.includes("acompan")) return 4;
-  if (s.includes("bebida") || s.includes("drink")) return 5;
-  return 99;
+// Orden editorial fijo de secciones KINGPAPA.
+// Matching: toLowerCase().includes() sobre slug e id de categoría.
+// Categorías sin match van al final en el orden de Restaurant.pe.
+const CATEGORY_ORDER = [
+  "mas-pedidos",
+  "combos-solo-web",
+  "combo",
+  "salchipapa",
+  "hamburguesa",
+  "perro",
+  "sandwich",
+  "lomito",
+  "bowl",
+  "entrada",
+  "snack",
+  "adicion",
+  "acompan",
+  "postre",
+  "bebida",
+];
+
+function categoryRank(id: string, nombre: string): number {
+  const s = `${id} ${nombre}`.toLowerCase();
+  for (let i = 0; i < CATEGORY_ORDER.length; i++) {
+    if (s.includes(CATEGORY_ORDER[i])) return i;
+  }
+  return CATEGORY_ORDER.length + 1;
 }
 
 function MenuPage() {
@@ -86,19 +105,38 @@ function MenuPage() {
   );
 
   const secciones = useMemo<Seccion[]>(() => {
-    const masPedidos = productos.filter((p) => p.destacado || p.esMasVendido);
+    // Combos solo web: productos marcados editorialmente.
+    const combosWeb = productos.filter(
+      (p) =>
+        p.etiqueta_custom === "combo-web" ||
+        p.etiqueta_custom?.toLowerCase().includes("combo") ||
+        p.clasificacion_me === "star",
+    );
+    const combosWebIds = new Set(combosWeb.map((p) => p.id));
+
+    // El resto de secciones excluye productos ya mostrados en "Combos solo web".
+    const restantes = productos.filter((p) => !combosWebIds.has(p.id));
+
+    const masPedidos = restantes.filter((p) => p.destacado || p.esMasVendido);
+
     const reales = categoriasUI
       .filter((c) => c.id !== "all")
       .map<Seccion>((c) => ({
         categoria: c,
-        productos: productos.filter((p) => p.categorias.includes(c.id)),
+        productos: restantes.filter((p) => p.categorias.includes(c.id)),
       }))
       .filter((s) => s.productos.length > 0);
-    reales.sort(
-      (a, b) =>
-        prioridad(a.categoria.id, a.categoria.nombre) -
-        prioridad(b.categoria.id, b.categoria.nombre),
-    );
+
+    // Orden editorial estable: rank ascendente; ties conservan orden original (RP).
+    const indexed = reales.map((s, i) => ({ s, i }));
+    indexed.sort((a, b) => {
+      const ra = categoryRank(a.s.categoria.id, a.s.categoria.nombre);
+      const rb = categoryRank(b.s.categoria.id, b.s.categoria.nombre);
+      if (ra !== rb) return ra - rb;
+      return a.i - b.i;
+    });
+    const realesOrdenadas = indexed.map((x) => x.s);
+
     return [
       ...(masPedidos.length
         ? [
@@ -108,7 +146,19 @@ function MenuPage() {
             },
           ]
         : []),
-      ...reales,
+      ...(combosWeb.length
+        ? [
+            {
+              categoria: {
+                id: "combos-solo-web",
+                nombre: "Combos solo web",
+                filtro: "Combos solo web",
+              } as Categoria,
+              productos: combosWeb,
+            },
+          ]
+        : []),
+      ...realesOrdenadas,
     ];
   }, [productos, categoriasUI]);
 
