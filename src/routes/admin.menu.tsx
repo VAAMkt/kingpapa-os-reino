@@ -77,6 +77,8 @@ type Prod = {
 function AdminMenuPage() {
   const queryClient = useQueryClient();
   const [hideInactive, setHideInactive] = useState(false);
+  const [editImageProd, setEditImageProd] = useState<Prod | null>(null);
+
 
   const fetchMenu = useServerFn(listAdminMenu);
   const menuQ = useQuery({
