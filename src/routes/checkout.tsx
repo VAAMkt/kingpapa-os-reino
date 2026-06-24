@@ -357,11 +357,11 @@ function CheckoutPage() {
           <BrutalCard tone="cheese" className="p-4 space-y-2">
             <h2 className="font-display uppercase text-lg">Método de pago</h2>
             <div className="flex flex-wrap gap-2">
-              {([
+              {(([
                 { id: "efectivo", label: "💵 Efectivo" },
                 { id: "datafono", label: "💳 Datáfono" },
-                { id: "online", label: "🌐 Online" },
-              ] as { id: PagoMetodo; label: string }[]).map((opt) => (
+                ...(PAYMENTS_ENABLED ? [{ id: "online", label: "🌐 Online" }] : []),
+              ]) as { id: PagoMetodo; label: string }[]).map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
@@ -376,12 +376,17 @@ function CheckoutPage() {
                 </button>
               ))}
             </div>
-            {pago === "online" && (
-              <p className="text-xs opacity-70">
-                Pasarela online próximamente — el equipo confirmará por WhatsApp.
-              </p>
-            )}
           </BrutalCard>
+
+          {/* Detalles de entrega siempre visibles */}
+          <DetallesEntrega
+            sede={sede}
+            esRecoger={esRecoger}
+            direccion={direccion}
+            subtotal={subtotal}
+            total={total}
+          />
+
 
           {/* Notas colapsadas */}
           <details className="border-2 border-kp-ink/30 bg-kp-cheese px-3 py-2">
