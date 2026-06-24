@@ -271,7 +271,9 @@ function AdminMenuPage() {
                         total={list.length}
                         onMove={(d) => moveProd(c.id, idx, d)}
                         onPatch={(patch) => prodMut.mutate({ id: p.id, ...patch })}
+                        onEditImagen={() => setEditImageProd(p)}
                       />
+
                     ))}
                   </div>
                 </SortableContext>
