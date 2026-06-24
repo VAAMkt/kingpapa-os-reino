@@ -459,6 +459,9 @@ function CheckoutPage() {
         >
           {ctaLabel}
         </BrutalButton>
+        <p className="text-xs text-center opacity-60 font-display uppercase tracking-wide mt-2">
+          Pedido directo al Reino · Sin comisiones de apps · Precio web
+        </p>
       </div>
     </section>
   );
