@@ -13,8 +13,8 @@ export function GateMap({
   onPinChange: (p: LatLng) => void;
 }) {
   const elRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +41,7 @@ export function GateMap({
           const p = marker.getPosition();
           if (p) onPinChange({ lat: p.lat(), lng: p.lng() });
         });
-        map.addListener("click", (e: any) => {
+        map.addListener("click", (e: google.maps.MapMouseEvent) => {
           if (!e.latLng) return;
           const p = { lat: e.latLng.lat(), lng: e.latLng.lng() };
           marker.setPosition(p);
