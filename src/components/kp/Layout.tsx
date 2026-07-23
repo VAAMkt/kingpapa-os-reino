@@ -114,9 +114,8 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 md:px-6 py-10">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2">
-            <div className="flex items-center gap-2 mb-3">
-              <img src={crown} alt="" width={40} height={40} className="w-10 h-10" />
-              <span className="font-display text-3xl text-kp-yellow">KINGPAPA</span>
+            <div className="mb-3">
+              <img src={logoLight.url} alt="KINGPAPA" className="h-10 w-auto" />
             </div>
             <p className="text-sm text-kp-cheese/80 max-w-sm">
               Los REYES de esta pendeja’. Salchipapas monstruosas, bowls coronados y retos
