@@ -124,18 +124,31 @@ export function pickNearestSede(
     (s) => s.lat != null && s.lng != null && s.publicado,
   );
   if (conGeo.length === 0) return null;
-  let best: NearestResult | null = null;
-  for (const s of conGeo) {
+
+  // Elegible para delivery = admin marcó delivery=true, sin kill_switch, y el
+  // POS no reporta explícitamente "sin delivery" (null = aún no sincronizado → ok).
+  type Scored = { sede: SedeRow; distanciaKm: number; radio: number; delivEligible: boolean };
+  const scored: Scored[] = conGeo.map((s) => {
     const d = haversineKm(point, { lat: Number(s.lat), lng: Number(s.lng) });
     const radio = Number(s.cobertura_radio_km ?? DEFAULT_COBERTURA_KM) || DEFAULT_COBERTURA_KM;
-    const cur: NearestResult = {
-      sede: s,
-      distanciaKm: d,
-      enCobertura: d <= radio,
-    };
-    if (!best || d < best.distanciaKm) best = cur;
+    const delivEligible =
+      !!s.delivery &&
+      !s.kill_switch &&
+      (s.rp_acepta_delivery == null || s.rp_acepta_delivery === 1);
+    return { sede: s, distanciaKm: d, radio, delivEligible };
+  });
+
+  // 1) Sede elegible para delivery cuya distancia cae dentro del radio, la más cercana.
+  const dentro = scored
+    .filter((x) => x.delivEligible && x.distanciaKm <= x.radio)
+    .sort((a, b) => a.distanciaKm - b.distanciaKm)[0];
+  if (dentro) {
+    return { sede: dentro.sede, distanciaKm: dentro.distanciaKm, enCobertura: true };
   }
-  return best;
+
+  // 2) Fallback: la geográficamente más cercana (para pickup), sin cobertura.
+  const nearest = scored.sort((a, b) => a.distanciaKm - b.distanciaKm)[0];
+  return { sede: nearest.sede, distanciaKm: nearest.distanciaKm, enCobertura: false };
 }
 
 /**
