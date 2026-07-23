@@ -179,7 +179,7 @@ async function resolveOrder(input: CheckoutInput): Promise<{
   const { data: sedeRaw, error: sedeErr } = await supabaseAdmin
     .from("sedes")
     .select(
-      "id, nombre, rp_local_id, horarios, tz, kill_switch, rp_local_estado, rp_acepta_delivery",
+      "id, nombre, rp_local_id, horarios, tz, kill_switch, rp_local_estado, rp_acepta_delivery, delivery",
     )
     .eq("id", input.sedeId)
     .maybeSingle();
@@ -191,6 +191,7 @@ async function resolveOrder(input: CheckoutInput): Promise<{
     kill_switch: boolean | null;
     rp_local_estado: number | null;
     rp_acepta_delivery: number | null;
+    delivery: boolean | null;
   };
   if (!sede.rp_local_id)
     throw new Error(`La sede "${sede.nombre}" no tiene rp_local_id asignado`);
