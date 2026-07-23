@@ -107,9 +107,13 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // Solo re-invalidamos en transiciones reales de identidad. TOKEN_REFRESHED
+      // e INITIAL_SESSION disparan al recuperar foco de pestaña y causarían
+      // refetch masivo (rompe el estado del admin al volver a la tab).
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
-      queryClient.invalidateQueries();
+      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
     return () => subscription.unsubscribe();
   }, [router, queryClient]);
