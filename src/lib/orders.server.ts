@@ -105,6 +105,7 @@ function assertSedeOperativa(
     kill_switch: boolean | null;
     rp_local_estado: number | null;
     rp_acepta_delivery: number | null;
+    delivery: boolean | null;
   },
   tipo: "delivery" | "pickup",
   opts: { bypass?: boolean } = {},
@@ -119,8 +120,15 @@ function assertSedeOperativa(
   if (sede.rp_local_estado != null && sede.rp_local_estado !== 1) {
     throw new Error(`"${sede.nombre}" no está activa en el sistema central. Contáctanos por WhatsApp.`);
   }
-  if (tipo === "delivery" && sede.rp_acepta_delivery != null && sede.rp_acepta_delivery !== 1) {
-    throw new Error(`"${sede.nombre}" no acepta domicilios por ahora. Prueba la opción de recoger en sede.`);
+  if (tipo === "delivery") {
+    // El toggle del admin manda: si delivery=false, se bloquea sin importar el POS.
+    if (sede.delivery === false) {
+      throw new Error(`"${sede.nombre}" no ofrece domicilio hoy. Prueba la opción de recoger en sede.`);
+    }
+    // Si admin dice delivery=true pero POS reporta explícitamente 0, avisamos con mensaje distinguible.
+    if (sede.rp_acepta_delivery === 0) {
+      throw new Error(`"${sede.nombre}" tiene domicilio pausado en el POS. Sincroniza sedes o revísalo en Restaurant.pe.`);
+    }
   }
   // Horarios locales.
   const horarios = (sede.horarios ?? {}) as HorariosMap;
