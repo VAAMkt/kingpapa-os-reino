@@ -42,9 +42,7 @@ export function OrderRouter({ compact = false }: { compact?: boolean }) {
   return (
     <BrutalCard tone="yellow" className={compact ? "p-4" : "p-5 md:p-7"}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-display text-2xl md:text-3xl uppercase">
-          ¿Dónde estás parchando hoy?
-        </h3>
+        <h3 className="font-display text-2xl md:text-3xl uppercase">¿Dónde estás parchando hoy?</h3>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
@@ -84,7 +82,9 @@ export function OrderRouter({ compact = false }: { compact?: boolean }) {
       <details className="mt-5 border-t-2 border-kp-ink/20 pt-3 group">
         <summary className="cursor-pointer font-display uppercase text-xs tracking-wider text-kp-ink/70 list-none flex items-center justify-between">
           <span>También estamos en apps</span>
-          <span aria-hidden className="transition-transform group-open:rotate-180">▾</span>
+          <span aria-hidden className="transition-transform group-open:rotate-180">
+            ▾
+          </span>
         </summary>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
           <BrutalLink href={rappiUrl} external variant="ghost" size="sm" block>

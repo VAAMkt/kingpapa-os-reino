@@ -19,9 +19,7 @@ const nav = [
 function LocationPill({ className = "" }: { className?: string }) {
   const sede = useActiveSede();
   const hasReal = !!sede && sede.source !== "exploring";
-  const label = hasReal
-    ? (sede!.direccionTexto || sede!.label)
-    : "Selecciona tu ubicación";
+  const label = hasReal ? sede!.direccionTexto || sede!.label : "Selecciona tu ubicación";
   return (
     <button
       onClick={openLocationGate}
@@ -42,7 +40,9 @@ export function TopAppBar() {
   useEffect(() => {
     if (open) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   return (
@@ -118,27 +118,51 @@ export function Footer() {
               <img src={wordmarkYellow.url} alt="KINGPAPA" className="h-10 md:h-12 w-auto" />
             </div>
             <p className="text-sm text-kp-cheese/80 max-w-sm">
-              Los REYES de esta pendeja’. Salchipapas monstruosas, bowls coronados y retos
-              que solo un verdadero súbdito del Reino se atreve a probar.
+              Los REYES de esta pendeja’. Salchipapas monstruosas, bowls coronados y retos que solo
+              un verdadero súbdito del Reino se atreve a probar.
             </p>
           </div>
           <div>
             <h4 className="font-display text-kp-yellow text-lg mb-3">El Reino</h4>
             <ul className="space-y-1 text-sm">
-              <li><Link to="/menu">Menú</Link></li>
-              <li><Link to="/sedes">Sedes</Link></li>
-              <li><Link to="/franquicias">Franquicias</Link></li>
-              <li><Link to="/historias">Historias</Link></li>
+              <li>
+                <Link to="/menu">Menú</Link>
+              </li>
+              <li>
+                <Link to="/sedes">Sedes</Link>
+              </li>
+              <li>
+                <Link to="/franquicias">Franquicias</Link>
+              </li>
+              <li>
+                <Link to="/historias">Historias</Link>
+              </li>
             </ul>
           </div>
           <div>
             <h4 className="font-display text-kp-yellow text-lg mb-3">Comunidad</h4>
             <ul className="space-y-1 text-sm">
-              <li><a href="https://wa.me/573000000000" target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
-              <li><a href="https://instagram.com" target="_blank" rel="noopener noreferrer">Instagram</a></li>
-              <li><a href="https://tiktok.com" target="_blank" rel="noopener noreferrer">TikTok</a></li>
-              <li><a href="#">PQR</a></li>
-              <li><a href="#">Trabaja con nosotros</a></li>
+              <li>
+                <a href="https://wa.me/573000000000" target="_blank" rel="noopener noreferrer">
+                  WhatsApp
+                </a>
+              </li>
+              <li>
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
+                  Instagram
+                </a>
+              </li>
+              <li>
+                <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer">
+                  TikTok
+                </a>
+              </li>
+              <li>
+                <a href="#">PQR</a>
+              </li>
+              <li>
+                <a href="#">Trabaja con nosotros</a>
+              </li>
             </ul>
           </div>
         </div>

@@ -34,7 +34,11 @@ const HorariosSchema = z.object({
 });
 
 const SedeSchema = z.object({
-  slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones"),
+  slug: z
+    .string()
+    .min(2)
+    .max(80)
+    .regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones"),
   nombre: z.string().min(2).max(120),
   ciudad: z.string().min(2).max(60),
   direccion: z.string().min(4).max(240),
@@ -148,12 +152,14 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
       rp_local_id: initial.rp_local_id ?? null,
       lat: initial.lat != null ? Number(initial.lat) : null,
       lng: initial.lng != null ? Number(initial.lng) : null,
-      cobertura_radio_km: initial.cobertura_radio_km != null ? Number(initial.cobertura_radio_km) : 5,
+      cobertura_radio_km:
+        initial.cobertura_radio_km != null ? Number(initial.cobertura_radio_km) : 5,
       tz: extra.tz ?? "America/Bogota",
       kill_switch: extra.kill_switch ?? false,
-      horarios: (extra.horarios && Object.keys(extra.horarios).length > 0)
-        ? { ...DEFAULT_HORARIOS, ...extra.horarios }
-        : DEFAULT_HORARIOS,
+      horarios:
+        extra.horarios && Object.keys(extra.horarios).length > 0
+          ? { ...DEFAULT_HORARIOS, ...extra.horarios }
+          : DEFAULT_HORARIOS,
     };
   });
   const [slugTouched, setSlugTouched] = useState(editing);
@@ -178,7 +184,6 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
     }
     return m;
   }, [usedQuery.data, initial?.id]);
-
 
   useEffect(() => {
     if (!slugTouched) setForm((f) => ({ ...f, slug: slugifySede(f.nombre) }));
@@ -291,12 +296,11 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           <label className={labelCls}>Dirección</label>
           <PlacesAutocomplete
             placeholder="Busca: Cl. 5 #66-25, Cali"
-            onPick={({ lat, lng, label }) =>
-              setForm((f) => ({ ...f, direccion: label, lat, lng }))
-            }
+            onPick={({ lat, lng, label }) => setForm((f) => ({ ...f, direccion: label, lat, lng }))}
           />
           <p className="text-[11px] text-kp-ink/60 mt-1">
-            Busca y selecciona la dirección. Puedes ajustar el texto exacto abajo y mover el pin en el mapa.
+            Busca y selecciona la dirección. Puedes ajustar el texto exacto abajo y mover el pin en
+            el mapa.
           </p>
           <BrutalInput
             value={form.direccion}
@@ -316,7 +320,8 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
                 onPinChange={({ lat, lng }) => setForm((f) => ({ ...f, lat, lng }))}
               />
               <p className="text-[11px] text-kp-ink/70 mt-1">
-                Coordenadas: {Number(form.lat).toFixed(5)}, {Number(form.lng).toFixed(5)} · arrastra el pin para afinar la ubicación exacta del local.
+                Coordenadas: {Number(form.lat).toFixed(5)}, {Number(form.lng).toFixed(5)} · arrastra
+                el pin para afinar la ubicación exacta del local.
               </p>
             </>
           ) : (
@@ -380,7 +385,11 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
                 No se pudo cargar la lista. Verifica el token de Restaurant.pe.
               </p>
               <div className="flex gap-2">
-                <BrutalButton type="button" variant="ghost" onClick={() => rpLocalesQuery.refetch()}>
+                <BrutalButton
+                  type="button"
+                  variant="ghost"
+                  onClick={() => rpLocalesQuery.refetch()}
+                >
                   Reintentar
                 </BrutalButton>
                 <Link
@@ -396,7 +405,8 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
               {(() => {
                 const locales = rpLocalesQuery.data ?? [];
                 const currentId = form.rp_local_id ?? null;
-                const currentInList = currentId != null && locales.some((l) => l.rp_local_id === currentId);
+                const currentInList =
+                  currentId != null && locales.some((l) => l.rp_local_id === currentId);
                 return (
                   <select
                     value={currentId ?? ""}
@@ -412,8 +422,7 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
                       const disabled = !!usadaPor;
                       return (
                         <option key={l.rp_local_id} value={l.rp_local_id} disabled={disabled}>
-                          {l.nombre} (#{l.rp_local_id})
-                          {usadaPor ? ` · en uso por ${usadaPor}` : ""}
+                          {l.nombre} (#{l.rp_local_id}){usadaPor ? ` · en uso por ${usadaPor}` : ""}
                         </option>
                       );
                     })}
@@ -452,27 +461,29 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
               type="number"
               step="0.5"
               value={form.cobertura_radio_km}
-              onChange={(e) =>
-                setForm({ ...form, cobertura_radio_km: Number(e.target.value) })
-              }
+              onChange={(e) => setForm({ ...form, cobertura_radio_km: Number(e.target.value) })}
             />
           </div>
         </div>
         <p className="text-xs text-kp-ink/70">
-          Elige el local real de Restaurant.pe (solo para vincular el catálogo). Las coordenadas se toman exclusivamente del mapa de arriba para garantizar precisión en el cálculo de cobertura.
+          Elige el local real de Restaurant.pe (solo para vincular el catálogo). Las coordenadas se
+          toman exclusivamente del mapa de arriba para garantizar precisión en el cálculo de
+          cobertura.
         </p>
       </BrutalCard>
 
       <BrutalCard tone="cheese" className="p-5 space-y-3">
         <h3 className="font-display uppercase text-lg">Servicios y estado</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {([
-            ["abierta_ahora", "Abierta ahora"],
-            ["delivery", "Delivery"],
-            ["pickup", "Pick-up"],
-            ["qr_mesa", "QR en mesa"],
-            ["publicado", "Publicado"],
-          ] as const).map(([key, label]) => (
+          {(
+            [
+              ["abierta_ahora", "Abierta ahora"],
+              ["delivery", "Delivery"],
+              ["pickup", "Pick-up"],
+              ["qr_mesa", "QR en mesa"],
+              ["publicado", "Publicado"],
+            ] as const
+          ).map(([key, label]) => (
             <label
               key={key}
               className="flex items-center gap-2 h-[50px] px-3 border-2 border-kp-ink bg-kp-cheese shadow-brutal-sm cursor-pointer"
@@ -520,7 +531,10 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
             const ventanas = form.horarios[key] ?? [];
             const cerrado = ventanas.length === 0;
             return (
-              <div key={key} className="flex flex-wrap items-center gap-2 border-2 border-kp-ink/30 p-2">
+              <div
+                key={key}
+                className="flex flex-wrap items-center gap-2 border-2 border-kp-ink/30 p-2"
+              >
                 <span className="font-display uppercase text-xs w-20">{label}</span>
                 {cerrado ? (
                   <span className="text-xs text-kp-ink/60 flex-1">Cerrado</span>
@@ -584,7 +598,8 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           })}
         </div>
         <p className="text-[11px] text-kp-ink/60">
-          La validación bloquea pedidos fuera de horario antes de enviarlos al POS. Puedes definir múltiples ventanas por día (ej. almuerzo + cena).
+          La validación bloquea pedidos fuera de horario antes de enviarlos al POS. Puedes definir
+          múltiples ventanas por día (ej. almuerzo + cena).
         </p>
       </BrutalCard>
 
@@ -592,7 +607,11 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         <BrutalButton type="submit" variant="primary" disabled={upsert.isPending}>
           {upsert.isPending ? "Guardando…" : editing ? "Guardar cambios" : "Crear sede"}
         </BrutalButton>
-        <BrutalButton type="button" variant="ghost" onClick={() => navigate({ to: "/admin/sedes" })}>
+        <BrutalButton
+          type="button"
+          variant="ghost"
+          onClick={() => navigate({ to: "/admin/sedes" })}
+        >
           Cancelar
         </BrutalButton>
       </div>

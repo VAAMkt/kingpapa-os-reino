@@ -32,7 +32,6 @@ const BACKOFFS_MS = [60_000, 120_000, 180_000, 300_000, 300_000, 300_000, 300_00
 // cierra la orden como 'cancelado' (timeout_sistema) en su próxima llamada.
 const ORDER_TTL_MS = 45 * 60_000;
 
-
 // Pasos alineados a los estados que RP emite por webhook hoy:
 // recibido → en_camino → entregado. `en_preparacion` queda soportado en
 // backend pero no se promete como paso visible (RP no lo envía).
@@ -57,7 +56,6 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const orderRef = useRef<OrderRow | null>(null);
   const reconcile = useServerFn(reconcileOrder);
-  
 
   useEffect(() => {
     if (!orderId) {
@@ -65,7 +63,6 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       return;
     }
     let cancelled = false;
-
 
     function applyRow(next: OrderRow | null) {
       if (cancelled) return;
@@ -91,7 +88,6 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         .maybeSingle();
       applyRow((data as OrderRow | null) ?? null);
     }
-
 
     fetchOrder();
 
@@ -212,9 +208,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
               }`}
             >
               <div className="text-2xl mb-1">{p.emoji}</div>
-              <span className="block font-display uppercase text-xs leading-tight">
-                {p.label}
-              </span>
+              <span className="block font-display uppercase text-xs leading-tight">{p.label}</span>
             </li>
           );
         })}

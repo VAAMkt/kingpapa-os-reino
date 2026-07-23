@@ -11,18 +11,18 @@ import { toast } from "sonner";
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
 const GROUP_NAME_MAP: Record<string, string> = {
-  "salsas": "Elige tu salsa",
-  "salsa": "Elige tu salsa",
-  "extras": "Agrégale más pecado",
-  "adiciones": "Agrégale más pecado",
-  "adición": "Agrégale más pecado",
-  "bebidas": "Combínalo con bebida",
-  "bebida": "Combínalo con bebida",
-  "complementos": "Combínalo con bebida",
-  "acompañamientos": "Pídele un acompañamiento",
-  "acompañamiento": "Pídele un acompañamiento",
-  "postres": "Cierra con un postre",
-  "postre": "Cierra con un postre",
+  salsas: "Elige tu salsa",
+  salsa: "Elige tu salsa",
+  extras: "Agrégale más pecado",
+  adiciones: "Agrégale más pecado",
+  adición: "Agrégale más pecado",
+  bebidas: "Combínalo con bebida",
+  bebida: "Combínalo con bebida",
+  complementos: "Combínalo con bebida",
+  acompañamientos: "Pídele un acompañamiento",
+  acompañamiento: "Pídele un acompañamiento",
+  postres: "Cierra con un postre",
+  postre: "Cierra con un postre",
 };
 function prettyGroupName(raw: string): string {
   return GROUP_NAME_MAP[raw.trim().toLowerCase()] ?? raw;
@@ -43,27 +43,17 @@ export function ProductCustomizerSheet({
         side="bottom"
         className="border-2 border-kp-ink bg-kp-cheese p-0 max-h-[92vh] h-[92vh] flex flex-col sm:max-w-2xl sm:mx-auto"
       >
-        <SheetTitle className="sr-only">
-          Personaliza {producto?.nombre ?? "tu corona"}
-        </SheetTitle>
+        <SheetTitle className="sr-only">Personaliza {producto?.nombre ?? "tu corona"}</SheetTitle>
         <SheetDescription className="sr-only">
           Elige adiciones y cantidad antes de agregar al carrito.
         </SheetDescription>
-        {producto && (
-          <CustomizerBody producto={producto} onDone={() => onOpenChange(false)} />
-        )}
+        {producto && <CustomizerBody producto={producto} onDone={() => onOpenChange(false)} />}
       </SheetContent>
     </Sheet>
   );
 }
 
-function CustomizerBody({
-  producto,
-  onDone,
-}: {
-  producto: Producto;
-  onDone: () => void;
-}) {
+function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () => void }) {
   const grupos = producto.modificadores ?? [];
   const [sel, setSel] = useState<Record<number, Set<number>>>({});
   const [cantidad, setCantidad] = useState(1);
@@ -164,11 +154,7 @@ function CustomizerBody({
       {/* Hero ≥40% altura */}
       <div className="relative shrink-0 h-[42vh] min-h-[260px] bg-kp-ink">
         {producto.imagen && (
-          <img
-            src={producto.imagen}
-            alt={producto.nombre}
-            className="w-full h-full object-cover"
-          />
+          <img src={producto.imagen} alt={producto.nombre} className="w-full h-full object-cover" />
         )}
       </div>
 
@@ -198,10 +184,7 @@ function CustomizerBody({
           const incompleto = obligatorio && selected.size < g.min;
           const borderCls = incompleto ? "border-kp-red/70" : "border-kp-ink";
           return (
-            <div
-              key={g.id}
-              className={`border-2 ${borderCls} bg-kp-yellow/40 p-3 space-y-2`}
-            >
+            <div key={g.id} className={`border-2 ${borderCls} bg-kp-yellow/40 p-3 space-y-2`}>
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="font-display uppercase text-lg leading-none">
                   {prettyGroupName(g.nombre)}
@@ -240,9 +223,7 @@ function CustomizerBody({
                         />
                         <span className="flex-1 text-sm">{o.nombre}</span>
                         {o.precio > 0 && (
-                          <span className="font-display text-sm">
-                            + {cop(o.precio)}
-                          </span>
+                          <span className="font-display text-sm">+ {cop(o.precio)}</span>
                         )}
                       </label>
                     </li>
@@ -255,9 +236,7 @@ function CustomizerBody({
 
         {bebidasSugeridas.length > 0 && (
           <div className="border-2 border-kp-ink bg-kp-purple/20 p-3 space-y-2">
-            <h3 className="font-display uppercase text-lg leading-none">
-              ¿Le sumás una bebida?
-            </h3>
+            <h3 className="font-display uppercase text-lg leading-none">¿Le sumás una bebida?</h3>
             <p className="text-[11px] font-display uppercase opacity-70">
               Una fría siempre cae bien 👑
             </p>
@@ -333,7 +312,7 @@ function CustomizerBody({
           </div>
         </div>
         <BrutalButton variant="fire" size="lg" block onClick={agregar} disabled={!valido}>
-          {valido ? `Agregar · ${cop(total)}` : faltantes[0] ?? "Completa las opciones"}
+          {valido ? `Agregar · ${cop(total)}` : (faltantes[0] ?? "Completa las opciones")}
         </BrutalButton>
       </div>
     </div>

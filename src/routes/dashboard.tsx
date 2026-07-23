@@ -33,7 +33,11 @@ function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KpiCard label="Pedidos hoy" value={d.pedidosHoy.toLocaleString("es-CO")} tone="yellow" />
         <KpiCard label="Súbditos nuevos" value={`+${d.subditosNuevos}`} tone="purple" />
-        <KpiCard label="Súbditos totales" value={d.subditosTotal.toLocaleString("es-CO")} tone="black" />
+        <KpiCard
+          label="Súbditos totales"
+          value={d.subditosTotal.toLocaleString("es-CO")}
+          tone="black"
+        />
         <KpiCard label="Sedes activas" value={String(d.sedesTop.length + 1)} tone="red" />
       </div>
 
@@ -102,7 +106,15 @@ function DashboardPage() {
   );
 }
 
-function KpiCard({ label, value, tone }: { label: string; value: string; tone: "yellow" | "purple" | "black" | "red" }) {
+function KpiCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "yellow" | "purple" | "black" | "red";
+}) {
   return (
     <BrutalCard tone={tone} className="p-4">
       <p className="text-xs font-display uppercase tracking-wider opacity-80">{label}</p>

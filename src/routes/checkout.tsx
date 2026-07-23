@@ -4,7 +4,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
-import { useCart, clearCart, setOrderType, incItem, decItem, removeItem, type OrderType } from "@/lib/cart";
+import {
+  useCart,
+  clearCart,
+  setOrderType,
+  incItem,
+  decItem,
+  removeItem,
+  type OrderType,
+} from "@/lib/cart";
 import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-sede";
 import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
@@ -14,10 +22,7 @@ import { track } from "@/lib/analytics";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
-    meta: [
-      { title: "Checkout — KINGPAPA" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Checkout — KINGPAPA" }, { name: "robots", content: "noindex" }],
   }),
   component: CheckoutPage,
 });
@@ -76,7 +81,6 @@ function CheckoutPage() {
     if (count > 0) track("checkout_started", { items_count: count, subtotal });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   // Persiste el formulario en localStorage para que recargar la página
   // o editar por error no borre lo que el usuario ya escribió.
@@ -148,7 +152,9 @@ function CheckoutPage() {
           <p className="mt-2 text-sm">Agrega algo antes de coronar el pago.</p>
           <div className="mt-5">
             <Link to="/menu">
-              <BrutalButton variant="fire" size="lg">Ir al menú</BrutalButton>
+              <BrutalButton variant="fire" size="lg">
+                Ir al menú
+              </BrutalButton>
             </Link>
           </div>
         </BrutalCard>
@@ -250,9 +256,7 @@ function CheckoutPage() {
         pago,
         cliente: { nombre, telefono, direccion: esRecoger ? null : direccion, detalles },
         notas,
-        sede: sede
-          ? { id: sede.sedeId, slug: sede.slug, label: sede.label }
-          : null,
+        sede: sede ? { id: sede.sedeId, slug: sede.slug, label: sede.label } : null,
         items,
         subtotal,
         total: result.total,
@@ -280,7 +284,7 @@ function CheckoutPage() {
       : `Pedir a Domicilio · ${cop(total)}`;
 
   const direccionResumen = esRecoger
-    ? sede?.label ?? "Sede"
+    ? (sede?.label ?? "Sede")
     : direccion || sede?.direccionTexto || "Tu dirección";
 
   return (
@@ -307,8 +311,11 @@ function CheckoutPage() {
       {esRecoger && sede && !sede.enCobertura && sede.lat != null && (
         <div className="border-2 border-kp-ink bg-kp-yellow/60 px-3 py-2 text-xs">
           Estás un poco lejos para nuestro domicilio
-          {sede.distanciaKm ? ` (${sede.distanciaKm.toFixed(1)} km de ${sede.label.replace(/^Recoger en\s+/i, "")})` : ""}.
-          Tu pedido quedó configurado para recoger en tienda. Puedes cambiarlo si prefieres intentar domicilio.
+          {sede.distanciaKm
+            ? ` (${sede.distanciaKm.toFixed(1)} km de ${sede.label.replace(/^Recoger en\s+/i, "")})`
+            : ""}
+          . Tu pedido quedó configurado para recoger en tienda. Puedes cambiarlo si prefieres
+          intentar domicilio.
         </div>
       )}
 
@@ -382,11 +389,13 @@ function CheckoutPage() {
           <BrutalCard tone="cheese" className="p-4 space-y-2">
             <h2 className="font-display uppercase text-lg">Método de pago</h2>
             <div className="flex flex-wrap gap-2">
-              {(([
-                { id: "efectivo", label: "💵 Efectivo" },
-                { id: "datafono", label: "💳 Datáfono" },
-                ...(PAYMENTS_ENABLED ? [{ id: "online", label: "🌐 Online" }] : []),
-              ]) as { id: PagoMetodo; label: string }[]).map((opt) => (
+              {(
+                [
+                  { id: "efectivo", label: "💵 Efectivo" },
+                  { id: "datafono", label: "💳 Datáfono" },
+                  ...(PAYMENTS_ENABLED ? [{ id: "online", label: "🌐 Online" }] : []),
+                ] as { id: PagoMetodo; label: string }[]
+              ).map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
@@ -414,7 +423,6 @@ function CheckoutPage() {
             subtotal={subtotal}
             total={total}
           />
-
 
           {/* Notas colapsadas */}
           <details className="border-2 border-kp-ink/30 bg-kp-cheese px-3 py-2">
@@ -584,14 +592,10 @@ function DetallesEntrega({
       <Row label="Sede" value={sede?.label ?? "—"} />
       <Row label="Tiempo estimado" value={tiempoEstimado} />
       <Row label="Tipo" value={esRecoger ? "Recoger en sede" : "Domicilio"} />
-      {!esRecoger && (
-        <Row label="Dirección" value={direccion || sede?.direccionTexto || "—"} />
-      )}
+      {!esRecoger && <Row label="Dirección" value={direccion || sede?.direccionTexto || "—"} />}
       <div className="border-t-2 border-kp-ink/30 pt-2 space-y-1">
         <Row label="Subtotal" value={cop(subtotal)} />
-        {!esRecoger && (
-          <Row label="Domicilio" value="A confirmar por WhatsApp" />
-        )}
+        {!esRecoger && <Row label="Domicilio" value="A confirmar por WhatsApp" />}
         <div className="flex items-center justify-between pt-2 mt-1 border-t-2 border-kp-ink">
           <span className="font-display uppercase">Total</span>
           <span className="font-display text-2xl">{cop(total)}</span>
@@ -600,4 +604,3 @@ function DetallesEntrega({
     </BrutalCard>
   );
 }
-

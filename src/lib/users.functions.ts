@@ -62,7 +62,8 @@ export const listUsersWithRoles = createServerFn({ method: "GET" })
       .map((u) => ({
         id: u.id,
         email: u.email ?? null,
-        display_name: nameById.get(u.id) ?? (u.user_metadata?.display_name as string | undefined) ?? null,
+        display_name:
+          nameById.get(u.id) ?? (u.user_metadata?.display_name as string | undefined) ?? null,
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at ?? null,
         roles: rolesByUser.get(u.id) ?? [],
@@ -73,10 +74,12 @@ export const listUsersWithRoles = createServerFn({ method: "GET" })
 export const addUserRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      user_id: z.string().uuid(),
-      role: z.enum(ROLES as [AppRole, ...AppRole[]]),
-    }).parse(input),
+    z
+      .object({
+        user_id: z.string().uuid(),
+        role: z.enum(ROLES as [AppRole, ...AppRole[]]),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
@@ -90,10 +93,12 @@ export const addUserRole = createServerFn({ method: "POST" })
 export const removeUserRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      user_id: z.string().uuid(),
-      role: z.enum(ROLES as [AppRole, ...AppRole[]]),
-    }).parse(input),
+    z
+      .object({
+        user_id: z.string().uuid(),
+        role: z.enum(ROLES as [AppRole, ...AppRole[]]),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);

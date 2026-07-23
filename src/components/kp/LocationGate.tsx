@@ -56,7 +56,11 @@ export function openLocationGate() {
 
 function GateBody({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
-  const sedesQ = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
+  const sedesQ = useQuery({
+    queryKey: ["sedes", "public"],
+    queryFn: listPublicSedes,
+    staleTime: 60_000,
+  });
   const sedes = sedesQ.data ?? [];
 
   const reverseFn = useServerFn(reverseGeocode);
@@ -80,7 +84,12 @@ function GateBody({ onDone }: { onDone: () => void }) {
     onDone();
   }
 
-  function confirm(result: NearestResult, source: "gps" | "address" | "manual", label: string, pinPos: LatLng) {
+  function confirm(
+    result: NearestResult,
+    source: "gps" | "address" | "manual",
+    label: string,
+    pinPos: LatLng,
+  ) {
     setActiveSede({
       sedeId: result.sede.id,
       slug: result.sede.slug,
@@ -193,12 +202,7 @@ function GateBody({ onDone }: { onDone: () => void }) {
             variant="dark"
             onClick={() =>
               pin &&
-              confirm(
-                pendingPickup,
-                "manual",
-                `Recoger en ${pendingPickup.sede.nombre}`,
-                pin,
-              )
+              confirm(pendingPickup, "manual", `Recoger en ${pendingPickup.sede.nombre}`, pin)
             }
             block
           >
@@ -226,7 +230,12 @@ function GateBody({ onDone }: { onDone: () => void }) {
 
       <div className="space-y-2">
         <label className="block font-display uppercase text-xs">Busca tu dirección</label>
-        <PlacesAutocomplete onPick={(p) => { setPinLabel(p.label); setPin({ lat: p.lat, lng: p.lng }); }} />
+        <PlacesAutocomplete
+          onPick={(p) => {
+            setPinLabel(p.label);
+            setPin({ lat: p.lat, lng: p.lng });
+          }}
+        />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -258,12 +267,7 @@ function GateBody({ onDone }: { onDone: () => void }) {
               placeholder="Detalles (Apto 302, casa esquinera, torre B…)"
             />
           </div>
-          <BrutalButton
-            variant="fire"
-            size="lg"
-            block
-            onClick={() => confirmCurrentPin("manual")}
-          >
+          <BrutalButton variant="fire" size="lg" block onClick={() => confirmCurrentPin("manual")}>
             Confirmar ubicación
           </BrutalButton>
         </>

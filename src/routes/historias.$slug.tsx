@@ -22,7 +22,11 @@ export const Route = createFileRoute("/historias/$slug")({
     const titulo = post?.titulo ?? "Historia del Reino";
     const desc = (post?.extracto || "Lo que pasa en el Reino, queda coronado.").slice(0, 158);
     const title = `${titulo} — KINGPAPA`.slice(0, 60);
-    const img = post?.imagen?.startsWith("http") ? post.imagen : post?.imagen ? `${SITE_URL}${post.imagen}` : undefined;
+    const img = post?.imagen?.startsWith("http")
+      ? post.imagen
+      : post?.imagen
+        ? `${SITE_URL}${post.imagen}`
+        : undefined;
 
     const meta = [
       { title },
@@ -39,10 +43,7 @@ export const Route = createFileRoute("/historias/$slug")({
     ].filter((m) => (m as any).content);
 
     if (img) {
-      meta.push(
-        { property: "og:image", content: img },
-        { name: "twitter:image", content: img },
-      );
+      meta.push({ property: "og:image", content: img }, { name: "twitter:image", content: img });
     }
 
     const scripts = post
@@ -74,7 +75,12 @@ export const Route = createFileRoute("/historias/$slug")({
               "@type": "BreadcrumbList",
               itemListElement: [
                 { "@type": "ListItem", position: 1, name: "Inicio", item: SITE_URL },
-                { "@type": "ListItem", position: 2, name: "Historias", item: `${SITE_URL}/historias` },
+                {
+                  "@type": "ListItem",
+                  position: 2,
+                  name: "Historias",
+                  item: `${SITE_URL}/historias`,
+                },
                 { "@type": "ListItem", position: 3, name: post.titulo, item: url },
               ],
             }),
@@ -92,9 +98,14 @@ export const Route = createFileRoute("/historias/$slug")({
         <h1 className="font-display text-4xl uppercase">Se nos quemó la papa</h1>
         <p className="mt-2">{error.message}</p>
         <button
-          onClick={() => { router.invalidate(); reset(); }}
+          onClick={() => {
+            router.invalidate();
+            reset();
+          }}
           className="mt-4 inline-block px-6 py-3 bg-kp-ink text-kp-yellow font-display uppercase border-2 border-kp-ink shadow-brutal-sm"
-        >Reintentar</button>
+        >
+          Reintentar
+        </button>
       </div>
     );
   },
@@ -105,7 +116,9 @@ export const Route = createFileRoute("/historias/$slug")({
       <Link
         to="/historias"
         className="mt-5 inline-block px-6 py-3 bg-kp-yellow text-kp-ink font-display uppercase border-2 border-kp-ink shadow-brutal-sm"
-      >Ver todas las historias</Link>
+      >
+        Ver todas las historias
+      </Link>
     </div>
   ),
 });
@@ -133,7 +146,10 @@ function HistoriaDetalle() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center">
         <h1 className="font-display text-5xl uppercase">Esa historia no está coronada</h1>
-        <Link to="/historias" className="mt-5 inline-block px-6 py-3 bg-kp-yellow text-kp-ink font-display uppercase border-2 border-kp-ink shadow-brutal-sm">
+        <Link
+          to="/historias"
+          className="mt-5 inline-block px-6 py-3 bg-kp-yellow text-kp-ink font-display uppercase border-2 border-kp-ink shadow-brutal-sm"
+        >
           Ver todas las historias
         </Link>
       </div>
@@ -182,10 +198,7 @@ function HistoriaDetalle() {
 
       <section className="mx-auto max-w-3xl px-4 md:px-6 py-10 md:py-14">
         {historia.contenidoHtml ? (
-          <div
-            className="kp-prose"
-            dangerouslySetInnerHTML={{ __html: historia.contenidoHtml }}
-          />
+          <div className="kp-prose" dangerouslySetInnerHTML={{ __html: historia.contenidoHtml }} />
         ) : (
           <p>{historia.extracto}</p>
         )}
@@ -205,7 +218,9 @@ function HistoriaDetalle() {
           <div className="mx-auto max-w-7xl px-4 md:px-6 py-10 md:py-14">
             <h2 className="font-display text-3xl md:text-4xl uppercase mb-6">Más del Reino</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {relacionadas.map((h) => <EventCard key={h.id} historia={h} />)}
+              {relacionadas.map((h) => (
+                <EventCard key={h.id} historia={h} />
+              ))}
             </div>
           </div>
         </section>

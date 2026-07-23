@@ -30,7 +30,9 @@ export function LeadFormFranquicia() {
     try {
       const prev = JSON.parse(localStorage.getItem("kp_leads") || "[]");
       localStorage.setItem("kp_leads", JSON.stringify([...prev, { ...form, ts: Date.now() }]));
-    } catch {/* ignore */}
+    } catch {
+      /* ignore */
+    }
     setSent(true);
   }
 
@@ -47,21 +49,42 @@ export function LeadFormFranquicia() {
   return (
     <BrutalCard tone="cheese" className="p-5 md:p-7">
       <BrutalBadge tone="red">Franquicia</BrutalBadge>
-      <h3 className="font-display text-3xl md:text-4xl uppercase mt-3">
-        Aplicar para franquicia
-      </h3>
+      <h3 className="font-display text-3xl md:text-4xl uppercase mt-3">Aplicar para franquicia</h3>
       <p className="text-sm mt-2 text-kp-ink/80">
         Cuéntanos quién eres y dónde quieres plantar la corona.
       </p>
 
       <form onSubmit={submit} className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-        <BrutalInput placeholder="Nombre completo" required value={form.nombre} onChange={(e) => update("nombre", e.target.value)} />
-        <BrutalInput placeholder="Ciudad" required value={form.ciudad} onChange={(e) => update("ciudad", e.target.value)} />
-        <BrutalInput placeholder="WhatsApp" required value={form.whatsapp} onChange={(e) => update("whatsapp", e.target.value)} />
-        <BrutalInput placeholder="Email" type="email" required value={form.email} onChange={(e) => update("email", e.target.value)} />
+        <BrutalInput
+          placeholder="Nombre completo"
+          required
+          value={form.nombre}
+          onChange={(e) => update("nombre", e.target.value)}
+        />
+        <BrutalInput
+          placeholder="Ciudad"
+          required
+          value={form.ciudad}
+          onChange={(e) => update("ciudad", e.target.value)}
+        />
+        <BrutalInput
+          placeholder="WhatsApp"
+          required
+          value={form.whatsapp}
+          onChange={(e) => update("whatsapp", e.target.value)}
+        />
+        <BrutalInput
+          placeholder="Email"
+          type="email"
+          required
+          value={form.email}
+          onChange={(e) => update("email", e.target.value)}
+        />
         <select
           value={form.rangoInversion}
-          onChange={(e) => update("rangoInversion", e.target.value as LeadFranquicia["rangoInversion"])}
+          onChange={(e) =>
+            update("rangoInversion", e.target.value as LeadFranquicia["rangoInversion"])
+          }
           className="px-4 py-3 bg-kp-cheese border-2 border-kp-ink shadow-brutal-sm font-body md:col-span-2"
         >
           <option value="50-100M">Inversión $50M – $100M</option>

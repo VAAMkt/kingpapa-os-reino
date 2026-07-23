@@ -40,10 +40,7 @@ let rolesUserId: string | null = null;
 
 async function loadRoles(userId: string) {
   rolesUserId = userId;
-  const { data, error } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
+  const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
   // Si la sesión cambió mientras cargábamos, ignorar
   if (rolesUserId !== userId) return;
   setState({
@@ -95,10 +92,7 @@ export function useAuth() {
 
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  const hasRole = useCallback(
-    (role: AppRole) => snapshot.roles.includes(role),
-    [snapshot.roles],
-  );
+  const hasRole = useCallback((role: AppRole) => snapshot.roles.includes(role), [snapshot.roles]);
   const hasAnyRole = useCallback(
     (roles: AppRole[]) => roles.some((r) => snapshot.roles.includes(r)),
     [snapshot.roles],

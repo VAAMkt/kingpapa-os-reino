@@ -6,10 +6,7 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  rpCancelarDelivery,
-  rpVerificarProductosAgotados,
-} from "@/lib/restaurantpe.server";
+import { rpCancelarDelivery, rpVerificarProductosAgotados } from "@/lib/restaurantpe.server";
 
 const checkoutSchema = z.object({
   sedeId: z.string().uuid(),
@@ -78,9 +75,7 @@ export const submitCheckoutOrder = createServerFn({ method: "POST" })
  * Devuelve solo el id para evitar exponer datos del cliente.
  */
 export const findRecentOrder = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    z.object({ query: z.string().min(4).max(60) }).parse(input),
-  )
+  .inputValidator((input) => z.object({ query: z.string().min(4).max(60) }).parse(input))
   .handler(async ({ data }) => {
     const raw = data.query.trim();
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
@@ -119,7 +114,10 @@ export const findRecentOrder = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false })
         .limit(20);
       const match = (rows ?? []).find((r) => {
-        const tel = ((r.cliente as { telefono?: string } | null)?.telefono ?? "").replace(/\D/g, "");
+        const tel = ((r.cliente as { telefono?: string } | null)?.telefono ?? "").replace(
+          /\D/g,
+          "",
+        );
         return tel.endsWith(tail);
       });
       if (match) return { orderId: match.id };
@@ -242,13 +240,11 @@ export const precheckStock = createServerFn({ method: "POST" })
         "id",
         data.items.map((i) => i.productoId),
       );
-    const prodMap = new Map<
-      string,
-      { rp_id: number; nombre: string }
-    >(
-      ((prods ?? []) as Array<{ id: string; rp_id: number; nombre: string }>).map(
-        (p) => [p.id, { rp_id: p.rp_id, nombre: p.nombre }],
-      ),
+    const prodMap = new Map<string, { rp_id: number; nombre: string }>(
+      ((prods ?? []) as Array<{ id: string; rp_id: number; nombre: string }>).map((p) => [
+        p.id,
+        { rp_id: p.rp_id, nombre: p.nombre },
+      ]),
     );
 
     const lista = data.items
@@ -296,9 +292,7 @@ export const precheckStock = createServerFn({ method: "POST" })
       };
     }
 
-    const agotadosRpIds = new Set(
-      result.filter((r) => r.agotado).map((r) => r.pedido_productoid),
-    );
+    const agotadosRpIds = new Set(result.filter((r) => r.agotado).map((r) => r.pedido_productoid));
     const agotados = lista
       .filter((it) => agotadosRpIds.has(it.pedido_productoid))
       .map((it) => it._localId);

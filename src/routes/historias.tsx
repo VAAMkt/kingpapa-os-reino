@@ -7,14 +7,24 @@ import { listPublicPosts } from "@/lib/posts";
 import type { CategoriaHistoria } from "@/types/kp";
 
 const cats: ("Todas" | CategoriaHistoria)[] = [
-  "Todas", "Retos", "Festivales", "Cultura interna", "Fans", "Sostenibilidad", "Franquicias", "Nuevas sedes",
+  "Todas",
+  "Retos",
+  "Festivales",
+  "Cultura interna",
+  "Fans",
+  "Sostenibilidad",
+  "Franquicias",
+  "Nuevas sedes",
 ];
 
 export const Route = createFileRoute("/historias")({
   head: () => ({
     meta: [
       { title: "Historias del Reino — KINGPAPA" },
-      { name: "description", content: "Retos, festivales, fans, cultura caleña y locuras que merecen quedar coronadas." },
+      {
+        name: "description",
+        content: "Retos, festivales, fans, cultura caleña y locuras que merecen quedar coronadas.",
+      },
       { property: "og:title", content: "Historias del Reino — KINGPAPA" },
       { property: "og:description", content: "Lo que pasa en el Reino, queda coronado." },
       { property: "og:url", content: "/historias" },
@@ -26,7 +36,11 @@ export const Route = createFileRoute("/historias")({
 
 function HistoriasPage() {
   const [cat, setCat] = useState<"Todas" | CategoriaHistoria>("Todas");
-  const { data: historias = [], isLoading, error } = useQuery({
+  const {
+    data: historias = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["posts", "public"],
     queryFn: listPublicPosts,
   });
@@ -69,7 +83,9 @@ function HistoriasPage() {
           <p className="text-sm">Aún no hay historias en esta categoría.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {lista.map((h) => <EventCard key={h.id} historia={h} />)}
+            {lista.map((h) => (
+              <EventCard key={h.id} historia={h} />
+            ))}
           </div>
         )}
       </section>
