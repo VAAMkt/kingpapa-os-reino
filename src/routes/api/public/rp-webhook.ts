@@ -98,9 +98,7 @@ function getSourceIp(request: Request): string | null {
 }
 
 function asObject(v: unknown): Record<string, unknown> {
-  return v && typeof v === "object" && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : {};
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 }
 
 function pickFirst(obj: Record<string, unknown>, keys: string[]): string | null {
@@ -226,7 +224,6 @@ async function resolveOrderForWebhook(
   return { kind: "none" };
 }
 
-
 async function handleWebhook(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
@@ -295,7 +292,6 @@ async function handleWebhook(request: Request): Promise<Response> {
 
   const row = match.order;
   const linkReason: "integration" | "direct" | "alias" = match.kind;
-
 
   // 4) No-op si ya está en ese estado o terminal.
   if (row.status === mapped || TERMINAL.has(row.status)) {
@@ -391,9 +387,7 @@ async function handleWebhook(request: Request): Promise<Response> {
 
   // 6) Log auditable según ruta de match.
   const etaSuffix =
-    mapped === "en_camino" && parsed.tiempoEnvio != null
-      ? ` (ETA ${parsed.tiempoEnvio} min)`
-      : "";
+    mapped === "en_camino" && parsed.tiempoEnvio != null ? ` (ETA ${parsed.tiempoEnvio} min)` : "";
 
   if (linkReason === "integration") {
     await supabaseAdmin.from("rp_sync_log").insert({
@@ -409,7 +403,6 @@ async function handleWebhook(request: Request): Promise<Response> {
       mensaje: `Match directo: ${row.status} → ${mapped}${etaSuffix} (deliveryId=${parsed.deliveryId} ↔ order ${row.id.slice(0, 8)})`,
       payload: { ...parsed, order_id: row.id, via: linkReason } as unknown as Json,
     });
-
   } else if (linkReason === "alias") {
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "webhook_alias_learned",

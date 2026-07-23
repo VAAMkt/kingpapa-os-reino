@@ -20,9 +20,16 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "KINGPAPA — El Reino" },
-      { name: "description", content: "Los REYES de esta pendeja’. Pide, corónate y conviértete en súbdito del Reino KINGPAPA." },
+      {
+        name: "description",
+        content:
+          "Los REYES de esta pendeja’. Pide, corónate y conviértete en súbdito del Reino KINGPAPA.",
+      },
       { property: "og:title", content: "KINGPAPA — El Reino" },
-      { property: "og:description", content: "Salchipapas monstruosas, bowls coronados y retos para verdaderos súbditos." },
+      {
+        property: "og:description",
+        content: "Salchipapas monstruosas, bowls coronados y retos para verdaderos súbditos.",
+      },
       { property: "og:url", content: "/" },
     ],
     links: [{ rel: "canonical", href: "/" }],
@@ -31,7 +38,11 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
-  const { data: sedesData = [] } = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
+  const { data: sedesData = [] } = useQuery({
+    queryKey: ["sedes", "public"],
+    queryFn: listPublicSedes,
+    staleTime: 60_000,
+  });
   const sedesResumen = sedesData.slice(0, 4);
   const defaultSedeSlug = sedesData[0]?.slug;
 
@@ -53,8 +64,14 @@ function HomePage() {
       .map((p) => rpProductoToProducto(p, catsById));
   }, [menuQ.data]);
 
-  const { data: posts = [] } = useQuery({ queryKey: ["posts", "public"], queryFn: listPublicPosts, staleTime: 60_000 });
-  const retos = posts.filter((h) => h.categoria === "Retos" || h.categoria === "Festivales").slice(0, 3);
+  const { data: posts = [] } = useQuery({
+    queryKey: ["posts", "public"],
+    queryFn: listPublicPosts,
+    staleTime: 60_000,
+  });
+  const retos = posts
+    .filter((h) => h.categoria === "Retos" || h.categoria === "Festivales")
+    .slice(0, 3);
 
   return (
     <>
@@ -69,11 +86,15 @@ function HomePage() {
               <BrutalBadge tone="black">Medallo</BrutalBadge>
             </div>
             <h1 className="font-display text-6xl sm:text-7xl md:text-8xl uppercase leading-[0.85] text-kp-ink">
-              Los REYES<br />de esta<br />pendeja’
+              Los REYES
+              <br />
+              de esta
+              <br />
+              pendeja’
             </h1>
             <p className="mt-5 text-base md:text-lg max-w-md border-l-4 border-kp-ink pl-3">
-              Salchipapas monstruosas, bowls coronados y retos que solo un verdadero
-              súbdito del Reino se atreve a probar.
+              Salchipapas monstruosas, bowls coronados y retos que solo un verdadero súbdito del
+              Reino se atreve a probar.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <BrutalLink href="#pedir" variant="dark" size="lg">
@@ -87,7 +108,9 @@ function HomePage() {
 
           <div className="relative">
             <div className="absolute -top-4 left-2 z-10">
-              <BrutalBadge tone="red" className="text-base">¡TAMAÑO MONSTRUO!</BrutalBadge>
+              <BrutalBadge tone="red" className="text-base">
+                ¡TAMAÑO MONSTRUO!
+              </BrutalBadge>
             </div>
             <div className="aspect-square bg-kp-ink border-2 border-kp-ink shadow-brutal-lg overflow-hidden">
               <img
@@ -117,7 +140,10 @@ function HomePage() {
         {estrellas.length === 0 ? (
           <p className="text-sm text-kp-ink/70 border-2 border-dashed border-kp-ink p-4">
             El menú aún no está sincronizado. Un editor puede traerlo desde{" "}
-            <Link to="/admin/sincronizacion" className="underline font-bold">/admin/sincronizacion</Link>.
+            <Link to="/admin/sincronizacion" className="underline font-bold">
+              /admin/sincronizacion
+            </Link>
+            .
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -159,10 +185,7 @@ function HomePage() {
 
       {/* SEDES RESUMEN */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
-        <SectionHeading
-          eyebrow="Tu Reino más cercano"
-          title="Encuentra tu castillo"
-        />
+        <SectionHeading eyebrow="Tu Reino más cercano" title="Encuentra tu castillo" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {sedesResumen.map((s) => (
             <LocationCard key={s.id} sede={s} />

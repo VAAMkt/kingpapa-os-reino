@@ -6,7 +6,9 @@ export function BrutalCard({
   children,
   tone = "cheese",
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & { tone?: "cheese" | "yellow" | "black" | "purple" | "red" }) {
+}: React.HTMLAttributes<HTMLDivElement> & {
+  tone?: "cheese" | "yellow" | "black" | "purple" | "red";
+}) {
   const tones = {
     cheese: "bg-kp-cheese text-kp-ink",
     yellow: "bg-kp-yellow text-kp-ink",
@@ -15,14 +17,7 @@ export function BrutalCard({
     red: "bg-kp-red text-kp-cheese",
   };
   return (
-    <div
-      className={cn(
-        "border-2 border-kp-ink shadow-brutal",
-        tones[tone],
-        className,
-      )}
-      {...props}
-    >
+    <div className={cn("border-2 border-kp-ink shadow-brutal", tones[tone], className)} {...props}>
       {children}
     </div>
   );
@@ -81,10 +76,7 @@ export function BrutalChip({
   );
 }
 
-export function BrutalInput({
-  className,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+export function BrutalInput({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       className={cn(

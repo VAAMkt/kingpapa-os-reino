@@ -49,7 +49,10 @@ export function UserMenu() {
           <span className="hidden md:inline">Mi Reino</span>
         </BrutalButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="border-2 border-kp-ink shadow-brutal-sm bg-kp-cheese">
+      <DropdownMenuContent
+        align="end"
+        className="border-2 border-kp-ink shadow-brutal-sm bg-kp-cheese"
+      >
         <DropdownMenuLabel className="font-display uppercase text-xs">
           {user?.email}
         </DropdownMenuLabel>
@@ -67,7 +70,10 @@ export function UserMenu() {
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut()} className="font-display uppercase text-sm text-kp-red">
+        <DropdownMenuItem
+          onClick={() => signOut()}
+          className="font-display uppercase text-sm text-kp-red"
+        >
           Cerrar sesión
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -74,13 +74,10 @@ type Prod = {
   es_alto_margen: boolean | null;
 };
 
-
-
 function AdminMenuPage() {
   const queryClient = useQueryClient();
   const [hideInactive, setHideInactive] = useState(false);
   const [editImageProd, setEditImageProd] = useState<Prod | null>(null);
-
 
   const fetchMenu = useServerFn(listAdminMenu);
   const menuQ = useQuery({
@@ -130,17 +127,14 @@ function AdminMenuPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-
   const reorderCatsMut = useMutation({
-    mutationFn: (updates: { id: string; orden: number }[]) =>
-      reorderCats({ data: { updates } }),
+    mutationFn: (updates: { id: string; orden: number }[]) => reorderCats({ data: { updates } }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
 
   const reorderProdsMut = useMutation({
-    mutationFn: (updates: { id: string; orden: number }[]) =>
-      reorderProds({ data: { updates } }),
+    mutationFn: (updates: { id: string; orden: number }[]) => reorderProds({ data: { updates } }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
@@ -214,29 +208,37 @@ function AdminMenuPage() {
           Catálogo global de la marca
         </h1>
         <p className="text-sm text-kp-ink/70 mt-1">
-          Una sola lista para las {/* */}14 sedes. Reordena, oculta o renombra acá y
-          se refleja en todo el reino al instante. Para apagar un producto solo en
-          una sede (agotado), usa el panel de cada sede.
+          Una sola lista para las {/* */}14 sedes. Reordena, oculta o renombra acá y se refleja en
+          todo el reino al instante. Para apagar un producto solo en una sede (agotado), usa el
+          panel de cada sede.
         </p>
       </header>
 
       <details className="border-2 border-kp-ink bg-kp-cheese">
         <summary className="font-display uppercase text-sm cursor-pointer select-none px-3 py-2 bg-kp-yellow border-b-2 border-kp-ink flex items-center justify-between">
           <span>¿Cómo funciona este panel?</span>
-          <span aria-hidden className="text-xs">▼</span>
+          <span aria-hidden className="text-xs">
+            ▼
+          </span>
         </summary>
         <ul className="p-4 space-y-2 text-sm list-disc pl-5">
-          <li>Arrastra categorías o productos para reordenarlos → ese es el orden que verá el cliente</li>
+          <li>
+            Arrastra categorías o productos para reordenarlos → ese es el orden que verá el cliente
+          </li>
           <li>El toggle de disponibilidad oculta o muestra el producto en la web sin borrarlo</li>
-          <li>Para cambiar la foto del producto: haz clic en la miniatura → sube tu imagen → se muestra en la web sin tocar la foto del POS (Restaurant.pe conserva la original)</li>
+          <li>
+            Para cambiar la foto del producto: haz clic en la miniatura → sube tu imagen → se
+            muestra en la web sin tocar la foto del POS (Restaurant.pe conserva la original)
+          </li>
           <li>"Revertir foto" devuelve la imagen original del POS</li>
           <li>Estrella (★) = producto destacado → aparece en "Más pedidos"</li>
-          <li>Clasificación ME: Star = mostrar arriba / Plowhorse = vender con upsell / Puzzle = mejor foto+copy / Dog = esconder o reformular</li>
+          <li>
+            Clasificación ME: Star = mostrar arriba / Plowhorse = vender con upsell / Puzzle = mejor
+            foto+copy / Dog = esconder o reformular
+          </li>
           <li>Los cambios se guardan automáticamente, no hay botón "Guardar"</li>
         </ul>
       </details>
-
-
 
       <BrutalCard tone="cheese" className="p-4 flex items-center gap-4">
         <label className="flex items-center gap-2 font-display uppercase text-sm">
@@ -253,8 +255,15 @@ function AdminMenuPage() {
       {menuQ.data && (
         <BrutalCard tone="cheese" className="p-4 space-y-3">
           <h2 className="font-display uppercase text-lg">Categorías</h2>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCatsDragEnd}>
-            <SortableContext items={visibleCategorias.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleCatsDragEnd}
+          >
+            <SortableContext
+              items={visibleCategorias.map((c) => c.id)}
+              strategy={verticalListSortingStrategy}
+            >
               <div className="grid gap-2">
                 {visibleCategorias.map((c, idx) => (
                   <SortableCatRow
@@ -279,11 +288,17 @@ function AdminMenuPage() {
           return (
             <BrutalCard key={c.id} tone="cheese" className="p-4 space-y-3">
               <h3 className="font-display uppercase text-base">
-                {c.nombre}{" "}
-                <span className="text-kp-ink/50 text-xs">({list.length})</span>
+                {c.nombre} <span className="text-kp-ink/50 text-xs">({list.length})</span>
               </h3>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleProdsDragEnd(c.id)}>
-                <SortableContext items={list.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleProdsDragEnd(c.id)}
+              >
+                <SortableContext
+                  items={list.map((p) => p.id)}
+                  strategy={verticalListSortingStrategy}
+                >
                   <div className="grid gap-2">
                     {list.map((p, idx) => (
                       <SortableProdRow
@@ -295,7 +310,6 @@ function AdminMenuPage() {
                         onPatch={(patch) => prodMut.mutate({ id: p.id, ...patch })}
                         onEditImagen={() => setEditImageProd(p)}
                       />
-
                     ))}
                   </div>
                 </SortableContext>
@@ -319,7 +333,6 @@ function AdminMenuPage() {
       />
     </div>
   );
-
 }
 
 function SortableCatRow({
@@ -335,8 +348,9 @@ function SortableCatRow({
   onMove: (dir: -1 | 1) => void;
   onToggle: (v: boolean) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: cat.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: cat.id,
+  });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -362,10 +376,24 @@ function SortableCatRow({
         {!cat.activo && <span className="ml-2 text-xs text-kp-ink/50">(oculta)</span>}
       </span>
       <div className="flex gap-1">
-        <Button size="icon" variant="outline" className="h-8 w-8" disabled={idx === 0} onClick={() => onMove(-1)} aria-label="Subir">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8"
+          disabled={idx === 0}
+          onClick={() => onMove(-1)}
+          aria-label="Subir"
+        >
           <ArrowUp className="size-4" />
         </Button>
-        <Button size="icon" variant="outline" className="h-8 w-8" disabled={idx === total - 1} onClick={() => onMove(1)} aria-label="Bajar">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8"
+          disabled={idx === total - 1}
+          onClick={() => onMove(1)}
+          aria-label="Bajar"
+        >
           <ArrowDown className="size-4" />
         </Button>
       </div>
@@ -386,24 +414,26 @@ function SortableProdRow({
   idx: number;
   total: number;
   onMove: (dir: -1 | 1) => void;
-  onPatch: (patch: Partial<{
-    disponible: boolean;
-    destacado: boolean;
-    es_nuevo: boolean;
-    es_mas_vendido: boolean;
-    es_recomendado: boolean;
-    etiqueta_custom: string | null;
-    clasificacion_me: MEClass;
-    margen_pct: number | null;
-    nombre_override: string | null;
-    oculto_en_web: boolean;
-    es_alto_margen: boolean;
-  }>) => void;
+  onPatch: (
+    patch: Partial<{
+      disponible: boolean;
+      destacado: boolean;
+      es_nuevo: boolean;
+      es_mas_vendido: boolean;
+      es_recomendado: boolean;
+      etiqueta_custom: string | null;
+      clasificacion_me: MEClass;
+      margen_pct: number | null;
+      nombre_override: string | null;
+      oculto_en_web: boolean;
+      es_alto_margen: boolean;
+    }>,
+  ) => void;
   onEditImagen: () => void;
 }) {
-
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: prod.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: prod.id,
+  });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -486,13 +516,9 @@ function SortableProdRow({
             {prod.nombre_override && (
               <span className="ml-2 text-[10px] text-kp-ink/50">(editado)</span>
             )}
-            {!prod.disponible && (
-              <span className="ml-2 text-xs text-kp-ink/50">(oculto)</span>
-            )}
+            {!prod.disponible && <span className="ml-2 text-xs text-kp-ink/50">(oculto)</span>}
           </p>
-          <p className="text-xs text-kp-ink/60">
-            ${Number(prod.precio).toLocaleString("es-CO")}
-          </p>
+          <p className="text-xs text-kp-ink/60">${Number(prod.precio).toLocaleString("es-CO")}</p>
         </div>
         <div className="flex gap-1">
           <Button
@@ -516,10 +542,7 @@ function SortableProdRow({
             <ArrowDown className="size-4" />
           </Button>
         </div>
-        <Switch
-          checked={prod.disponible}
-          onCheckedChange={(v) => onPatch({ disponible: v })}
-        />
+        <Switch checked={prod.disponible} onCheckedChange={(v) => onPatch({ disponible: v })} />
       </div>
 
       {/* Ingeniería de menú: badges + clasificación */}
@@ -554,7 +577,9 @@ function SortableProdRow({
           title="Ocultar en web (sin afectar POS)"
           aria-label="Ocultar en web"
           className={`h-7 px-2 border-2 border-kp-ink font-display uppercase text-[10px] shadow-brutal-sm transition-all inline-flex items-center gap-1 ${
-            prod.oculto_en_web ? "bg-kp-red text-kp-cheese" : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
+            prod.oculto_en_web
+              ? "bg-kp-red text-kp-cheese"
+              : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
           }`}
         >
           <EyeOff className="size-3" />
@@ -566,7 +591,9 @@ function SortableProdRow({
           title="Producto de alto margen"
           aria-label="Alto margen"
           className={`h-7 px-2 border-2 border-kp-ink font-display uppercase text-[10px] shadow-brutal-sm transition-all inline-flex items-center gap-1 ${
-            prod.es_alto_margen ? "bg-emerald-500 text-kp-ink" : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
+            prod.es_alto_margen
+              ? "bg-emerald-500 text-kp-ink"
+              : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
           }`}
         >
           <TrendingUp className="size-3" />
@@ -619,4 +646,3 @@ function SortableProdRow({
     </div>
   );
 }
-

@@ -3,13 +3,7 @@
 
 export type Ciudad = "Cali" | "Bogotá" | "Jamundí" | "Medellín";
 
-export type OrderChannel =
-  | "web"
-  | "whatsapp"
-  | "rappi"
-  | "didi"
-  | "pickup"
-  | "qr-mesa";
+export type OrderChannel = "web" | "whatsapp" | "rappi" | "didi" | "pickup" | "qr-mesa";
 
 export type Ocasion =
   | "parche"
@@ -96,10 +90,10 @@ export interface Historia {
   titulo: string;
   categoria: CategoriaHistoria;
   extracto: string;
-  fecha: string;          // ISO (YYYY-MM-DD)
+  fecha: string; // ISO (YYYY-MM-DD)
   imagen: string;
   videoUrl?: string;
-  link?: string;          // URL original (kingpapacali.com)
+  link?: string; // URL original (kingpapacali.com)
   contenidoHtml?: string; // HTML completo del post
 }
 
@@ -112,11 +106,11 @@ export interface QuizQuestion {
 }
 
 export type Arquetipo =
-  | "El Cabezón"          // hambre brava + para compartir
-  | "El Rumbero"          // after rumba + picante
+  | "El Cabezón" // hambre brava + para compartir
+  | "El Rumbero" // after rumba + picante
   | "El Obrero del Reino" // almuerzo + económico
   | "La Reina del Antojo" // antojo mortal + picante
-  | "El Familiar Mayor";  // familia + para compartir
+  | "El Familiar Mayor"; // familia + para compartir
 
 export interface Subdito {
   id?: string;

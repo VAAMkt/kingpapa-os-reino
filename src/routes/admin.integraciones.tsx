@@ -73,9 +73,6 @@ function AdminIntegracionesPage() {
     refetchInterval: 30_000,
   });
 
-
-
-
   const [rows, setRows] = useState<LogRow[]>([]);
   const [filterTipo, setFilterTipo] = useState<(typeof TIPOS)[number]>("todos");
   const [onlyErrors, setOnlyErrors] = useState(false);
@@ -150,9 +147,7 @@ function AdminIntegracionesPage() {
     <section className="space-y-5">
       <header className="flex items-baseline justify-between">
         <h1 className="font-display uppercase text-3xl md:text-4xl">Integraciones</h1>
-        <span className="text-xs text-kp-ink/60">
-          {rows.length} eventos · realtime activo
-        </span>
+        <span className="text-xs text-kp-ink/60">{rows.length} eventos · realtime activo</span>
       </header>
 
       {/* Bloque 1 — Estado */}
@@ -208,7 +203,10 @@ function AdminIntegracionesPage() {
       </div>
 
       {/* Bloque 1b — Pedidos huérfanos (solo lectura: auto-abandono a 45 min) */}
-      <BrutalCard tone={(orphansQuery.data?.orphans.length ?? 0) > 0 ? "yellow" : "cheese"} className="p-4">
+      <BrutalCard
+        tone={(orphansQuery.data?.orphans.length ?? 0) > 0 ? "yellow" : "cheese"}
+        className="p-4"
+      >
         <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="font-display uppercase text-sm">Pedidos huérfanos</span>
@@ -218,7 +216,8 @@ function AdminIntegracionesPage() {
           </div>
         </div>
         <p className="text-xs text-kp-ink/70 mb-2">
-          Pedidos con &gt;15 min sin webhook que los toque. El sistema reconcilia solo en segundo plano y auto-cancela a los 45 min (zero-touch).
+          Pedidos con &gt;15 min sin webhook que los toque. El sistema reconcilia solo en segundo
+          plano y auto-cancela a los 45 min (zero-touch).
         </p>
         {(orphansQuery.data?.orphans.length ?? 0) === 0 ? (
           <p className="text-xs text-kp-ink/60">Sin huérfanos. Webhook al día.</p>
@@ -234,7 +233,6 @@ function AdminIntegracionesPage() {
           </ul>
         )}
       </BrutalCard>
-
 
       {/* Bloque 2 — Buscar */}
       <BrutalCard tone="cheese" className="p-4">

@@ -16,7 +16,6 @@ export function track(event: string, payload?: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
   try {
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.log("[KP Analytics]", event, payload ?? {});
       return;
     }

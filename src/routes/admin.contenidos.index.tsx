@@ -84,12 +84,21 @@ function ContenidosList() {
                     <td className="p-3 text-xs">{p.categoria}</td>
                     <td className="p-3 text-xs font-mono">{p.fecha}</td>
                     <td className="p-3">
-                      {p.publicado
-                        ? <BrutalBadge tone="lime">publicado</BrutalBadge>
-                        : <BrutalBadge tone="black">borrador</BrutalBadge>}
+                      {p.publicado ? (
+                        <BrutalBadge tone="lime">publicado</BrutalBadge>
+                      ) : (
+                        <BrutalBadge tone="black">borrador</BrutalBadge>
+                      )}
                     </td>
                     <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                      <Link to="/historias/$slug" params={{ slug: p.slug }} target="_blank" className="underline text-xs">Ver</Link>
+                      <Link
+                        to="/historias/$slug"
+                        params={{ slug: p.slug }}
+                        target="_blank"
+                        className="underline text-xs"
+                      >
+                        Ver
+                      </Link>
                       <Link
                         to="/admin/contenidos/$id"
                         params={{ id: p.id }}
@@ -116,7 +125,11 @@ function ContenidosList() {
                   </tr>
                 ))}
                 {posts.length === 0 && (
-                  <tr><td colSpan={5} className="p-6 text-center text-sm">Sin historias todavía.</td></tr>
+                  <tr>
+                    <td colSpan={5} className="p-6 text-center text-sm">
+                      Sin historias todavía.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

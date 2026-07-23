@@ -10,11 +10,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import {
-  rpGetDominioInfo,
-  rpGetCatalogo,
-  rpGetStock,
-} from "@/lib/restaurantpe.server";
+import { rpGetDominioInfo, rpGetCatalogo, rpGetStock } from "@/lib/restaurantpe.server";
 import {
   normalizeBranch,
   normalizeCategoria,
@@ -55,9 +51,7 @@ function extractMenu(menu: unknown) {
   const categorias = categoriasAll.filter((c) => c.activo);
   const activeCatIds = new Set(categorias.map((c) => c.rp_id));
   const productos = productosRaw
-    .map((p, i) =>
-      normalizeProduct(p as Parameters<typeof normalizeProduct>[0], i),
-    )
+    .map((p, i) => normalizeProduct(p as Parameters<typeof normalizeProduct>[0], i))
     .filter((p): p is NonNullable<typeof p> => p !== null)
     .filter((p) => p.rp_categoria_id != null && activeCatIds.has(p.rp_categoria_id));
   return { categorias, productos };
@@ -121,10 +115,7 @@ async function syncSedeMenu(
   if (productos.length > 0) {
     const rows = productos.map((p) => ({
       rp_id: p.rp_id,
-      categoria_id:
-        p.rp_categoria_id != null
-          ? catIdByRpId.get(p.rp_categoria_id) ?? null
-          : null,
+      categoria_id: p.rp_categoria_id != null ? (catIdByRpId.get(p.rp_categoria_id) ?? null) : null,
       nombre: p.nombre,
       descripcion: p.descripcion,
       precio: p.precio,
@@ -143,7 +134,6 @@ async function syncSedeMenu(
       prodIdByRpId.set(row.rp_id, row.id);
     }
   }
-
 
   // 3) Upsert overrides: una fila por (sede, producto) que vino en el catálogo.
   //    Solo seteamos `disponible=true` para filas NUEVAS — respetamos el toggle manual.
@@ -194,7 +184,8 @@ export const syncBranches = createServerFn({ method: "POST" })
       const local = locales[idx];
       const rawLocal = (data.locales ?? [])[idx] as Record<string, unknown> | undefined;
       const rpLocalEstado = rawLocal?.local_estado != null ? Number(rawLocal.local_estado) : null;
-      const rpAceptaDelivery = rawLocal?.local_aceptadelivery != null ? Number(rawLocal.local_aceptadelivery) : null;
+      const rpAceptaDelivery =
+        rawLocal?.local_aceptadelivery != null ? Number(rawLocal.local_aceptadelivery) : null;
 
       const { data: existing } = await supabase
         .from("sedes")
@@ -233,9 +224,7 @@ export const syncBranches = createServerFn({ method: "POST" })
 
 export const syncMenuForSede = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ sedeId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ sedeId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
@@ -246,8 +235,7 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
       .maybeSingle();
     if (sedeErr) throw new Error(sedeErr.message);
     if (!sede) throw new Error("Sede no encontrada");
-    if (!sede.rp_local_id)
-      throw new Error(`Sede "${sede.nombre}" no tiene rp_local_id asignado`);
+    if (!sede.rp_local_id) throw new Error(`Sede "${sede.nombre}" no tiene rp_local_id asignado`);
 
     const { categorias, productos } = await syncSedeMenu(supabase, {
       id: sede.id,
@@ -268,9 +256,7 @@ export const syncMenuForSede = createServerFn({ method: "POST" })
 // Devuelve menú para una sede: JOIN productos_master ⨝ sede_producto_overrides.
 // Mantiene el mismo shape `{ sede, categorias, productos }` que la UI ya consume.
 export const getMenuForSede = createServerFn({ method: "GET" })
-  .inputValidator((input) =>
-    z.object({ sedeSlug: z.string().min(1).max(80) }).parse(input),
-  )
+  .inputValidator((input) => z.object({ sedeSlug: z.string().min(1).max(80) }).parse(input))
   .handler(async ({ data }) => {
     const { data: sede, error: sedeErr } = await supabaseAdmin
       .from("sedes")
@@ -355,7 +341,6 @@ export const getMenuForSede = createServerFn({ method: "GET" })
       })
       .sort((a, b) => a.orden - b.orden);
 
-
     // Categorías que efectivamente tienen productos visibles en esta sede.
     const catIds = Array.from(
       new Set(productos.map((p) => p.categoria_id).filter((x): x is string => !!x)),
@@ -369,13 +354,15 @@ export const getMenuForSede = createServerFn({ method: "GET" })
         .eq("activo", true)
         .order("orden");
       if (catErr) throw new Error(catErr.message);
-      categorias = ((cats ?? []) as Array<{
-        id: string;
-        rp_id: number;
-        nombre: string;
-        nombre_override: string | null;
-        orden: number;
-      }>).map((c) => ({
+      categorias = (
+        (cats ?? []) as Array<{
+          id: string;
+          rp_id: number;
+          nombre: string;
+          nombre_override: string | null;
+          orden: number;
+        }>
+      ).map((c) => ({
         id: c.id,
         rp_id: c.rp_id,
         nombre: c.nombre_override ?? c.nombre,
@@ -412,28 +399,30 @@ export const checkStockLive = createServerFn({ method: "POST" })
       .select("id, rp_id, almacen_id, nombre")
       .in("id", data.productIds);
 
-    const results: Array<{ id: string; rp_id: number; stock: number | null; ok: boolean }> = [];
-    for (const p of (productos ?? []) as Array<{
-      id: string;
-      rp_id: number;
-      almacen_id: number | null;
-    }>) {
-      if (!p.almacen_id) {
-        results.push({ id: p.id, rp_id: p.rp_id, stock: null, ok: true });
-        continue;
-      }
-      try {
-        const stockData = await rpGetStock({
-          productoId: p.rp_id,
-          localId: sede.rp_local_id,
-          almacenId: p.almacen_id,
-        });
-        const stock = Number(stockData.total) || 0;
-        results.push({ id: p.id, rp_id: p.rp_id, stock, ok: stock > 0 });
-      } catch {
-        results.push({ id: p.id, rp_id: p.rp_id, stock: null, ok: false });
-      }
-    }
+    const results = await Promise.all(
+      (
+        (productos ?? []) as Array<{
+          id: string;
+          rp_id: number;
+          almacen_id: number | null;
+        }>
+      ).map(async (p) => {
+        if (!p.almacen_id) {
+          return { id: p.id, rp_id: p.rp_id, stock: null, ok: true };
+        }
+        try {
+          const stockData = await rpGetStock({
+            productoId: p.rp_id,
+            localId: sede.rp_local_id,
+            almacenId: p.almacen_id,
+          });
+          const stock = Number(stockData.total) || 0;
+          return { id: p.id, rp_id: p.rp_id, stock, ok: stock > 0 };
+        } catch {
+          return { id: p.id, rp_id: p.rp_id, stock: null, ok: false };
+        }
+      }),
+    );
     return { results };
   });
 
@@ -474,7 +463,9 @@ export const syncAllMenus = createServerFn({ method: "POST" })
       .not("rp_local_id", "is", null);
     if (sedesErr) throw new Error(sedesErr.message);
 
-    const targets = (sedes ?? []).filter((s: { rp_local_id: number | null }) => s.rp_local_id != null);
+    const targets = (sedes ?? []).filter(
+      (s: { rp_local_id: number | null }) => s.rp_local_id != null,
+    );
     if (targets.length === 0) {
       return { ok: true, sedes: 0, categorias: 0, productos: 0, errores: [] as string[] };
     }
@@ -490,8 +481,10 @@ export const syncAllMenus = createServerFn({ method: "POST" })
       const batch = targets.slice(i, i + CONCURRENCY);
       const results = await Promise.allSettled(
         batch.map((sede: { id: string; nombre: string; rp_local_id: number | null }) =>
-          syncSedeMenu(supabase, { id: sede.id, rp_local_id: sede.rp_local_id })
-            .then((r) => ({ sede, ...r })),
+          syncSedeMenu(supabase, { id: sede.id, rp_local_id: sede.rp_local_id }).then((r) => ({
+            sede,
+            ...r,
+          })),
         ),
       );
       for (let j = 0; j < results.length; j++) {
@@ -551,7 +544,6 @@ export const listAdminMenu = createServerFn({ method: "GET" })
     return { categorias: categorias ?? [], productos: productos ?? [] };
   });
 
-
 export const updateAdminCategoria = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -595,10 +587,7 @@ export const updateAdminProducto = createServerFn({ method: "POST" })
         es_mas_vendido: z.boolean().optional(),
         es_recomendado: z.boolean().optional(),
         etiqueta_custom: z.string().max(40).nullable().optional(),
-        clasificacion_me: z
-          .enum(["star", "plowhorse", "puzzle", "dog"])
-          .nullable()
-          .optional(),
+        clasificacion_me: z.enum(["star", "plowhorse", "puzzle", "dog"]).nullable().optional(),
         margen_pct: z.number().min(0).max(100).nullable().optional(),
         oculto_en_web: z.boolean().optional(),
         es_alto_margen: z.boolean().optional(),
@@ -659,7 +648,10 @@ export const reorderAdminCategorias = createServerFn({ method: "POST" })
     const { supabase } = context;
     const results = await Promise.all(
       data.updates.map((u) =>
-        supabase.from("categorias_master").update({ orden: u.orden } as never).eq("id", u.id),
+        supabase
+          .from("categorias_master")
+          .update({ orden: u.orden } as never)
+          .eq("id", u.id),
       ),
     );
     const err = results.find((r) => r.error)?.error;
@@ -674,7 +666,10 @@ export const reorderAdminProductos = createServerFn({ method: "POST" })
     const { supabase } = context;
     const results = await Promise.all(
       data.updates.map((u) =>
-        supabase.from("productos_master").update({ orden: u.orden } as never).eq("id", u.id),
+        supabase
+          .from("productos_master")
+          .update({ orden: u.orden } as never)
+          .eq("id", u.id),
       ),
     );
     const err = results.find((r) => r.error)?.error;
@@ -695,16 +690,14 @@ export const toggleSedeProductoOverride = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("sede_producto_overrides")
-      .upsert(
-        {
-          sede_id: data.sedeId,
-          producto_id: data.productoId,
-          disponible: data.disponible,
-        } as never,
-        { onConflict: "sede_id,producto_id" },
-      );
+    const { error } = await context.supabase.from("sede_producto_overrides").upsert(
+      {
+        sede_id: data.sedeId,
+        producto_id: data.productoId,
+        disponible: data.disponible,
+      } as never,
+      { onConflict: "sede_id,producto_id" },
+    );
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -716,7 +709,6 @@ export const toggleSedeProductoOverride = createServerFn({ method: "POST" })
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 365 * 10; // 10 años
 const IMAGE_EDITOR_ROLES = new Set(["super_admin", "editor", "marketing"]);
-
 
 export const uploadProductoImagen = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -741,7 +733,9 @@ export const uploadProductoImagen = createServerFn({ method: "POST" })
       .select("role")
       .eq("user_id", context.userId);
     if (rolesErr) throw new Error(rolesErr.message);
-    const isEditor = ((roles ?? []) as Array<{ role: string }>).some((r) => IMAGE_EDITOR_ROLES.has(r.role));
+    const isEditor = ((roles ?? []) as Array<{ role: string }>).some((r) =>
+      IMAGE_EDITOR_ROLES.has(r.role),
+    );
 
     if (!isEditor) throw new Error("No autorizado");
 
@@ -756,7 +750,8 @@ export const uploadProductoImagen = createServerFn({ method: "POST" })
     if (prodErr) throw new Error(prodErr.message);
     if (!prod) throw new Error("Producto no encontrado");
 
-    const ext = data.file.type === "image/png" ? "png" : data.file.type === "image/jpeg" ? "jpg" : "webp";
+    const ext =
+      data.file.type === "image/png" ? "png" : data.file.type === "image/jpeg" ? "jpg" : "webp";
     const path = `productos/${data.productoId}-${Date.now()}.${ext}`;
     const buffer = new Uint8Array(await data.file.arrayBuffer());
 
@@ -785,16 +780,16 @@ export const uploadProductoImagen = createServerFn({ method: "POST" })
 
 export const revertProductoImagen = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ id: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: roles, error: rolesErr } = await context.supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", context.userId);
     if (rolesErr) throw new Error(rolesErr.message);
-    const isEditor = ((roles ?? []) as Array<{ role: string }>).some((r) => IMAGE_EDITOR_ROLES.has(r.role));
+    const isEditor = ((roles ?? []) as Array<{ role: string }>).some((r) =>
+      IMAGE_EDITOR_ROLES.has(r.role),
+    );
 
     if (!isEditor) throw new Error("No autorizado");
 
@@ -809,4 +804,3 @@ export const revertProductoImagen = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
-

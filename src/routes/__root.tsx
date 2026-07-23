@@ -44,7 +44,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <h1 className="font-display text-3xl uppercase">Se nos quemó la papa</h1>
         <p className="mt-2 text-sm">{error.message}</p>
         <button
-          onClick={() => { router.invalidate(); reset(); }}
+          onClick={() => {
+            router.invalidate();
+            reset();
+          }}
           className="inline-block mt-5 px-6 py-3 bg-kp-ink text-kp-yellow font-display uppercase border-2 border-kp-ink shadow-brutal-sm"
         >
           Reintentar
@@ -60,17 +63,37 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "KINGPAPA — Los REYES de esta pendeja’" },
-      { name: "description", content: "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa." },
+      {
+        name: "description",
+        content:
+          "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa.",
+      },
       { name: "author", content: "KINGPAPA" },
       { property: "og:title", content: "KINGPAPA — Los REYES de esta pendeja’" },
-      { property: "og:description", content: "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa." },
+      {
+        property: "og:description",
+        content:
+          "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "KINGPAPA" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "KINGPAPA — Los REYES de esta pendeja’" },
-      { name: "twitter:description", content: "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/iBBZRJcqehepneIwBEhmDj2h9IA2/social-images/social-1779084040439-KINGPAPA_-_LOS_REYES_DE_ESTA_PENDEJA.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/iBBZRJcqehepneIwBEhmDj2h9IA2/social-images/social-1779084040439-KINGPAPA_-_LOS_REYES_DE_ESTA_PENDEJA.webp" },
+      {
+        name: "twitter:description",
+        content:
+          "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/iBBZRJcqehepneIwBEhmDj2h9IA2/social-images/social-1779084040439-KINGPAPA_-_LOS_REYES_DE_ESTA_PENDEJA.webp",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/iBBZRJcqehepneIwBEhmDj2h9IA2/social-images/social-1779084040439-KINGPAPA_-_LOS_REYES_DE_ESTA_PENDEJA.webp",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -107,7 +130,9 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
       router.invalidate();
       queryClient.invalidateQueries();
     });

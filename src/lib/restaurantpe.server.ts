@@ -2,12 +2,7 @@
 // SERVER-ONLY: import desde createServerFn .handler() o desde *.server.ts.
 // Nunca importar desde código de cliente — usa el token privado.
 
-import type {
-  RpEnvelope,
-  RpDominioData,
-  RpMenuData,
-  RpStockData,
-} from "@/types/restaurantpe";
+import type { RpEnvelope, RpDominioData, RpMenuData, RpStockData } from "@/types/restaurantpe";
 
 const HOST = "http://api.restaurant.pe/restaurant";
 const READ_BASE = `${HOST}/readonly/rest`;
@@ -24,17 +19,13 @@ function getDominioId(): string {
   const raw = process.env.RESTAURANT_PE_DOMINIO;
   if (!raw) throw new Error("RESTAURANT_PE_DOMINIO no configurado");
   const digits = String(raw).match(/\d+/);
-  if (!digits)
-    throw new Error("RESTAURANT_PE_DOMINIO debe contener el id numérico del dominio");
+  if (!digits) throw new Error("RESTAURANT_PE_DOMINIO debe contener el id numérico del dominio");
   return digits[0];
 }
 
 type RpBase = "read" | "write";
 
-async function rpFetch<T>(
-  path: string,
-  opts: { base: RpBase } & RequestInit,
-): Promise<T> {
+async function rpFetch<T>(path: string, opts: { base: RpBase } & RequestInit): Promise<T> {
   const { base, ...init } = opts;
   const baseUrl = base === "read" ? READ_BASE : WRITE_BASE;
   const url = `${baseUrl}${path}`;
@@ -76,10 +67,9 @@ async function rpFetch<T>(
 
 export async function rpGetDominioInfo(): Promise<RpDominioData> {
   const dominioId = getDominioId();
-  return rpFetch<RpDominioData>(
-    `/delivery/obtenerInformacionDominio/${dominioId}?quipupos=0`,
-    { base: "read" },
-  );
+  return rpFetch<RpDominioData>(`/delivery/obtenerInformacionDominio/${dominioId}?quipupos=0`, {
+    base: "read",
+  });
 }
 
 export async function rpGetCatalogo(localId: string | number): Promise<RpMenuData> {
@@ -124,18 +114,15 @@ export async function rpGetStock(input: {
   almacenId: number;
 }): Promise<RpStockData> {
   const dominioId = getDominioId();
-  return rpFetch<RpStockData>(
-    `/delivery/getStockProducto/${dominioId}?quipupos=0`,
-    {
-      base: "write",
-      method: "POST",
-      body: JSON.stringify({
-        producto_id: input.productoId,
-        local_id: input.localId,
-        almacen_id: input.almacenId,
-      }),
-    },
-  );
+  return rpFetch<RpStockData>(`/delivery/getStockProducto/${dominioId}?quipupos=0`, {
+    base: "write",
+    method: "POST",
+    body: JSON.stringify({
+      producto_id: input.productoId,
+      local_id: input.localId,
+      almacen_id: input.almacenId,
+    }),
+  });
 }
 
 /**
@@ -166,9 +153,7 @@ export async function rpCancelarDelivery(input: {
       }),
     });
     if (!res.ok) {
-      throw new Error(
-        `Restaurant.pe ${res.status} ${res.statusText} en cancelarDelivery`,
-      );
+      throw new Error(`Restaurant.pe ${res.status} ${res.statusText} en cancelarDelivery`);
     }
     const json = (await res.json()) as RpEnvelope<unknown>;
     if (String(json.tipo) !== "1") {
@@ -217,14 +202,10 @@ export async function rpVerificarProductosAgotados(input: {
     const json = (await res.json()) as RpEnvelope<unknown>;
     if (String(json.tipo) !== "1") return null;
     const data = json.data;
-    const rows = Array.isArray(data)
-      ? (data as Record<string, unknown>[])
-      : [];
+    const rows = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
     return rows.map((r) => ({
       pedido_productoid: Number(r.pedido_productoid ?? r.producto_id ?? 0),
-      agotado:
-        Number(r.agotado ?? r.es_agotado ?? r.sin_stock ?? 0) === 1 ||
-        r.agotado === true,
+      agotado: Number(r.agotado ?? r.es_agotado ?? r.sin_stock ?? 0) === 1 || r.agotado === true,
     }));
   } catch {
     return null;
@@ -233,9 +214,7 @@ export async function rpVerificarProductosAgotados(input: {
   }
 }
 
-export async function rpRegistrarDelivery(
-  payload: Record<string, unknown>,
-): Promise<unknown> {
+export async function rpRegistrarDelivery(payload: Record<string, unknown>): Promise<unknown> {
   const dominioId = getDominioId();
   const url = `${WRITE_BASE}/delivery/registrarDelivery/${dominioId}`;
   const controller = new AbortController();
@@ -252,9 +231,7 @@ export async function rpRegistrarDelivery(
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      throw new Error(
-        `Restaurant.pe ${res.status} ${res.statusText} en registrarDelivery`,
-      );
+      throw new Error(`Restaurant.pe ${res.status} ${res.statusText} en registrarDelivery`);
     }
     const json = (await res.json()) as RpEnvelope<unknown>;
     if (String(json.tipo) !== "1") {
@@ -298,7 +275,3 @@ export function getSubdominio(): string {
 // `rpGetDeliveryById`, `rpObtenerSyncFull`, `rpFetchTenant`, `buildTenantBase`,
 // `extractEstado` fueron eliminadas para no generar ruido 401 en `rp_sync_log`.
 // ---------------------------------------------------------------------------
-
-
-
-

@@ -1,7 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BrutalCard, BrutalBadge, BrutalChip, BrutalInput, SectionHeading } from "@/components/ui-kp/Brutal";
+import {
+  BrutalCard,
+  BrutalBadge,
+  BrutalChip,
+  BrutalInput,
+  SectionHeading,
+} from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { LocationCard } from "@/components/kp/Cards";
 import { listPublicSedes } from "@/lib/sedes";
@@ -10,9 +16,16 @@ export const Route = createFileRoute("/sedes")({
   head: () => ({
     meta: [
       { title: "Sedes del Reino — KINGPAPA" },
-      { name: "description", content: "15 sedes y creciendo. Encuentra tu KINGPAPA en Cali, Jamundí y Bogotá. Pide directo en la web o cae con el parche." },
+      {
+        name: "description",
+        content:
+          "15 sedes y creciendo. Encuentra tu KINGPAPA en Cali, Jamundí y Bogotá. Pide directo en la web o cae con el parche.",
+      },
       { property: "og:title", content: "Sedes del Reino — KINGPAPA" },
-      { property: "og:description", content: "15 sedes en Cali, Jamundí y Bogotá. Encuentra tu castillo más cercano." },
+      {
+        property: "og:description",
+        content: "15 sedes en Cali, Jamundí y Bogotá. Encuentra tu castillo más cercano.",
+      },
       { property: "og:url", content: "/sedes" },
     ],
     links: [{ rel: "canonical", href: "/sedes" }],
@@ -33,10 +46,7 @@ function SedesPage() {
   const [pickup, setPickup] = useState(false);
   const [qrMesa, setQrMesa] = useState(false);
 
-  const ciudades = useMemo(
-    () => Array.from(new Set(sedes.map((s) => s.ciudad))).sort(),
-    [sedes],
-  );
+  const ciudades = useMemo(() => Array.from(new Set(sedes.map((s) => s.ciudad))).sort(), [sedes]);
 
   const lista = useMemo(() => {
     return sedes.filter((s) => {
@@ -71,7 +81,8 @@ function SedesPage() {
             Encuentra tu Reino más cercano
           </h1>
           <p className="mt-3 max-w-2xl">
-            {totalSedes} sedes activas en {totalCiudades} {totalCiudades === 1 ? "ciudad" : "ciudades"}. Pide directo, recoge o cae con el parche.
+            {totalSedes} sedes activas en {totalCiudades}{" "}
+            {totalCiudades === 1 ? "ciudad" : "ciudades"}. Pide directo, recoge o cae con el parche.
           </p>
         </div>
       </section>
@@ -116,9 +127,15 @@ function SedesPage() {
           </select>
         </div>
         <div className="flex gap-2 mt-3 flex-wrap">
-          <BrutalChip active={abierto} onClick={() => setAbierto(!abierto)}>Abierto ahora</BrutalChip>
-          <BrutalChip active={pickup} onClick={() => setPickup(!pickup)}>Pick-up</BrutalChip>
-          <BrutalChip active={qrMesa} onClick={() => setQrMesa(!qrMesa)}>QR en mesa</BrutalChip>
+          <BrutalChip active={abierto} onClick={() => setAbierto(!abierto)}>
+            Abierto ahora
+          </BrutalChip>
+          <BrutalChip active={pickup} onClick={() => setPickup(!pickup)}>
+            Pick-up
+          </BrutalChip>
+          <BrutalChip active={qrMesa} onClick={() => setQrMesa(!qrMesa)}>
+            QR en mesa
+          </BrutalChip>
         </div>
       </section>
 
@@ -144,8 +161,14 @@ function SedesPage() {
         <SectionHeading eyebrow="¿Nuevo en el Reino?" title="Cómo pedir en KINGPAPA" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { t: "Delivery", d: "Por nuestra web o por Rappi y DiDi. La corona llega a tu puerta." },
-            { t: "Pick-up", d: "Pide, paga y recoges en sede sin filas. Express y sin esperar mesa." },
+            {
+              t: "Delivery",
+              d: "Por nuestra web o por Rappi y DiDi. La corona llega a tu puerta.",
+            },
+            {
+              t: "Pick-up",
+              d: "Pide, paga y recoges en sede sin filas. Express y sin esperar mesa.",
+            },
             { t: "QR en mesa", d: "En sedes con QR escaneás, pedís y pagás desde el celular." },
           ].map((c) => (
             <BrutalCard key={c.t} tone="cheese" className="p-5">
@@ -166,7 +189,9 @@ function SedesPage() {
                 ¿Falta una corona en tu ciudad?
               </h2>
               <p className="mt-4 text-kp-cheese/90 max-w-xl">
-                El Reino va por <strong>50 sedes en 2030</strong>. Si quieres traer KINGPAPA a tu zona, sé pionero: condiciones especiales, marca con +3M de comunidad y operación probada.
+                El Reino va por <strong>50 sedes en 2030</strong>. Si quieres traer KINGPAPA a tu
+                zona, sé pionero: condiciones especiales, marca con +3M de comunidad y operación
+                probada.
               </p>
             </div>
             <div className="flex flex-col gap-3">
