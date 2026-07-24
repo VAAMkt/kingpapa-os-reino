@@ -1,100 +1,67 @@
-# Voz KINGPAPA en toda la web — Verbatim 360
+# Plan: Fidelización, Mi Reino y Admin — todo funcional
 
-## Diagnóstico (de la guía)
+Hoy `mi-reino/*`, `admin/index` y el módulo de "Súbditos" son mock (dashboardMock, "0 pts", "Aún no tienes pedidos", localStorage). Este plan los convierte en funcionalidad real sobre datos ya existentes en `orders`, `profiles` y `user_roles`, agregando lo mínimo indispensable para loyalty.
 
-La guía define claramente:
+## 1. Backend — nuevas tablas y funciones
 
-- **Personaje**: The King, parcero 25 años, caleño, irreverente pero respetuoso, cero corporativo.
-- **Léxico oficial**: "papi", "parcero", "mani", "mi so", "cucho", "mi fi", "socito", "mi reina", **"la banda"** (no "súbditos"), "pillate", "hablalooo", "llegateee", "siza", "brutal", "chimba", "de otro nivel", "cero drama", "pa' toda la banda". Emojis firma: 👑🔥💪🏻🏰😎🧀🍟.
-- **Propuesta de valor**: mejor relación **Cantidad + Calidad / Precio**. La comunicación gira alrededor del producto y las experiencias positivas.
-- **Principios del verbo**: nunca pelear, agradecer siempre (incluso la queja), humor > confrontación, humano > empresa.
-- **Contenidos que existen en la guía y no están reflejados en la web**: fuera de horario, opción vegetariana, reto Kingpapa (4.1 kg / 30 min / $139.9k), combo cumpleaños ($55k con show), plantillas de reseñas, trabaja con nosotros, proveedores, factura electrónica.
+**Migración (una sola):**
+- `loyalty_accounts` (user_id PK, puntos_balance, puntos_lifetime, tier, referral_code único, referred_by).
+- `loyalty_ledger` (user_id, order_id nullable, tipo `earn|redeem|bonus|refund|adjust`, puntos, motivo, meta jsonb).
+- `loyalty_rewards` (nombre, descripcion, costo_puntos, tipo `descuento_fijo|producto|envio_gratis`, valor, activo, stock nullable, imagen).
+- `loyalty_redemptions` (user_id, reward_id, order_id nullable, puntos_gastados, codigo único, status `emitido|usado|expirado`, expires_at).
+- `order_favorites` (user_id, order_id, alias).
+- `subditos` (email, whatsapp, arquetipo, ciudad, respuestas jsonb, user_id nullable) — el quiz de `LoyaltyModule` hoy solo escribe localStorage.
+- GRANTs a `authenticated`/`service_role`, RLS por `auth.uid()`, `has_role('super_admin'|'marketing')` para admin.
+- Trigger `on orders.status='entregado'` → INSERT en `loyalty_ledger` (10 pts por cada $10.000 de `total`) + recompute `loyalty_accounts.puntos_balance/lifetime/tier`. Idempotente por `order_id`.
+- Función `redeem_reward(reward_id)` SECURITY DEFINER: valida saldo/stock, descuenta puntos, emite `loyalty_redemptions` con código corto.
+- Tiers derivados de `puntos_lifetime`: Parcero (0), Rey (500), Coronado (2000).
 
-La web hoy sobre-usa "súbditos / Reyes / Reino" y suena a marca. Debe sonar a **The King hablando**.
+## 2. Server functions (`src/lib/loyalty.functions.ts`, `mi-reino.functions.ts`, `admin-stats.functions.ts`)
 
-## Cambios (solo copy / UI presentacional, sin tocar lógica)
+Todas con `requireSupabaseAuth`.
+- `getMyLoyalty()` → cuenta, tier, próximo tier, últimos 20 movimientos.
+- `listRewards()` / `redeemReward({reward_id})` / `listMyRedemptions()`.
+- `getMyOrders({limit,cursor})` → paginado con status/total/items resumidos.
+- `repeatOrder({order_id})` → devuelve carrito reconstruido para `/checkout`.
+- `listMyFavorites()` / `toggleFavorite({order_id, alias?})`.
+- `updateMyProfile({display_name, whatsapp, ciudad})`.
+- `getMyReferralCode()` / `applyReferralCode({code})` (una vez, en signup o primer pedido).
+- `saveSubditoQuiz({email,whatsapp,arquetipo,respuestas,ciudad})` público — reemplaza el localStorage actual.
+- **Admin** (`super_admin|marketing`): `getAdminDashboard({range: '24h'|'7d'|'30d'})` con pedidos/ingresos/ticket promedio por canal (tipo)/sede/producto/estado + súbditos nuevos, todo con SQL agregado sobre `orders` y `subditos`. `listSubditos({cursor,search})`, `listLoyaltyLedger({user_id?})`, `adjustPoints({user_id,puntos,motivo})`, CRUD de `loyalty_rewards`.
 
-### 1) Léxico global — "la banda" primero
+## 3. UI — Mi Reino (cliente)
 
-- Sustituciones controladas de "súbdito(s)" → "la banda" / "parcero" / según contexto en:
-  - `src/components/kp/Layout.tsx` (footer copy)
-  - `src/routes/index.tsx` (hero, meta description, CTA "Hacerme súbdito" → "Meterme a la banda")
-  - `src/components/kp/Testimonios.tsx` (título "Voces del Reino" → "La banda habla")
-  - `src/routes/franquicias.tsx` ("pionero del Reino" se mantiene por ser producto B2B; se suaviza "vendemos pertenecer al Reino" con vocabulario de la guía).
-- Se mantiene "El Reino" como concepto de marca (menú, mapa, sedes) pero se reduce su frecuencia y se combina con "la banda" y "el parche".
+- `/mi-reino` (index): tarjeta de saldo/tier con barra al próximo tier, último pedido con botón "Repetir" y "Ver tracking", CTA a recompensas.
+- `/mi-reino/pedidos`: lista real con estado/fecha/total + link a `/gracias?order=<id>` y botón "Repetir" / "Marcar favorito".
+- `/mi-reino/puntos`: saldo, tier, historial (`loyalty_ledger`), catálogo `loyalty_rewards` con canje + "Mis códigos" (`loyalty_redemptions`).
+- `/mi-reino/favoritos`: pedidos guardados con alias editable y "Repetir".
+- `/mi-reino/datos`: formulario editable (display_name, whatsapp, ciudad) + código de referido con botón copiar/compartir WhatsApp.
+- Aplicar tono "la banda" (verbatim ya adoptado).
 
-### 2) Home (`src/routes/index.tsx`)
+## 4. UI — Admin
 
-- Hero eyebrow y sub-título con voz King: p.ej. "Los REYES de esta pendeja'. Pedí directo, sin comisiones ni cuento." + CTA "¡Hablalooo, quiero pedir!".
-- Sección testimonios/cultura: reemplazar copy genérico por frases verbatim ("brutal nivel de queso", "cero drama").
-- Meta OG description: "Salchipapas monstruosas, bowls coronados y retos pa' toda la banda."
+- `/admin` (index): reemplaza `dashboardMock` por `getAdminDashboard` con selector de rango, KPIs (pedidos, ingresos, ticket, cancelación %), pedidos por canal (tipo), sedes top, productos top (derivados de `orders.items`), súbditos nuevos vs totales, últimos pedidos con link a `/admin/pedidos`.
+- `/admin/loyalty` (nueva): tabla de `loyalty_accounts` con búsqueda, ledger por usuario, ajuste manual de puntos, CRUD de recompensas.
+- `/admin/subditos` (nueva): lista `subditos` con export CSV, filtros por arquetipo/ciudad.
+- Añadir ambos al sidebar de `admin.tsx` (hoy `LOYALTY · SOON` y `CAMPAÑAS · SOON`).
 
-### 3) Menú (`src/routes/menu.tsx`)
+## 5. Checkout / quiz — enganches
 
-- Título/subtítulo: "El Menú del Reino — pa' toda la banda" / "Escoge tu corona: personal, X2, Legendaria o Kingpapa pa' toda la banda (hasta 7)."
-- Chip "sin cobertura" y estados vacíos: microcopy verbatim ("Pillate, hoy no llegamos a tu zona, pero en Rappi/DiDi seguro sí").
-- Nota vegetariana inline: "¿Vegetariano? Siza, pedila sin proteína animal y métele queso, maíz, crispy o aguacate."
+- `checkout.tsx`: al confirmar y si el usuario está logueado, ofrecer canjear una `loyalty_redemption` activa (aplica el `valor` como descuento; guardar `redemption_id` en `orders.rp_payload.meta`).
+- `LoyaltyModule` quiz: llamar `saveSubditoQuiz` en lugar de sólo `localStorage`; si hay sesión, vincular `user_id`.
 
-### 4) Checkout (`src/routes/checkout.tsx`)
+## Detalles técnicos
 
-- Micro-copy de confianza: "Pedido directo al Reino · Sin comisiones · Precio web" ya existe → añadir "Cero drama, cero apps intermediarias."
-- Estado "sin cobertura" en checkout: mismo mensaje verbatim de cobertura.
-- Botón final CTA: "¡Hablalooo, coróname el pedido!" (mantener submit lógico).
+- Puntos se computan en trigger (no en cliente) para evitar fraude; el trigger deduplica por `order_id` en `loyalty_ledger`.
+- `repeatOrder` reconstituye `items` respetando stock/precio actual de `productos_master` y `sede_producto_overrides`; si algo cambió, marca warning en UI.
+- Códigos de redención: `nanoid` 8 chars, únicos, TTL 30 días por defecto.
+- Todas las queries admin usan `has_role` vía `context.supabase` (no `supabaseAdmin` para autorización).
+- Sin cambios en integraciones RP, tracking ni webhook.
 
-### 5) Tracking / Gracias (`src/routes/gracias.tsx`, `src/components/kp/TrackerOperativo.tsx`)
+## Fuera de alcance (para no inflar el commit)
 
-- Labels de pasos con voz King: "Recibimos tu pedido 👑", "Cocinando pa' vos 🧀", "El motorizado va en camino 🛵", "¡A disfrutarlo, mi rey! 🔥".
-- Estado "fuera de horario": mensaje verbatim exacto de la guía.
-- Estado de espera: "Tranqui parcero, ya la banda está en la vuelta."
+- Push/email transaccional de puntos ganados (queda TODO con el trigger listo).
+- Campañas segmentadas por arquetipo (se habilita después con `subditos` ya poblada).
+- Programa multi-nivel de referidos (v1: 1 nivel, bono fijo).
 
-### 6) Sedes (`src/routes/sedes.tsx`)
-
-- Header: "Encuentra tu Reino más cercano — la banda te espera."
-- Estado "sin cobertura" verbatim de la guía.
-- Ficha sede: horarios exactos de la guía (ya vienen de DB — no se toca lógica, solo textos auxiliares).
-
-### 7) FAQ nueva ligera integrada en `/sedes` o al pie del home
-
-Bloque colapsable con las preguntas de la guía (verbatim, sin inventar):
-
-- ¿Manejan reservas? · ¿Hacen domicilios? · ¿Recoger en punto? · ¿Opciones vegetarianas? · ¿Salsas? · ¿Reto Kingpapa? · ¿Combo cumpleaños? · Trabajo/HV · Proveedores · Factura electrónica.
-
-Se implementa como componente `src/components/kp/FaqKing.tsx` con datos hardcodeados (texto plano de la guía) y se monta al final de `sedes.tsx` y `index.tsx`.
-
-### 8) Footer (`src/components/kp/Layout.tsx`)
-
-- Reemplazar párrafo por voz King:
-  > "Los REYES de esta pendeja'. Salchipapas monstruosas, bowls coronados y retos pa' toda la banda. Cero dieta, cero drama."
-- Slogan cierre: mantener "Si estás a dieta, NO nos sigas."
-- Añadir columna "Trabaja con la banda" con los contactos verbatim (HV: 315 0272030 · Proveedores: 316 4317572 · Factura: [contabilidadmvk@gmail.com](mailto:contabilidadmvk@gmail.com)).
-
-### 9) Manejo de crítica / errores públicos
-
-- Toasts de error en checkout y tracking: cambiar mensajes genéricos por voz King:
-  - "Se nos enredó la vuelta, dale otra vez 🙏"
-  - "Uy parce, algo no cargó bien. Refrescá y seguimos."
-
-## Alcance técnico
-
-- **Solo cambios de copy y un componente presentacional nuevo** (`FaqKing.tsx`).
-- No se toca: RLS, server functions, integraciones RP, cart, auth, routing, DB.
-- SEO: se actualizan `head()` de `index.tsx`, `menu.tsx`, `sedes.tsx`, `franquicias.tsx` con descripciones alineadas a la voz sin cambiar títulos que ya rankean.
-- Verificación: `tsgo` + revisión visual del preview en home, menú, checkout y sedes.
-
-## Archivos a editar
-
-- `src/components/kp/Layout.tsx`
-- `src/components/kp/Testimonios.tsx`
-- `src/components/kp/TrackerOperativo.tsx`
-- `src/routes/index.tsx`
-- `src/routes/menu.tsx`
-- `src/routes/checkout.tsx`
-- `src/routes/gracias.tsx`
-- `src/routes/sedes.tsx`
-- `src/routes/franquicias.tsx` (ajustes leves)
-
-## Archivos a crear
-
-- `src/components/kp/FaqKing.tsx` (FAQ verbatim colapsable, montado en home y sedes).
-
-¿Le doy con toda o querés que priorice primero **Home + Menú + Checkout/Tracking** y dejemos FAQ + Franquicias para un segundo pase? a todas
+¿Apruebas y sigo con la migración + implementación?
