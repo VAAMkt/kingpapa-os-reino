@@ -53,6 +53,211 @@ export type Database = {
         }
         Relationships: []
       }
+      loyalty_accounts: {
+        Row: {
+          created_at: string
+          puntos_balance: number
+          puntos_lifetime: number
+          referral_code: string
+          referred_by: string | null
+          tier: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          puntos_balance?: number
+          puntos_lifetime?: number
+          referral_code?: string
+          referred_by?: string | null
+          tier?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          puntos_balance?: number
+          puntos_lifetime?: number
+          referral_code?: string
+          referred_by?: string | null
+          tier?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      loyalty_ledger: {
+        Row: {
+          created_at: string
+          id: string
+          meta: Json
+          motivo: string
+          order_id: string | null
+          puntos: number
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          motivo: string
+          order_id?: string | null
+          puntos: number
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          motivo?: string
+          order_id?: string | null
+          puntos?: number
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_ledger_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_redemptions: {
+        Row: {
+          codigo: string
+          created_at: string
+          expires_at: string
+          id: string
+          order_id: string | null
+          puntos_gastados: number
+          reward_id: string
+          status: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          order_id?: string | null
+          puntos_gastados: number
+          reward_id: string
+          status?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          order_id?: string | null
+          puntos_gastados?: number
+          reward_id?: string
+          status?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_redemptions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_redemptions_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_rewards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_rewards: {
+        Row: {
+          activo: boolean
+          costo_puntos: number
+          created_at: string
+          descripcion: string | null
+          id: string
+          imagen: string | null
+          nombre: string
+          orden: number
+          stock: number | null
+          tipo: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          activo?: boolean
+          costo_puntos: number
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          imagen?: string | null
+          nombre: string
+          orden?: number
+          stock?: number | null
+          tipo: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          activo?: boolean
+          costo_puntos?: number
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          imagen?: string | null
+          nombre?: string
+          orden?: number
+          stock?: number | null
+          tipo?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      order_favorites: {
+        Row: {
+          alias: string | null
+          created_at: string
+          id: string
+          order_id: string
+          user_id: string
+        }
+        Insert: {
+          alias?: string | null
+          created_at?: string
+          id?: string
+          order_id: string
+          user_id: string
+        }
+        Update: {
+          alias?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_favorites_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           cancel_reason: string | null
@@ -497,6 +702,42 @@ export type Database = {
         }
         Relationships: []
       }
+      subditos: {
+        Row: {
+          arquetipo: string | null
+          ciudad: string | null
+          created_at: string
+          email: string | null
+          id: string
+          respuestas: Json
+          source: string
+          user_id: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          arquetipo?: string | null
+          ciudad?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          respuestas?: Json
+          source?: string
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          arquetipo?: string | null
+          ciudad?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          respuestas?: Json
+          source?: string
+          user_id?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -526,7 +767,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      loyalty_calc_tier: { Args: { lifetime: number }; Returns: string }
+      redeem_reward: {
+        Args: { _reward_id: string }
+        Returns: {
+          codigo: string
+          expires_at: string
+          redemption_id: string
+        }[]
+      }
     }
     Enums: {
       app_role:
