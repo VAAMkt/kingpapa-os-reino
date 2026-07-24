@@ -71,6 +71,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/iBBZRJcqehepneIwBEhmDj2h9IA2/social-images/social-1779084040439-KINGPAPA_-_LOS_REYES_DE_ESTA_PENDEJA.webp" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/iBBZRJcqehepneIwBEhmDj2h9IA2/social-images/social-1779084040439-KINGPAPA_-_LOS_REYES_DE_ESTA_PENDEJA.webp" },
+      { name: "theme-color", content: "#211915" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
