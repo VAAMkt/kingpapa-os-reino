@@ -19,14 +19,14 @@ import { CartPill } from "@/components/kp/CartPill";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-kp-yellow px-4">
+    <div className="flex min-h-screen items-center justify-center bg-canvas text-on-canvas px-4">
       <div className="max-w-md text-center">
-        <h1 className="font-display text-8xl text-kp-ink">404</h1>
+        <h1 className="font-display text-8xl">404</h1>
         <h2 className="font-display text-3xl uppercase mt-2">El Reino no encontró esa página</h2>
         <p className="mt-2 text-sm">Quizás te equivocaste de cuadra, papi.</p>
         <Link
           to="/"
-          className="inline-block mt-5 px-6 py-3 bg-kp-ink text-kp-yellow font-display uppercase border-2 border-kp-ink shadow-brutal-sm"
+          className="inline-block mt-5 px-6 py-3 bg-accion text-on-accion font-display uppercase border-2 border-on-canvas shadow-brutal-sm"
         >
           Volver al Reino
         </Link>
@@ -39,13 +39,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-kp-yellow px-4">
+    <div className="flex min-h-screen items-center justify-center bg-canvas text-on-canvas px-4">
       <div className="max-w-md text-center">
         <h1 className="font-display text-3xl uppercase">Se nos quemó la papa</h1>
         <p className="mt-2 text-sm">{error.message}</p>
         <button
           onClick={() => { router.invalidate(); reset(); }}
-          className="inline-block mt-5 px-6 py-3 bg-kp-ink text-kp-yellow font-display uppercase border-2 border-kp-ink shadow-brutal-sm"
+          className="inline-block mt-5 px-6 py-3 bg-accion text-on-accion font-display uppercase border-2 border-on-canvas shadow-brutal-sm"
         >
           Reintentar
         </button>
