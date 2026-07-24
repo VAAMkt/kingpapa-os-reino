@@ -19,7 +19,7 @@ import {
   mapDeliveryEstado,
   extractDeliveryEstado,
   extractComandaNumber,
-  extractMotorizado,
+  extractMotorizadoInfo,
 } from "@/lib/restaurantpe-normalize";
 import type { Json } from "@/integrations/supabase/types";
 
