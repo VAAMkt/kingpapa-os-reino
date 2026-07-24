@@ -8,6 +8,10 @@ import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { toast } from "sonner";
 import { getIntegrationsStatus } from "@/lib/integrations.functions";
 import { listOrphanOrders } from "@/lib/orders.reconcile.functions";
+import {
+  checkQuipuBacklog,
+  pollActiveOrders,
+} from "@/lib/rp-reconcile.functions";
 
 export const Route = createFileRoute("/admin/integraciones")({
   head: () => ({ meta: [{ title: "Integraciones — Admin" }] }),
