@@ -281,23 +281,131 @@ export function getSubdominio(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Reconciliación pull: DESHABILITADA.
+// Reconciliación pull vía tenant token (Fase 1+2 — jul-2026).
 //
-// Fase A discovery (jun-2026) confirmó que ni el host por tenant
-// (`https://{sub}.{host}/restaurant/api/rest`) ni el host público
-// (`api.restaurant.pe/{readonly|public/v2}/rest`) exponen un GET de lectura
-// por delivery/pedido que acepte `RESTAURANT_PE_TOKEN`:
-//   - Tenant: HTTP 401 "Token inválido" en todos los nodos (requiere token
-//     de sesión tenant, distinto al de integración).
-//   - Público: HTTP 404 en /delivery/get, /obtenerSyncFull, /obtenerDelivery,
-//     /obtenerPedido, /obtenerEstadoDelivery (variantes con y sin dominio_id,
-//     con y sin ?quipupos=0).
+// Endpoints tenant que SÍ funcionan con `RESTAURANT_PE_TENANT_TOKEN`
+// (distinto al `RESTAURANT_PE_TOKEN` de integración pública):
+//   - GET /delivery/obtenerDeliverysSinNotificarAQuipu/{local_id}
+//       → lista de deliveries que llegaron a la web pero NO al Quipu POS.
+//   - GET /delivery/obtenerDelivery/{delivery_id}
+//       → snapshot completo de un delivery (estado, tiempos, motorizado, etc.).
 //
-// Decisión: dependemos 100% del webhook entrante (`/api/public/rp-webhook`)
-// + Auto-Kill TTL 45 min en `orders.reconcile.functions.ts`. Las funciones
-// `rpGetDeliveryById`, `rpObtenerSyncFull`, `rpFetchTenant`, `buildTenantBase`,
-// `extractEstado` fueron eliminadas para no generar ruido 401 en `rp_sync_log`.
+// Viven en el host del tenant (`https://kingpapa.restaurant.pe/restaurant/api/rest`),
+// no en el host público. El token de integración devuelve 401 aquí.
 // ---------------------------------------------------------------------------
+
+function tenantAuthHeader(): string {
+  const token = process.env.RESTAURANT_PE_TENANT_TOKEN;
+  if (!token) throw new Error("RESTAURANT_PE_TENANT_TOKEN no configurado");
+  return `Token token="${token}"`;
+}
+
+function tenantBase(): string {
+  const explicit = process.env.RESTAURANT_PE_DOMINIO_HOST;
+  if (explicit && explicit.trim() !== "") {
+    return explicit.replace(/\/+$/, "");
+  }
+  const sub = getSubdominio();
+  return `https://${sub}.restaurant.pe/restaurant/api/rest`;
+}
+
+async function rpTenantFetch<T = unknown>(
+  path: string,
+  init: { timeoutMs?: number } = {},
+): Promise<T> {
+  const url = `${tenantBase()}${path.startsWith("/") ? path : `/${path}`}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    init.timeoutMs ?? TIMEOUT_MS,
+  );
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Authorization: tenantAuthHeader(),
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Restaurant.pe tenant ${res.status} en ${path}`);
+    }
+    const json = (await res.json()) as {
+      tipo?: string | number;
+      mensajes?: string[];
+      data?: T;
+    };
+    if (String(json.tipo) !== "1") {
+      const msg = json.mensajes?.join("; ") || `Error tipo=${json.tipo}`;
+      throw new Error(`Restaurant.pe tenant: ${msg}`);
+    }
+    return (json.data ?? (null as unknown)) as T;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** Snapshot completo de un delivery (>150 columnas). */
+export async function rpGetDeliveryById(
+  deliveryId: string | number,
+): Promise<Record<string, unknown> | null> {
+  const id = String(deliveryId).trim();
+  if (!id) throw new Error("rpGetDeliveryById requiere deliveryId");
+  return rpTenantFetch<Record<string, unknown>>(
+    `/delivery/obtenerDelivery/${id}`,
+  );
+}
+
+export type RpSinQuipuRow = {
+  delivery_id: string;
+  delivery_fecha: string | null;
+  delivery_codigointegracion: string | null;
+  delivery_estado: number | null;
+  delivery_recibidoenquipu: number | null;
+  local_id: number | null;
+  delivery_nombres: string | null;
+  delivery_celular: string | null;
+};
+
+/**
+ * Deliveries del local que llegaron a la web de Restaurant.pe pero NO
+ * fueron notificados/recibidos por el POS Quipu. Es la misma lista que
+ * Restaurant muestra en su UI ("Aún no ha llegado a Quipu").
+ */
+export async function rpGetSinNotificarAQuipu(
+  localId: string | number,
+): Promise<RpSinQuipuRow[]> {
+  const id = String(localId).trim();
+  if (!id) throw new Error("rpGetSinNotificarAQuipu requiere localId");
+  const data = await rpTenantFetch<Record<string, unknown>[]>(
+    `/delivery/obtenerDeliverysSinNotificarAQuipu/${id}`,
+  );
+  const rows = Array.isArray(data) ? data : [];
+  return rows.map((r) => ({
+    delivery_id: String(r.delivery_id ?? ""),
+    delivery_fecha:
+      r.delivery_fecha != null ? String(r.delivery_fecha) : null,
+    delivery_codigointegracion:
+      r.delivery_codigointegracion != null &&
+      String(r.delivery_codigointegracion).trim() !== ""
+        ? String(r.delivery_codigointegracion)
+        : null,
+    delivery_estado:
+      r.delivery_estado != null && r.delivery_estado !== ""
+        ? Number(r.delivery_estado)
+        : null,
+    delivery_recibidoenquipu:
+      r.delivery_recibidoenquipu != null
+        ? Number(r.delivery_recibidoenquipu)
+        : null,
+    local_id: r.local_id != null ? Number(r.local_id) : null,
+    delivery_nombres:
+      r.delivery_nombres != null ? String(r.delivery_nombres) : null,
+    delivery_celular:
+      r.delivery_celular != null ? String(r.delivery_celular) : null,
+  }));
+}
+
 
 
 
