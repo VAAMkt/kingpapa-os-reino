@@ -209,9 +209,65 @@ export function extractComandaNumber(raw: Record<string, unknown> | null): strin
 export function extractMotorizado(raw: Record<string, unknown> | null): string | null {
   if (!raw) return null;
   const inner = (raw.data ?? raw) as Record<string, unknown>;
-  const v = inner.motorizado;
-  if (v != null && String(v).trim() !== "") return String(v).trim();
+  const candidates = [inner.motorizado, inner.delivery_transportistanombres];
+  for (const v of candidates) {
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
   return null;
+}
+
+export type MotorizadoInfo = {
+  nombre: string | null;
+  celular: string | null;
+  transportista: string | null;
+  en_tienda_at: string | null;
+  en_curso_at: string | null;
+  entregado_at: string | null;
+};
+
+/** Info consolidada del motorizado desde el snapshot completo del delivery. */
+export function extractMotorizadoInfo(
+  raw: Record<string, unknown> | null,
+): MotorizadoInfo {
+  const empty: MotorizadoInfo = {
+    nombre: null,
+    celular: null,
+    transportista: null,
+    en_tienda_at: null,
+    en_curso_at: null,
+    entregado_at: null,
+  };
+  if (!raw) return empty;
+  const inner = (raw.data ?? raw) as Record<string, unknown>;
+  const pick = (...keys: string[]): string | null => {
+    for (const k of keys) {
+      const v = inner[k];
+      if (v != null && String(v).trim() !== "") return String(v).trim();
+    }
+    return null;
+  };
+  return {
+    nombre: pick(
+      "delivery_transportistanombres",
+      "motorizado",
+      "motorizado_nombres",
+    ),
+    celular: pick(
+      "delivery_transportistacelular",
+      "motorizado_celular",
+      "delivery_celularmotorizado",
+    ),
+    transportista: pick("delivery_integraciontransportista"),
+    en_tienda_at: pick("delivery_fechamotorizadoentienda"),
+    en_curso_at: pick(
+      "delivery_fechamotorizadoencurso",
+      "delivery_fechaencamino",
+    ),
+    entregado_at: pick(
+      "delivery_fechaentrega",
+      "delivery_fechamotorizadoencasa",
+    ),
+  };
 }
 
 /** Estado numérico crudo (`delivery_estado`). */

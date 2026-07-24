@@ -1,63 +1,98 @@
-## Diagnóstico
+## Objetivo
 
-### 1. Cobertura del mapa (La Flora con 6 km no cubría 2–3 km)
-La función `pickNearestSede` en `src/lib/active-sede.ts` elige la sede **geográficamente más cercana** y solo contra ESA valida el radio. Además no filtra por `delivery`, `rp_acepta_delivery`, `kill_switch` ni `abierta_ahora`.
-
-Consecuencia real: si el usuario está a 2 km de una sede mall (radio 0.5 km, sin delivery) y a 3 km de La Flora (radio 6 km, con delivery), el algoritmo elige la sede mall y marca "fuera de cobertura", ignorando La Flora.
-
-### 2. Pedidos no salen (aunque el admin marque delivery/horario)
-El servidor (`src/lib/orders.server.ts` → `assertSedeOperativa`) valida contra `rp_acepta_delivery` (columna sincronizada desde Restaurant.pe), NO contra `sede.delivery` (el toggle del admin). Verificado en la data actual: **La Flora, Valle de Lili, La Floresta (todas las delivery activas del admin) tienen `rp_acepta_delivery=0`** en la DB, así que el chequeo dispara: `"no acepta domicilios por ahora"` y el pedido nunca llega al POS. Solo Limonar, C.C. Único y La Floresta tienen `rp_acepta_delivery=1`.
-
-O sea: el toggle "Delivery" del admin es cosmético hoy — no cambia el gate real. Además el error que ve el usuario probablemente lo interpreta como "no dejaba" sin ver la causa clara.
-
-### 3. Panel admin se reinicia al cambiar de pestaña
-En `src/routes/__root.tsx` línea 110, `supabase.auth.onAuthStateChange` invalida router + todas las queries en cada evento. Supabase dispara `TOKEN_REFRESHED` al recuperar foco (refresco periódico del token cada ~50 min), lo que fuerza re-ejecutar loaders y refetch masivo → estado local se pierde y el admin salta al inicio.
+Automatizar 100% la reconciliación con Restaurant.pe (cron cada 5 min), agregar Fase 3 (tracking en vivo con motorizado y GPS) y Fase 4 (validación de cobertura contra RP), y elevar la experiencia del cliente en la página de seguimiento.
 
 ---
 
-## Cambios propuestos
+## 1. Cron automático cada 5 min (sin intervención humana)
 
-### Cambio 1 — Cobertura inteligente (frontend)
-Archivo: `src/lib/active-sede.ts`
-
-Reescribir `pickNearestSede` para:
-1. Filtrar sedes elegibles para delivery: `publicado && delivery && !kill_switch && rp_acepta_delivery !== 0` (null = aún no sincronizado, se permite).
-2. Entre esas, buscar la **sede más cercana cuya distancia ≤ radio** (candidata real de delivery).
-3. Si ninguna cubre, devolver la geográficamente más cercana con `enCobertura=false` (para pickup).
-
-Esto respeta la configuración del admin (radio + toggle) y evita que una sede mall bloquee a una sede con delivery.
-
-`recomputeCoverage` no cambia — reutiliza la nueva `pickNearestSede`.
-
-### Cambio 2 — Toggle de delivery del admin autoritativo (backend)
-Archivo: `src/lib/orders.server.ts` (`assertSedeOperativa` + query de sede)
-
-- Incluir `delivery` y `abierta_ahora` en el SELECT.
-- Regla nueva para `tipo === "delivery"`:
-  - Si `sede.delivery === false` → bloquear con mensaje claro: `"«{sede}» no ofrece domicilio."` (control del admin manda).
-  - Si `sede.delivery === true` y `rp_acepta_delivery === 0` → bloquear con: `"«{sede}» tiene domicilio pausado en el POS. Sincroniza sedes o revisa Restaurant.pe."` (mensaje distinguible para operación).
-  - Si `sede.delivery === true` y `rp_acepta_delivery` es null o 1 → dejar pasar.
-- Mantener `kill_switch`, `rp_local_estado`, horarios, bypass staff.
-
-También registrar en `rp_sync_log` (tipo `order_blocked_by_gate`) los rechazos por delivery/horario, para depuración desde `/admin/integraciones`.
-
-Nota: NO se cambia la lógica de sincronización POS; se acepta que `rp_acepta_delivery` puede estar desactualizado y por eso el toggle del admin es el que manda cuando difieren.
-
-### Cambio 3 — Evitar reset del admin al cambiar de pestaña
-Archivo: `src/routes/__root.tsx`
-
-Filtrar el listener de auth para invalidar SOLO en eventos que realmente cambian identidad:
-```
-if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
-  router.invalidate();
-  queryClient.invalidateQueries();
-}
-```
-Ignorar `TOKEN_REFRESHED`, `INITIAL_SESSION`, `PASSWORD_RECOVERY`. Esto elimina el refetch masivo al recuperar foco y el admin conserva su estado.
+- Habilitar extensiones `pg_cron` y `pg_net` vía migración.
+- Programar dos jobs:
+  - `rp-reconcile-5min` → `POST` a `https://kingpapa.co/api/public/hooks/rp-reconcile` (poll + backlog Quipu) cada 5 min.
+  - `rp-orphans-cleanup-hourly` → hook nuevo que dispara `reconcileOrder` para cada huérfano (auto-abandon TTL 45 min).
+- Header `apikey: <SUPABASE_PUBLISHABLE_KEY>` (patrón canónico documentado).
+- Registrar cada corrida en `rp_sync_log` (ya lo hace `checkQuipuBacklog` / `pollActiveOrders`).
+- En `/admin/integraciones`: agregar card "Cron activo" mostrando última corrida (leyendo `rp_sync_log tipo IN ('poll_reconcile','quipu_backlog')`).
 
 ---
 
-## Fuera de alcance (para hablar después si aparece)
-- Cambiar cómo Restaurant.pe reporta `rp_acepta_delivery` (requiere entender su flujo POS/Quipu).
-- Editor visual del radio de cobertura sobre el mapa en `/admin/sedes/*` (hoy es solo input numérico).
-- Guardar preferencia de scroll/tab dentro del admin al navegar entre pestañas del navegador.
+## 2. Fase 3 — Tracking en vivo (motorizado + GPS)
+
+**Backend** (`src/lib/restaurantpe.server.ts`):
+
+- `rpGetTransportistaByDelivery(deliveryId)` → `GET /delivery/getTransportistaByDelivery/{id}` para nombre + celular + placa del motorizado.
+- `rpConsultarUbicacionPedido(deliveryId)` → `GET /delivery/consultarUbicacionPedido/{id}` para `{lat, lng, updated_at}`.
+
+**Server function** (`src/lib/rp-tracking.functions.ts` nueva):
+
+- `getLiveTracking({ orderId })`:
+  - Lee `orders` (verifica que no sea terminal y tenga `rp_pedido_id`).
+  - Llama en paralelo transportista + ubicación.
+  - Persiste snapshot en `rp_response` (`live_motorizado`, `live_ubicacion`, `live_snapshot_at`) — mismo patrón `mergeRpResponse` del poll.
+  - Devuelve `{ motorizado, ubicacion, sedeCoords }` (sede coords ya en `sedes.lat/lng`).
+- Endpoint delgado, sin autenticación (el `orderId` UUID es no adivinable, mismo criterio que `/gracias`).
+
+**UI** (`src/components/kp/TrackerOperativo.tsx`):
+
+- Cuando `status === "en_camino"`:
+  - Mostrar tarjeta con nombre del motorizado + botón "Llamar" (`tel:`) y "WhatsApp" (`wa.me`).
+  - Mostrar mini-mapa (Google Maps embed estático o Leaflet con `<ClientOnly>`) con pin del motorizado y pin de la sede, actualizándose cada 20 s vía `useServerFn(getLiveTracking)`.
+  - ETA calculada con haversine sede↔cliente en el server function (rough) hasta que RP exponga ETA real.
+- Cuando `status === "en_preparacion"` o `"recibido"`: mostrar sólo comanda + tiempo estimado (evitar promesas de motorizado que aún no existen).
+- Fallback si RP falla: skeleton silencioso, sin toast de error (no queremos que el cliente vea "algo salió mal" cuando el tracking secundario tiene un hipo).
+
+---
+
+## 3. Fase 4 — Validación de cobertura contra RP
+
+- Añadir `rpValidarUbicacion({ localId, lat, lng })` → `POST /delivery/validarUbicacion` (o el path exacto detectado en Swagger).
+- Usar como **check secundario** en el gate del checkout (`src/components/kp/LocationGate.tsx` / `pickNearestSede`):
+  - Nuestra lógica interna sigue siendo la primaria (rápida, offline).
+  - Después de elegir sede, disparar `rpValidarUbicacion` en background; si RP responde "fuera de zona" pero nosotros dijimos "en zona", loggear en `rp_sync_log tipo='coverage_mismatch'` (silencioso al usuario) para que admin lo revise.
+  - No bloquea el pedido — sólo alerta discrepancias para tunear polígonos.
+
+---
+
+## 4. Mejoras UX en tracking
+
+- **Barra de progreso con tiempos**: mostrar timestamps reales bajo cada paso ("Recibido 12:34", "En camino 12:41") leídos de `orders.updated_at` + `rp_response.poll_snapshot_at`.
+- **Micro-copy dinámico** según status:
+  - `recibido` → "Estamos alistando tu Reino 👑"
+  - `en_preparacion` → "La cocina está en modo Rey"
+  - `en_camino` → "Tu Reino sale a rodar 🛵" + tarjeta motorizado
+  - `entregado` → CTA "Califica tu Reino" (link a WhatsApp)
+- **Notificación push del navegador** (opt-in): cuando el status cambia a `en_camino`, disparar `new Notification()` si el usuario ya concedió permisos (pedirlos suavemente al mostrar el tracker por primera vez).
+- **Botón "Compartir tracking"**: `navigator.share({ url: window.location.href })` para que el cliente reenvíe el link.
+
+---
+
+## Detalles técnicos
+
+**Archivos nuevos:**
+- `src/lib/rp-tracking.functions.ts` — server functions Fase 3.
+- `src/routes/api/public/hooks/rp-orphans.ts` — hook cron para auto-abandon.
+- Migración: habilitar `pg_cron` + `pg_net` + declarar los dos jobs.
+
+**Archivos modificados:**
+- `src/lib/restaurantpe.server.ts` — 3 helpers nuevos (transportista, ubicación, validarUbicacion).
+- `src/components/kp/TrackerOperativo.tsx` — motorizado, mapa, tiempos, notificaciones, share.
+- `src/components/kp/LocationGate.tsx` (o `pickNearestSede`) — hook Fase 4 en background.
+- `src/routes/admin.integraciones.tsx` — card "Cron activo" + card "Discrepancias cobertura".
+
+**No se toca:**
+- `orders`, `webhooks` existentes, lógica de checkout, RLS, ni el flujo actual de creación de pedido. Todo lo nuevo es aditivo.
+
+**Riesgos mitigados:**
+- Si Swagger no expone realmente `getTransportistaByDelivery` o `consultarUbicacionPedido` en el tenant, el server function devuelve `null` y la UI simplemente no muestra el bloque motorizado — hago un `curl` de verificación con `RESTAURANT_PE_TENANT_TOKEN` **antes** de escribir la Fase 3, y ajusto endpoints si difieren.
+- Cron sólo lee/actualiza status con `STATUS_RANK` (no regresa) — misma guardrail ya vigente.
+
+---
+
+## Orden de ejecución
+
+1. Verificar endpoints Fase 3/4 con `curl` (tenant token).
+2. Backend helpers + `rp-tracking.functions.ts`.
+3. Migración `pg_cron` + jobs.
+4. UI tracker (motorizado, mapa, tiempos, share, notificaciones).
+5. Fase 4 en background + card admin.
+6. Smoke test con Playwright en `/gracias?order_id=...` de un pedido activo.

@@ -19,7 +19,7 @@ import {
   mapDeliveryEstado,
   extractDeliveryEstado,
   extractComandaNumber,
-  extractMotorizado,
+  extractMotorizadoInfo,
 } from "@/lib/restaurantpe-normalize";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -249,14 +249,14 @@ export const pollActiveOrders = createServerFn({ method: "POST" }).handler(
         if (nextRank <= currentRank) {
           // Aun así refrescamos comanda/motorizado si aparecieron.
           const comanda = extractComandaNumber(snap);
-          const motorizado = extractMotorizado(snap);
+          const moto = extractMotorizadoInfo(snap);
           const patch: Record<string, unknown> = {};
           if (comanda && !row.rp_numero_comanda) patch.rp_numero_comanda = comanda;
-          if (Object.keys(patch).length > 0) {
+          if (moto.nombre || Object.keys(patch).length > 0) {
             const merged = mergeRpResponse(row.rp_response, {
               poll_snapshot_at: new Date().toISOString(),
               poll_delivery_estado: numeric,
-              poll_motorizado: motorizado,
+              live_motorizado: moto,
             });
             patch.rp_response = merged as unknown as Json;
             await supabaseAdmin
@@ -268,12 +268,12 @@ export const pollActiveOrders = createServerFn({ method: "POST" }).handler(
         }
 
         const comanda = extractComandaNumber(snap);
-        const motorizado = extractMotorizado(snap);
+        const moto = extractMotorizadoInfo(snap);
         const merged = mergeRpResponse(row.rp_response, {
           poll_snapshot_at: new Date().toISOString(),
           poll_delivery_estado: numeric,
           poll_status: mapped,
-          poll_motorizado: motorizado,
+          live_motorizado: moto,
         });
         const patch: Record<string, unknown> = {
           status: mapped,
