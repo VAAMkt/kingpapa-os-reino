@@ -2,138 +2,116 @@
 @source "../src";
 @import "tw-animate-css";
 
+@custom-variant dark (&:is(.dark *));
+
 /*
- * KINGPAPA OS — Design System v2.0
- * Manual de Identidad v2.0 · Black n Yellow · arquitectura de zonas.
- *
- * Reglas:
- *  - No hay light/dark mode. Hay dos ZONAS: amarilla (fachada) y negra (tablero).
- *  - Cada layout de ruta declara su zona con [data-zona="amarilla" | "negra"].
- *  - Ningún componente contiene un HEX literal: todo pasa por tokens.
+ * KINGPAPA OS — Design System
+ * Neo-brutalist, caleño, callejero. Hard shadows, blocky edges, loud color.
  */
 
-/* ================= 1. MARCA — verificados contra archivos maestros ================= */
-:root {
-  --kp-negro:    #211915;   /* Negro King · color del logotipo, fondo maestro */
-  --kp-tinta:    #0B0A09;   /* Fondo profundo, hover del botón oscuro         */
-  --kp-amarillo: #EFD915;   /* Amarillo King · primario                        */
-  --kp-dorado:   #FBCD17;   /* Dorado Corona · hover / interiorismo            */
-  --kp-banda:    #FFDE58;   /* Amarillo Banda · fondos documentales            */
-  --kp-blanco:   #FFFFFF;
-  --kp-humo:     #A8A296;   /* Texto auxiliar sobre negro                      */
-
-  /* Funcionales · SOLO estados de UI, nunca marca */
-  --kp-ok:    #3E8E3E;
-  --kp-warn:  #D68A00;
-  --kp-error: #D62828;
-  --kp-info:  #3D7EA6;
-
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --radius-xl: 8px;
-  --radius: 4px;
-
-  --font-display: "Cocogoose Condensed", "Cocogoose Pro Condensed", "Big Shoulders Display", "Bebas Neue", "Impact", system-ui, sans-serif;
-  --font-body:    "Montserrat", system-ui, sans-serif;
-}
-
-/* ================= 2. ZONA AMARILLA (fachada · por defecto) ================= */
-:root,
-[data-zona="amarilla"] {
-  --canvas:        var(--kp-amarillo);
-  --placa:         var(--kp-negro);
-  --on-canvas:     var(--kp-negro);
-  --on-canvas-dim: #5C4A17;                /* AA 4.9:1 sobre amarillo */
-  --on-placa:      var(--kp-blanco);
-  --on-placa-dim:  var(--kp-humo);
-  --linea:         rgba(33, 25, 21, 0.24);
-  --accion:        var(--kp-negro);        /* botón invertido: negro sobre amarillo */
-  --on-accion:     var(--kp-amarillo);
-  --accion-hover:  var(--kp-tinta);
-  --foco:          var(--kp-negro);
-  --sombra-brutal: 0 0 0 2px var(--kp-negro), 6px 6px 0 var(--kp-negro);
-  --sombra-brutal-sm: 0 0 0 2px var(--kp-negro), 3px 3px 0 var(--kp-negro);
-  --sombra-brutal-lg: 0 0 0 2px var(--kp-negro), 10px 10px 0 var(--kp-negro);
-  color-scheme: light;
-}
-
-/* ================= 3. ZONA NEGRA (tablero · producto y checkout) ================= */
-[data-zona="negra"] {
-  --canvas:        var(--kp-negro);
-  --placa:         #17130F;
-  --on-canvas:     var(--kp-blanco);
-  --on-canvas-dim: var(--kp-humo);
-  --on-placa:      var(--kp-blanco);
-  --on-placa-dim:  var(--kp-humo);
-  --linea:         rgba(255, 255, 255, 0.12);
-  --accion:        var(--kp-amarillo);
-  --on-accion:     var(--kp-negro);
-  --accion-hover:  var(--kp-dorado);
-  --foco:          var(--kp-amarillo);
-  --sombra-brutal: 0 0 0 2px var(--kp-amarillo), 6px 6px 0 var(--kp-amarillo);
-  --sombra-brutal-sm: 0 0 0 2px var(--kp-amarillo), 3px 3px 0 var(--kp-amarillo);
-  --sombra-brutal-lg: 0 0 0 2px var(--kp-amarillo), 10px 10px 0 var(--kp-amarillo);
-  color-scheme: dark;
-}
-
-/* ================= 4. MAPEO A SHADCN ================= */
 @theme inline {
   --radius-sm: 2px;
   --radius-md: 4px;
   --radius-lg: 6px;
   --radius-xl: 8px;
 
-  --font-display: var(--font-display);
-  --font-body:    var(--font-body);
+  --font-display: "Bebas Neue", "Impact", system-ui, sans-serif;
+  --font-body: "Montserrat", system-ui, sans-serif;
 
-  /* Superficies semánticas — cambian por zona automáticamente */
-  --color-background: var(--canvas);
-  --color-foreground: var(--on-canvas);
-  --color-card:            var(--placa);
-  --color-card-foreground: var(--on-placa);
-  --color-popover:            var(--placa);
-  --color-popover-foreground: var(--on-placa);
-  --color-primary:            var(--accion);
-  --color-primary-foreground: var(--on-accion);
-  --color-secondary:            var(--placa);
-  --color-secondary-foreground: var(--on-placa);
-  --color-muted:            var(--placa);
-  --color-muted-foreground: var(--on-canvas-dim);
-  --color-accent:            var(--kp-dorado);
-  --color-accent-foreground: var(--kp-negro);
-  --color-destructive:            var(--kp-error);
-  --color-destructive-foreground: var(--kp-blanco);
-  --color-border: var(--linea);
-  --color-input:  var(--placa);
-  --color-ring:   var(--foco);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
 
-  /* Tokens KP crudos (para casos donde importe la marca literal, no la zona) */
-  --color-kp-negro:    var(--kp-negro);
-  --color-kp-tinta:    var(--kp-tinta);
-  --color-kp-amarillo: var(--kp-amarillo);
-  --color-kp-dorado:   var(--kp-dorado);
-  --color-kp-banda:    var(--kp-banda);
-  --color-kp-blanco:   var(--kp-blanco);
-  --color-kp-humo:     var(--kp-humo);
-
-  /* Tokens de zona expuestos como utilidades (bg-canvas, text-on-canvas, etc.) */
-  --color-canvas:        var(--canvas);
-  --color-placa:         var(--placa);
-  --color-on-canvas:     var(--on-canvas);
-  --color-on-canvas-dim: var(--on-canvas-dim);
-  --color-on-placa:      var(--on-placa);
-  --color-on-placa-dim:  var(--on-placa-dim);
-  --color-accion:        var(--accion);
-  --color-on-accion:     var(--on-accion);
+  /* KP brand colors */
+  --color-kp-yellow: var(--kp-yellow);
+  --color-kp-orange: var(--kp-orange);
+  --color-kp-red: var(--kp-red);
+  --color-kp-black: var(--kp-black);
+  --color-kp-purple: var(--kp-purple);
+  --color-kp-cheese: var(--kp-cheese);
+  --color-kp-lime: var(--kp-lime);
+  --color-kp-ink: var(--kp-ink);
 }
 
-@custom-variant dark (&:is([data-zona="negra"] *));
+:root {
+  --radius: 4px;
 
-/* ================= 5. BASE ================= */
+  /* KP palette (oklch) */
+  --kp-yellow: oklch(0.88 0.18 95);     /* papa */
+  --kp-orange: oklch(0.75 0.19 55);     /* salsa */
+  --kp-red:    oklch(0.6  0.23 25);     /* fuego */
+  --kp-black:  oklch(0.16 0.02 60);     /* noche */
+  --kp-purple: oklch(0.55 0.28 305);    /* neón */
+  --kp-cheese: oklch(0.97 0.03 95);     /* blanco queso */
+  --kp-lime:   oklch(0.85 0.22 135);    /* lima acento */
+  --kp-ink:    oklch(0.1  0 0);
+
+  /* Semantic mapping for shadcn components */
+  --background: var(--kp-cheese);
+  --foreground: var(--kp-ink);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--kp-ink);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--kp-ink);
+  --primary: var(--kp-yellow);
+  --primary-foreground: var(--kp-ink);
+  --secondary: var(--kp-black);
+  --secondary-foreground: var(--kp-cheese);
+  --muted: oklch(0.95 0.01 90);
+  --muted-foreground: oklch(0.4 0.02 60);
+  --accent: var(--kp-red);
+  --accent-foreground: var(--kp-cheese);
+  --destructive: oklch(0.55 0.24 25);
+  --destructive-foreground: var(--kp-cheese);
+  --border: var(--kp-ink);
+  --input: oklch(0.92 0.01 90);
+  --ring: var(--kp-orange);
+
+  /* Brutal shadow */
+  --shadow-brutal: 6px 6px 0 0 var(--kp-ink);
+  --shadow-brutal-sm: 3px 3px 0 0 var(--kp-ink);
+  --shadow-brutal-lg: 10px 10px 0 0 var(--kp-ink);
+}
+
+.dark {
+  --background: var(--kp-ink);
+  --foreground: var(--kp-cheese);
+  --card: oklch(0.2 0.02 60);
+  --card-foreground: var(--kp-cheese);
+  --popover: oklch(0.2 0.02 60);
+  --popover-foreground: var(--kp-cheese);
+  --primary: var(--kp-yellow);
+  --primary-foreground: var(--kp-ink);
+  --secondary: oklch(0.3 0.02 60);
+  --secondary-foreground: var(--kp-cheese);
+  --muted: oklch(0.25 0.02 60);
+  --muted-foreground: oklch(0.7 0.02 60);
+  --accent: var(--kp-red);
+  --accent-foreground: var(--kp-cheese);
+  --border: var(--kp-cheese);
+  --input: oklch(0.25 0.02 60);
+  --ring: var(--kp-yellow);
+}
+
 @layer base {
   * {
-    border-color: var(--linea);
+    border-color: var(--color-border);
   }
 
   html {
@@ -141,8 +119,8 @@
   }
 
   body {
-    background-color: var(--canvas);
-    color: var(--on-canvas);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
     font-family: var(--font-body);
     font-weight: 500;
     -webkit-font-smoothing: antialiased;
@@ -153,69 +131,24 @@
     letter-spacing: 0.01em;
     line-height: 0.95;
   }
-
-  /* Foco visible en las dos zonas */
-  :focus-visible {
-    outline: 3px solid var(--foco);
-    outline-offset: 2px;
-  }
-
-  /* Selección legible en ambas zonas */
-  ::selection {
-    background: var(--on-canvas);
-    color: var(--canvas);
-  }
-
-  /* Autofill de Chrome: nunca pinta amarillo sucio sobre amarillo */
-  input:-webkit-autofill,
-  textarea:-webkit-autofill,
-  select:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0 100px var(--placa) inset;
-    -webkit-text-fill-color: var(--on-placa);
-    caret-color: var(--on-placa);
-  }
 }
 
-/* ================= 6. UTILIDADES DE MARCA ================= */
 @utility shadow-brutal {
-  box-shadow: var(--sombra-brutal);
+  box-shadow: var(--shadow-brutal);
 }
 @utility shadow-brutal-sm {
-  box-shadow: var(--sombra-brutal-sm);
+  box-shadow: var(--shadow-brutal-sm);
 }
 @utility shadow-brutal-lg {
-  box-shadow: var(--sombra-brutal-lg);
+  box-shadow: var(--shadow-brutal-lg);
 }
 
-/* Utilidad de precios — obligatoria en menú, tarjeta, carrito y checkout */
-@utility kp-price {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-}
-
-/* ================= 7. ALIAS TEMPORALES (para PR 1) =================
- * Objetivo: mantener el sitio visualmente idéntico mientras PR 2 elimina
- * los usos de kp-cheese/red/purple/lime componente a componente.
- * Todos apuntan a tokens vivos — nada queda en fucsia todavía porque
- * el sitio arranca globalmente en data-zona="negra".
- */
-@theme inline {
-  --color-kp-yellow: var(--kp-amarillo);   /* alias del nombre v1 */
-  --color-kp-ink:    var(--kp-negro);      /* alias del nombre v1 */
-  --color-kp-black:  var(--kp-negro);
-  --color-kp-orange: var(--kp-dorado);
-  --color-kp-cheese: var(--placa);         /* PR 2: eliminar */
-  --color-kp-red:    var(--kp-error);      /* PR 2: eliminar */
-  --color-kp-purple: var(--kp-dorado);     /* PR 2: eliminar */
-  --color-kp-lime:   var(--kp-amarillo);   /* PR 2: eliminar */
-}
-
-/* ================= 8. KP Prose (blog embebido) ================= */
+/* KP Prose — estilo para el HTML embebido del blog */
 .kp-prose {
   font-family: var(--font-body);
   font-size: 1.05rem;
   line-height: 1.7;
-  color: var(--on-canvas);
+  color: var(--kp-ink);
 }
 .kp-prose > * + * { margin-top: 1.1em; }
 .kp-prose h1, .kp-prose h2, .kp-prose h3, .kp-prose h4 {
@@ -224,28 +157,21 @@
   line-height: 1;
   letter-spacing: 0.01em;
   margin-top: 1.6em;
-  color: var(--on-canvas);
 }
 .kp-prose h2 { font-size: 2rem; }
 .kp-prose h3 { font-size: 1.5rem; }
 .kp-prose h4 { font-size: 1.2rem; }
 .kp-prose p { margin: 0; }
-.kp-prose a {
-  color: var(--on-canvas);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  text-decoration-thickness: 2px;
-}
-.kp-prose a:hover { background: var(--kp-amarillo); color: var(--kp-negro); }
+.kp-prose a { color: var(--kp-ink); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+.kp-prose a:hover { background: var(--kp-yellow); }
 .kp-prose strong { font-weight: 800; }
 .kp-prose ul, .kp-prose ol { padding-left: 1.4em; }
 .kp-prose ul { list-style: square; }
 .kp-prose ol { list-style: decimal; }
 .kp-prose li + li { margin-top: 0.4em; }
 .kp-prose blockquote {
-  border-left: 4px solid var(--on-canvas);
-  background: var(--placa);
-  color: var(--on-placa);
+  border-left: 4px solid var(--kp-ink);
+  background: var(--kp-cheese);
   padding: 0.75em 1em;
   font-family: var(--font-display);
   font-size: 1.4rem;
@@ -257,13 +183,12 @@
 .kp-prose img {
   width: 100%;
   height: auto;
-  border: 2px solid var(--on-canvas);
-  box-shadow: var(--sombra-brutal-sm);
+  border: 2px solid var(--kp-ink);
+  box-shadow: var(--shadow-brutal-sm);
   display: block;
-  background: var(--placa);
 }
-.kp-prose hr { border: 0; border-top: 2px solid var(--on-canvas); margin: 2em 0; }
-.kp-prose iframe { width: 100%; aspect-ratio: 16/9; border: 2px solid var(--on-canvas); }
+.kp-prose hr { border: 0; border-top: 2px solid var(--kp-ink); margin: 2em 0; }
+.kp-prose iframe { width: 100%; aspect-ratio: 16/9; border: 2px solid var(--kp-ink); }
 .kp-prose .wp-block-columns { display: grid; gap: 1rem; grid-template-columns: 1fr; }
 @media (min-width: 768px) {
   .kp-prose .wp-block-columns { grid-template-columns: repeat(2, 1fr); }
@@ -271,38 +196,16 @@
 .kp-prose .wp-block-button__link,
 .kp-prose .wp-block-button a {
   display: inline-block;
-  background: var(--kp-negro);
-  color: var(--kp-amarillo) !important;
+  background: var(--kp-ink);
+  color: var(--kp-yellow) !important;
   padding: 0.6em 1.2em;
   font-family: var(--font-display);
   text-transform: uppercase;
-  border: 2px solid var(--kp-negro);
-  box-shadow: var(--sombra-brutal-sm);
+  border: 2px solid var(--kp-ink);
+  box-shadow: var(--shadow-brutal-sm);
   text-decoration: none;
 }
 
 .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
-/* ================= 9. Impresión — comandas y facturas en B/N ================= */
-@media print {
-  :root, [data-zona="amarilla"], [data-zona="negra"] {
-    --canvas: #FFFFFF; --placa: #FFFFFF;
-    --on-canvas: #000000; --on-canvas-dim: #000000;
-    --on-placa: #000000; --linea: #000000;
-    --accion: #000000; --on-accion: #FFFFFF;
-    --foco: #000000;
-    --sombra-brutal: none; --sombra-brutal-sm: none; --sombra-brutal-lg: none;
-  }
-  body { background: #FFFFFF !important; color: #000000 !important; }
-}
-
-/* ================= 10. Reduce motion ================= */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}
