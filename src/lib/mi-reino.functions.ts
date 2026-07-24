@@ -98,7 +98,9 @@ export const listMyFavorites = createServerFn({ method: "GET" })
       .map((f) => {
         const o = (f as unknown as { orders: MyOrderRow | null }).orders;
         if (!o) return null;
-        return { ...o, is_favorite: true, alias: (f as { alias: string | null }).alias };
+        const alias = (f as { alias: string | null }).alias;
+        const row: MyOrderRow = { ...o, is_favorite: true, alias };
+        return row;
       })
       .filter((x): x is MyOrderRow => x !== null);
   });

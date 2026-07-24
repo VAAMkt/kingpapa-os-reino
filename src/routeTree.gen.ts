@@ -33,10 +33,12 @@ import { Route as MiReinoFavoritosRouteImport } from './routes/mi-reino.favorito
 import { Route as MiReinoDatosRouteImport } from './routes/mi-reino.datos'
 import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
+import { Route as AdminSubditosRouteImport } from './routes/admin.subditos'
 import { Route as AdminSincronizacionRouteImport } from './routes/admin.sincronizacion'
 import { Route as AdminSedesRouteImport } from './routes/admin.sedes'
 import { Route as AdminPedidosRouteImport } from './routes/admin.pedidos'
 import { Route as AdminMenuRouteImport } from './routes/admin.menu'
+import { Route as AdminLoyaltyRouteImport } from './routes/admin.loyalty'
 import { Route as AdminIntegracionesRouteImport } from './routes/admin.integraciones'
 import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
 import { Route as AdminSedesIndexRouteImport } from './routes/admin.sedes.index'
@@ -168,6 +170,11 @@ const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSubditosRoute = AdminSubditosRouteImport.update({
+  id: '/subditos',
+  path: '/subditos',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSincronizacionRoute = AdminSincronizacionRouteImport.update({
   id: '/sincronizacion',
   path: '/sincronizacion',
@@ -186,6 +193,11 @@ const AdminPedidosRoute = AdminPedidosRouteImport.update({
 const AdminMenuRoute = AdminMenuRouteImport.update({
   id: '/menu',
   path: '/menu',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLoyaltyRoute = AdminLoyaltyRouteImport.update({
+  id: '/loyalty',
+  path: '/loyalty',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminIntegracionesRoute = AdminIntegracionesRouteImport.update({
@@ -259,10 +271,12 @@ export interface FileRoutesByFullPath {
   '/tracking': typeof TrackingRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/integraciones': typeof AdminIntegracionesRoute
+  '/admin/loyalty': typeof AdminLoyaltyRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sedes': typeof AdminSedesRouteWithChildren
   '/admin/sincronizacion': typeof AdminSincronizacionRoute
+  '/admin/subditos': typeof AdminSubditosRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -296,9 +310,11 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tracking': typeof TrackingRoute
   '/admin/integraciones': typeof AdminIntegracionesRoute
+  '/admin/loyalty': typeof AdminLoyaltyRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sincronizacion': typeof AdminSincronizacionRoute
+  '/admin/subditos': typeof AdminSubditosRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -336,10 +352,12 @@ export interface FileRoutesById {
   '/tracking': typeof TrackingRoute
   '/admin/contenidos': typeof AdminContenidosRouteWithChildren
   '/admin/integraciones': typeof AdminIntegracionesRoute
+  '/admin/loyalty': typeof AdminLoyaltyRoute
   '/admin/menu': typeof AdminMenuRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/sedes': typeof AdminSedesRouteWithChildren
   '/admin/sincronizacion': typeof AdminSincronizacionRoute
+  '/admin/subditos': typeof AdminSubditosRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
   '/historias/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
@@ -378,10 +396,12 @@ export interface FileRouteTypes {
     | '/tracking'
     | '/admin/contenidos'
     | '/admin/integraciones'
+    | '/admin/loyalty'
     | '/admin/menu'
     | '/admin/pedidos'
     | '/admin/sedes'
     | '/admin/sincronizacion'
+    | '/admin/subditos'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -415,9 +435,11 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/tracking'
     | '/admin/integraciones'
+    | '/admin/loyalty'
     | '/admin/menu'
     | '/admin/pedidos'
     | '/admin/sincronizacion'
+    | '/admin/subditos'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -454,10 +476,12 @@ export interface FileRouteTypes {
     | '/tracking'
     | '/admin/contenidos'
     | '/admin/integraciones'
+    | '/admin/loyalty'
     | '/admin/menu'
     | '/admin/pedidos'
     | '/admin/sedes'
     | '/admin/sincronizacion'
+    | '/admin/subditos'
     | '/admin/usuarios'
     | '/historias/$slug'
     | '/mi-reino/datos'
@@ -667,6 +691,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsuariosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/subditos': {
+      id: '/admin/subditos'
+      path: '/subditos'
+      fullPath: '/admin/subditos'
+      preLoaderRoute: typeof AdminSubditosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/sincronizacion': {
       id: '/admin/sincronizacion'
       path: '/sincronizacion'
@@ -693,6 +724,13 @@ declare module '@tanstack/react-router' {
       path: '/menu'
       fullPath: '/admin/menu'
       preLoaderRoute: typeof AdminMenuRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/loyalty': {
+      id: '/admin/loyalty'
+      path: '/loyalty'
+      fullPath: '/admin/loyalty'
+      preLoaderRoute: typeof AdminLoyaltyRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/integraciones': {
@@ -803,10 +841,12 @@ const AdminSedesRouteWithChildren = AdminSedesRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminContenidosRoute: typeof AdminContenidosRouteWithChildren
   AdminIntegracionesRoute: typeof AdminIntegracionesRoute
+  AdminLoyaltyRoute: typeof AdminLoyaltyRoute
   AdminMenuRoute: typeof AdminMenuRoute
   AdminPedidosRoute: typeof AdminPedidosRoute
   AdminSedesRoute: typeof AdminSedesRouteWithChildren
   AdminSincronizacionRoute: typeof AdminSincronizacionRoute
+  AdminSubditosRoute: typeof AdminSubditosRoute
   AdminUsuariosRoute: typeof AdminUsuariosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -814,10 +854,12 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminContenidosRoute: AdminContenidosRouteWithChildren,
   AdminIntegracionesRoute: AdminIntegracionesRoute,
+  AdminLoyaltyRoute: AdminLoyaltyRoute,
   AdminMenuRoute: AdminMenuRoute,
   AdminPedidosRoute: AdminPedidosRoute,
   AdminSedesRoute: AdminSedesRouteWithChildren,
   AdminSincronizacionRoute: AdminSincronizacionRoute,
+  AdminSubditosRoute: AdminSubditosRoute,
   AdminUsuariosRoute: AdminUsuariosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
