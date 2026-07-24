@@ -8,6 +8,10 @@ import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { toast } from "sonner";
 import { getIntegrationsStatus } from "@/lib/integrations.functions";
 import { listOrphanOrders } from "@/lib/orders.reconcile.functions";
+import {
+  checkQuipuBacklog,
+  pollActiveOrders,
+} from "@/lib/rp-reconcile.functions";
 
 export const Route = createFileRoute("/admin/integraciones")({
   head: () => ({ meta: [{ title: "Integraciones — Admin" }] }),
@@ -35,6 +39,8 @@ const TIPOS = [
   "webhook_ambiguous",
   "webhook_ignored_external",
   "webhook_regression_ignored",
+  "poll_reconcile",
+  "quipu_backlog",
   "reconcile",
   "order",
   "order_test_mode",
@@ -60,6 +66,8 @@ function relativeAgo(iso: string | null): string {
 function AdminIntegracionesPage() {
   const fetchStatus = useServerFn(getIntegrationsStatus);
   const fetchOrphans = useServerFn(listOrphanOrders);
+  const fetchQuipuBacklog = useServerFn(checkQuipuBacklog);
+  const runPoll = useServerFn(pollActiveOrders);
 
   const statusQuery = useQuery({
     queryKey: ["integraciones", "status"],
@@ -72,6 +80,35 @@ function AdminIntegracionesPage() {
     queryFn: () => fetchOrphans({}),
     refetchInterval: 30_000,
   });
+
+  const backlogQuery = useQuery({
+    queryKey: ["integraciones", "quipu_backlog"],
+    queryFn: () => fetchQuipuBacklog({} as never),
+    refetchInterval: 60_000,
+  });
+
+  const [isReconciling, setIsReconciling] = useState(false);
+  async function handleReconcileNow() {
+    if (isReconciling) return;
+    setIsReconciling(true);
+    try {
+      const [pollRes, backlogRes] = await Promise.all([
+        runPoll({} as never),
+        fetchQuipuBacklog({} as never),
+      ]);
+      backlogQuery.refetch();
+      orphansQuery.refetch();
+      const stuck = backlogRes.matchedOurs.length;
+      toast.success(
+        `Reconciliado: ${pollRes.updated} actualizado(s), ${pollRes.errors} error(es). Backlog Quipu: ${stuck} pedido(s) KingPapa atascados.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error reconciliando");
+    } finally {
+      setIsReconciling(false);
+    }
+  }
+
 
 
 
@@ -234,6 +271,67 @@ function AdminIntegracionesPage() {
           </ul>
         )}
       </BrutalCard>
+
+      {/* Bloque 1c — Backlog Quipu (Fase 1: anti-atasco pre-POS) */}
+      <BrutalCard
+        tone={(backlogQuery.data?.matchedOurs.length ?? 0) > 0 ? "red" : "cheese"}
+        className="p-4"
+      >
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-display uppercase text-sm">Backlog Quipu</span>
+            <BrutalBadge
+              tone={(backlogQuery.data?.matchedOurs.length ?? 0) > 0 ? "red" : "lime"}
+            >
+              {backlogQuery.data?.matchedOurs.length ?? 0} KP
+            </BrutalBadge>
+            <span className="text-[11px] text-kp-ink/60">
+              (total RP: {backlogQuery.data?.bySede.reduce((a, b) => a + b.total_stuck, 0) ?? 0})
+            </span>
+          </div>
+          <BrutalButton
+            variant="ghost"
+            onClick={handleReconcileNow}
+            disabled={isReconciling}
+          >
+            {isReconciling ? "Reconciliando…" : "Reconciliar ahora"}
+          </BrutalButton>
+        </div>
+        <p className="text-xs text-kp-ink/70 mb-2">
+          Pedidos que llegaron a Restaurant.pe pero <strong>no</strong> al POS Quipu del local.
+          "KP" = pedidos nuestros afectados. Si &gt;0, hay que revisar el Quipu del PC de la sede.
+        </p>
+        {(backlogQuery.data?.matchedOurs.length ?? 0) === 0 ? (
+          <p className="text-xs text-kp-ink/60">
+            Sin pedidos KingPapa atascados antes de Quipu.
+          </p>
+        ) : (
+          <ul className="divide-y-2 divide-kp-ink/10 text-xs font-mono">
+            {backlogQuery.data!.matchedOurs.slice(0, 10).map((s) => (
+              <li key={s.delivery_id} className="py-2 flex items-center gap-2 flex-wrap">
+                <span className="truncate flex-1 min-w-0">
+                  {s.sede_slug} · #{s.delivery_id} · {s.matched_order_id?.slice(0, 8)} · {s.ageMinutes}m · match={s.matched_by}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {(backlogQuery.data?.bySede.length ?? 0) > 0 && (
+          <details className="mt-3 text-[11px] font-mono text-kp-ink/60">
+            <summary className="cursor-pointer">Detalle por sede</summary>
+            <ul className="mt-1 space-y-0.5">
+              {backlogQuery.data!.bySede.map((b) => (
+                <li key={b.sede_id}>
+                  {b.sede_slug} (local {b.local_id}): {b.total_stuck} stuck
+                  {b.error ? ` · error: ${b.error}` : ""}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </BrutalCard>
+
+
 
 
       {/* Bloque 2 — Buscar */}
