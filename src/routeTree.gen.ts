@@ -46,6 +46,7 @@ import { Route as AdminSedesNuevoRouteImport } from './routes/admin.sedes.nuevo'
 import { Route as AdminSedesIdRouteImport } from './routes/admin.sedes.$id'
 import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
 import { Route as AdminContenidosIdRouteImport } from './routes/admin.contenidos.$id'
+import { Route as ApiPublicHooksRpReconcileRouteImport } from './routes/api/public/hooks/rp-reconcile'
 
 const TrackingRoute = TrackingRouteImport.update({
   id: '/tracking',
@@ -232,6 +233,12 @@ const AdminContenidosIdRoute = AdminContenidosIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AdminContenidosRoute,
 } as any)
+const ApiPublicHooksRpReconcileRoute =
+  ApiPublicHooksRpReconcileRouteImport.update({
+    id: '/api/public/hooks/rp-reconcile',
+    path: '/api/public/hooks/rp-reconcile',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -271,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/api/public/rp-webhook': typeof ApiPublicRpWebhookRoute
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
   '/admin/sedes/': typeof AdminSedesIndexRoute
+  '/api/public/hooks/rp-reconcile': typeof ApiPublicHooksRpReconcileRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -306,6 +314,7 @@ export interface FileRoutesByTo {
   '/api/public/rp-webhook': typeof ApiPublicRpWebhookRoute
   '/admin/contenidos': typeof AdminContenidosIndexRoute
   '/admin/sedes': typeof AdminSedesIndexRoute
+  '/api/public/hooks/rp-reconcile': typeof ApiPublicHooksRpReconcileRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -346,6 +355,7 @@ export interface FileRoutesById {
   '/api/public/rp-webhook': typeof ApiPublicRpWebhookRoute
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
   '/admin/sedes/': typeof AdminSedesIndexRoute
+  '/api/public/hooks/rp-reconcile': typeof ApiPublicHooksRpReconcileRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/api/public/rp-webhook'
     | '/admin/contenidos/'
     | '/admin/sedes/'
+    | '/api/public/hooks/rp-reconcile'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/api/public/rp-webhook'
     | '/admin/contenidos'
     | '/admin/sedes'
+    | '/api/public/hooks/rp-reconcile'
   id:
     | '__root__'
     | '/'
@@ -461,6 +473,7 @@ export interface FileRouteTypes {
     | '/api/public/rp-webhook'
     | '/admin/contenidos/'
     | '/admin/sedes/'
+    | '/api/public/hooks/rp-reconcile'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -481,6 +494,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TrackingRoute: typeof TrackingRoute
   ApiPublicRpWebhookRoute: typeof ApiPublicRpWebhookRoute
+  ApiPublicHooksRpReconcileRoute: typeof ApiPublicHooksRpReconcileRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -744,6 +758,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminContenidosIdRouteImport
       parentRoute: typeof AdminContenidosRoute
     }
+    '/api/public/hooks/rp-reconcile': {
+      id: '/api/public/hooks/rp-reconcile'
+      path: '/api/public/hooks/rp-reconcile'
+      fullPath: '/api/public/hooks/rp-reconcile'
+      preLoaderRoute: typeof ApiPublicHooksRpReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -852,6 +873,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TrackingRoute: TrackingRoute,
   ApiPublicRpWebhookRoute: ApiPublicRpWebhookRoute,
+  ApiPublicHooksRpReconcileRoute: ApiPublicHooksRpReconcileRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
