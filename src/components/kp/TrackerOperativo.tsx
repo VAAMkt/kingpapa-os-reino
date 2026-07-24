@@ -365,7 +365,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
             <div className="mt-3 grid grid-cols-2 gap-2">
               <BrutalButton
                 type="button"
-                variant="yellow"
+                variant="primary"
                 size="sm"
                 onClick={() => {
                   if (typeof window !== "undefined") window.location.href = `tel:${celular}`;
@@ -375,7 +375,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
               </BrutalButton>
               <BrutalButton
                 type="button"
-                variant="yellow"
+                variant="primary"
                 size="sm"
                 onClick={() => {
                   if (typeof window !== "undefined") {
@@ -391,13 +391,13 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       ) : null}
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <BrutalButton type="button" variant="yellow" size="sm" onClick={share}>
+        <BrutalButton type="button" variant="primary" size="sm" onClick={share}>
           🔗 Compartir tracking
         </BrutalButton>
         {!notifyOn && typeof window !== "undefined" && "Notification" in window ? (
           <BrutalButton
             type="button"
-            variant="yellow"
+            variant="primary"
             size="sm"
             onClick={requestNotifications}
           >
