@@ -66,6 +66,8 @@ function relativeAgo(iso: string | null): string {
 function AdminIntegracionesPage() {
   const fetchStatus = useServerFn(getIntegrationsStatus);
   const fetchOrphans = useServerFn(listOrphanOrders);
+  const fetchQuipuBacklog = useServerFn(checkQuipuBacklog);
+  const runPoll = useServerFn(pollActiveOrders);
 
   const statusQuery = useQuery({
     queryKey: ["integraciones", "status"],
@@ -78,6 +80,35 @@ function AdminIntegracionesPage() {
     queryFn: () => fetchOrphans({}),
     refetchInterval: 30_000,
   });
+
+  const backlogQuery = useQuery({
+    queryKey: ["integraciones", "quipu_backlog"],
+    queryFn: () => fetchQuipuBacklog({} as never),
+    refetchInterval: 60_000,
+  });
+
+  const [isReconciling, setIsReconciling] = useState(false);
+  async function handleReconcileNow() {
+    if (isReconciling) return;
+    setIsReconciling(true);
+    try {
+      const [pollRes, backlogRes] = await Promise.all([
+        runPoll({} as never),
+        fetchQuipuBacklog({} as never),
+      ]);
+      backlogQuery.refetch();
+      orphansQuery.refetch();
+      const stuck = backlogRes.matchedOurs.length;
+      toast.success(
+        `Reconciliado: ${pollRes.updated} actualizado(s), ${pollRes.errors} error(es). Backlog Quipu: ${stuck} pedido(s) KingPapa atascados.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error reconciliando");
+    } finally {
+      setIsReconciling(false);
+    }
+  }
+
 
 
 
