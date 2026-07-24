@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
+import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { supabase } from "@/integrations/supabase/client";
 import { reconcileOrder } from "@/lib/orders.reconcile.functions";
+import { getOrderTracking, type OrderTrackingSnapshot } from "@/lib/rp-tracking.functions";
 
 type OrderStatus =
   | "enviado"
@@ -26,22 +28,26 @@ type OrderRow = {
 
 const TERMINAL = new Set<OrderStatus>(["entregado", "cancelado", "error"]);
 const STALE_SECONDS = 90;
-// Backoff: 60s, 120s, 180s, 300s, 300s… techo a 5 min.
 const BACKOFFS_MS = [60_000, 120_000, 180_000, 300_000, 300_000, 300_000, 300_000];
-// Auto-kill TTL: 45 min desde created_at. El server-side reconcileOrder
-// cierra la orden como 'cancelado' (timeout_sistema) en su próxima llamada.
 const ORDER_TTL_MS = 45 * 60_000;
+const TRACKING_POLL_MS = 30_000;
 
-
-// Pasos alineados a los estados que RP emite por webhook hoy:
-// recibido → en_camino → entregado. `en_preparacion` queda soportado en
-// backend pero no se promete como paso visible (RP no lo envía).
 const PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
   { label: "Recibimos tu pedido", emoji: "📋", status: ["enviado", "recibido"] },
   { label: "Cocina confirmó", emoji: "🧀", status: ["en_preparacion"] },
   { label: "Motorizado en camino", emoji: "🛵", status: ["en_camino"] },
   { label: "¡A disfrutarlo!", emoji: "👑", status: ["entregado"] },
 ];
+
+const MICROCOPY: Record<OrderStatus, { title: string; sub: string }> = {
+  enviado: { title: "Tu Reino entró al sistema", sub: "En segundos la cocina lo verá 👑" },
+  recibido: { title: "Estamos alistando tu Reino", sub: "La cocina ya lo tiene entre manos." },
+  en_preparacion: { title: "La cocina está en modo Rey 🧀", sub: "Papas doradas + toppings al grill." },
+  en_camino: { title: "Tu Reino sale a rodar 🛵", sub: "El motorizado ya va hacia ti." },
+  entregado: { title: "¡A disfrutar como Rey! 👑", sub: "Gracias por comer con la banda." },
+  cancelado: { title: "Pedido cancelado", sub: "Mira el motivo abajo." },
+  error: { title: "Hubo un problema", sub: "Escríbenos por WhatsApp." },
+};
 
 function stepIndex(status: OrderStatus): number {
   for (let i = PASOS.length - 1; i >= 0; i--) {
@@ -50,14 +56,54 @@ function stepIndex(status: OrderStatus): number {
   return 0;
 }
 
+function formatTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+}
+
+function onlyDigits(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const d = s.replace(/\D/g, "");
+  return d.length >= 7 ? d : null;
+}
+
 export function TrackerOperativo({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tracking, setTracking] = useState<OrderTrackingSnapshot | null>(null);
+  const [notifyOn, setNotifyOn] = useState(false);
 
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const orderRef = useRef<OrderRow | null>(null);
   const reconcile = useServerFn(reconcileOrder);
-  
+  const fetchTracking = useServerFn(getOrderTracking);
+
+  // Fetch enriched tracking (motorizado, timestamps) periódicamente.
+  useEffect(() => {
+    if (!orderId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    async function tick() {
+      try {
+        const snap = await fetchTracking({ data: { orderId } });
+        if (!cancelled) setTracking(snap);
+      } catch {
+        // silencioso: el tracker principal sigue funcionando
+      }
+      if (cancelled) return;
+      const cur = orderRef.current;
+      if (cur && TERMINAL.has(cur.status)) return;
+      timer = setTimeout(tick, TRACKING_POLL_MS);
+    }
+    tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [orderId, fetchTracking]);
 
   useEffect(() => {
     if (!orderId) {
@@ -66,12 +112,26 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     }
     let cancelled = false;
 
-
     function applyRow(next: OrderRow | null) {
       if (cancelled) return;
       orderRef.current = next;
       setOrder(next);
       setLoading(false);
+      if (next && prevStatusRef.current && next.status !== prevStatusRef.current) {
+        // Notificación push cuando cambia el estado y el usuario dio permiso.
+        if (
+          typeof window !== "undefined" &&
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+          const copy = MICROCOPY[next.status];
+          try {
+            new Notification("KINGPAPA 👑", { body: copy?.title ?? next.status });
+          } catch {
+            /* noop */
+          }
+        }
+      }
       if (
         next &&
         next.status === "cancelado" &&
@@ -92,11 +152,8 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       applyRow((data as OrderRow | null) ?? null);
     }
 
-
     fetchOrder();
 
-    // Webhook + Realtime es el camino feliz. Reconciliación pull es la red
-    // de seguridad cuando RP no dispara el webhook.
     const channel = supabase
       .channel(`order-${orderId}`)
       .on(
@@ -106,10 +163,8 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       )
       .subscribe();
 
-    // Reconcile al montar (cubre gap entre checkout y primer webhook).
     reconcile({ data: { orderId } }).catch(() => {});
 
-    // Lazy reconciliation con backoff cuando no llegan eventos.
     let timer: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
     function scheduleNext() {
@@ -120,11 +175,8 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         return;
       }
       if (TERMINAL.has(cur.status)) return;
-      // Auto-kill TTL: si pasaron >45 min desde created_at, dejamos de pollear.
-      // El server-side reconcileOrder ya cerró/cerrará la orden como cancelado.
       const ageFromCreated = Date.now() - new Date(cur.created_at).getTime();
       if (ageFromCreated > ORDER_TTL_MS) {
-        // Disparamos un último reconcile para gatillar el auto-abandono server-side.
         reconcile({ data: { orderId } }).catch(() => {});
         return;
       }
@@ -148,11 +200,69 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     };
   }, [orderId, reconcile]);
 
+  // Estado inicial de notificaciones
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    setNotifyOn(Notification.permission === "granted");
+  }, []);
+
+  async function requestNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    try {
+      const res = await Notification.requestPermission();
+      setNotifyOn(res === "granted");
+      if (res === "granted") toast.success("Te avisaremos cuando cambie tu pedido.");
+    } catch {
+      /* noop */
+    }
+  }
+
+  async function share() {
+    if (typeof navigator === "undefined") return;
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const shareData = {
+      title: "Mi pedido KINGPAPA",
+      text: "Sigue mi Reino en vivo 👑",
+      url,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        /* usuario canceló */
+      }
+    }
+    if (navigator.clipboard && url) {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copiado ✅");
+      } catch {
+        /* noop */
+      }
+    }
+  }
+
   const status: OrderStatus = order?.status ?? "enviado";
   const isError = status === "cancelado" || status === "error";
   const step = isError ? 0 : stepIndex(status);
   const progreso = Math.min((step / PASOS.length) * 100, 100);
   const idLargo = order?.rp_pedido_id ?? null;
+  const motorizado = tracking?.motorizado ?? null;
+
+  // Timestamps por paso (usando lo que tengamos: created_at, updated_at, motorizado).
+  const stepTimes: (string | null)[] = [
+    formatTime(order?.created_at),
+    // en_preparacion — no siempre lo tenemos: usa updated_at si estamos ahí o después
+    step >= 2 ? formatTime(motorizado?.en_tienda_at ?? order?.updated_at ?? null) : null,
+    step >= 3 ? formatTime(motorizado?.en_curso_at ?? order?.updated_at ?? null) : null,
+    step >= 4 ? formatTime(motorizado?.entregado_at ?? order?.updated_at ?? null) : null,
+  ];
+
+  const copy = MICROCOPY[status] ?? MICROCOPY.enviado;
+
+  const celular = onlyDigits(motorizado?.celular);
+  const showMotorizadoCard = status === "en_camino" && !!(motorizado?.nombre || celular);
 
   return (
     <BrutalCard tone="black" className="p-5 md:p-7">
@@ -169,11 +279,18 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         )}
       </div>
 
+      {!isError ? (
+        <div className="mb-4">
+          <p className="font-display uppercase text-kp-yellow text-lg md:text-xl leading-tight">
+            {copy.title}
+          </p>
+          <p className="text-xs text-kp-cheese/80 mt-1">{copy.sub}</p>
+        </div>
+      ) : null}
+
       {isError ? (
         <div className="border-2 border-kp-red bg-kp-red/10 p-4 mb-3">
-          <p className="font-display uppercase text-kp-red text-sm">
-            {status === "cancelado" ? "Pedido cancelado" : "Hubo un problema con tu pedido"}
-          </p>
+          <p className="font-display uppercase text-kp-red text-sm">{copy.title}</p>
           {status === "cancelado" ? (
             order?.cancel_reason ? (
               <p className="text-xs text-kp-cheese/90 mt-1">
@@ -181,7 +298,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
               </p>
             ) : (
               <p className="text-xs text-kp-cheese/90 mt-1">
-                Tu pedido fue cancelado desde el local. Contáctanos por WhatsApp para más detalles.
+                Tu pedido fue cancelado desde el local. Contáctanos por WhatsApp.
               </p>
             )
           ) : null}
@@ -202,6 +319,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         {PASOS.map((p, idx) => {
           const done = idx < step;
           const active = idx === step - 1;
+          const time = stepTimes[idx];
           return (
             <li
               key={p.label}
@@ -215,10 +333,78 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
               <span className="block font-display uppercase text-xs leading-tight">
                 {p.label}
               </span>
+              {time ? (
+                <span className="block mt-1 text-[10px] font-display opacity-70">
+                  {time}
+                </span>
+              ) : null}
             </li>
           );
         })}
       </ol>
+
+      {showMotorizadoCard ? (
+        <div className="mt-5 border-2 border-kp-yellow bg-kp-yellow/10 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-display uppercase text-kp-yellow text-xs">
+                Tu motorizado
+              </p>
+              <p className="font-display uppercase text-kp-cheese text-lg leading-tight">
+                {motorizado?.nombre ?? "En ruta"}
+              </p>
+              {motorizado?.transportista ? (
+                <p className="text-[11px] text-kp-cheese/70">
+                  vía {motorizado.transportista}
+                </p>
+              ) : null}
+            </div>
+            <span className="text-4xl">🛵</span>
+          </div>
+          {celular ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <BrutalButton
+                type="button"
+                variant="yellow"
+                size="sm"
+                onClick={() => {
+                  if (typeof window !== "undefined") window.location.href = `tel:${celular}`;
+                }}
+              >
+                📞 Llamar
+              </BrutalButton>
+              <BrutalButton
+                type="button"
+                variant="yellow"
+                size="sm"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.open(`https://wa.me/${celular}`, "_blank", "noopener");
+                  }
+                }}
+              >
+                💬 WhatsApp
+              </BrutalButton>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <BrutalButton type="button" variant="yellow" size="sm" onClick={share}>
+          🔗 Compartir tracking
+        </BrutalButton>
+        {!notifyOn && typeof window !== "undefined" && "Notification" in window ? (
+          <BrutalButton
+            type="button"
+            variant="yellow"
+            size="sm"
+            onClick={requestNotifications}
+          >
+            🔔 Avisarme cuando cambie
+          </BrutalButton>
+        ) : null}
+      </div>
 
       <p className="text-xs text-kp-cheese/70 mt-4">
         Se actualiza automáticamente. Si pasan 30 minutos sin novedad, escríbenos por WhatsApp.
