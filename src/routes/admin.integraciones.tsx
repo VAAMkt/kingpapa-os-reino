@@ -39,6 +39,8 @@ const TIPOS = [
   "webhook_ambiguous",
   "webhook_ignored_external",
   "webhook_regression_ignored",
+  "poll_reconcile",
+  "quipu_backlog",
   "reconcile",
   "order",
   "order_test_mode",
