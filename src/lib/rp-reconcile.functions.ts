@@ -77,9 +77,11 @@ export const checkQuipuBacklog = createServerFn({ method: "POST" }).handler(
       .select("id, slug, rp_local_id")
       .not("rp_local_id", "is", null)
       .eq("publicado", true);
+    type SedeLite = { id: string; slug: string; rp_local_id: number | null };
 
     const bySede: QuipuBacklogResult["bySede"] = [];
-    const allStuck: Array<{ sede: (typeof sedes)[number]; row: RpSinQuipuRow }> = [];
+    const allStuck: Array<{ sede: SedeLite; row: RpSinQuipuRow }> = [];
+
 
     for (const s of sedes ?? []) {
       const localId = Number(s.rp_local_id);
