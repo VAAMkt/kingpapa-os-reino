@@ -138,12 +138,19 @@ export const checkQuipuBacklog = createServerFn({ method: "POST" }).handler(
         : Promise.resolve({ data: [] as never[] }),
     ]);
 
-    const byDeliveryMap = new Map<string, (typeof byDelivery)[number]>();
-    for (const o of byDelivery ?? []) {
+    type OrderLite = {
+      id: string;
+      rp_pedido_id: string | null;
+      status: string;
+      created_at: string;
+    };
+    const byDeliveryMap = new Map<string, OrderLite>();
+    for (const o of (byDelivery ?? []) as OrderLite[]) {
       if (o.rp_pedido_id) byDeliveryMap.set(String(o.rp_pedido_id), o);
     }
-    const byIntegrationMap = new Map<string, (typeof byIntegration)[number]>();
-    for (const o of byIntegration ?? []) byIntegrationMap.set(o.id, o);
+    const byIntegrationMap = new Map<string, OrderLite>();
+    for (const o of (byIntegration ?? []) as OrderLite[]) byIntegrationMap.set(o.id, o);
+
 
     const now = Date.now();
     const matched: QuipuStuckRow[] = [];
