@@ -10,6 +10,7 @@ import { ProductCard } from "@/components/kp/ProductCard";
 import { LoyaltyModule } from "@/components/kp/LoyaltyModule";
 import { EventCard, LocationCard } from "@/components/kp/Cards";
 import { Testimonios } from "@/components/kp/Testimonios";
+import { FaqKing } from "@/components/kp/FaqKing";
 import { listPublicSedes } from "@/lib/sedes";
 import { listPublicPosts } from "@/lib/posts";
 import { getMenuForSede } from "@/lib/rp.functions";
@@ -20,9 +21,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "KINGPAPA — El Reino" },
-      { name: "description", content: "Los REYES de esta pendeja’. Pide, corónate y conviértete en súbdito del Reino KINGPAPA." },
+      { name: "description", content: "Los REYES de esta pendeja’. Salchipapas monstruosas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones." },
       { property: "og:title", content: "KINGPAPA — El Reino" },
-      { property: "og:description", content: "Salchipapas monstruosas, bowls coronados y retos para verdaderos súbditos." },
+      { property: "og:description", content: "Salchipapas monstruosas, bowls coronados y retos pa’ toda la banda. Cero dieta, cero drama." },
       { property: "og:url", content: "/" },
     ],
     links: [{ rel: "canonical", href: "/" }],
@@ -72,15 +73,15 @@ function HomePage() {
               Los REYES<br />de esta<br />pendeja’
             </h1>
             <p className="mt-5 text-base md:text-lg max-w-md border-l-4 border-kp-ink pl-3">
-              Salchipapas monstruosas, bowls coronados y retos que solo un verdadero
-              súbdito del Reino se atreve a probar.
+              Salchipapas monstruosas, bowls coronados y retos pa’ toda la banda.
+              Pedí directo desde la web: sin comisiones, sin apps de por medio, cero drama.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <BrutalLink href="#pedir" variant="dark" size="lg">
-                Pedir AHORA
+                ¡Hablalooo, quiero pedir!
               </BrutalLink>
               <BrutalLink href="#loyalty" variant="ghost" size="lg">
-                Hacerme súbdito del Reino
+                Meterme a la banda
               </BrutalLink>
             </div>
           </div>
@@ -110,9 +111,9 @@ function HomePage() {
       {/* PRODUCTOS ESTRELLA */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
         <SectionHeading
-          eyebrow="Coronados del Reino"
+          eyebrow="Los coronados"
           title="Los más bravos del menú"
-          description="Lo que pides cuando vas en serio. Sin filtros, sin remordimientos."
+          description="Lo que pedís cuando vas en serio. Brutal, sin filtros, sin remordimientos."
         />
         {estrellas.length === 0 ? (
           <p className="text-sm text-kp-ink/70 border-2 border-dashed border-kp-ink p-4">
@@ -143,7 +144,7 @@ function HomePage() {
         <SectionHeading
           eyebrow="Cultura del Reino"
           title="Retos, festivales y locuras"
-          description="Lo que pasa en el Reino, queda coronado."
+          description="Lo que pasa en el Reino, queda coronado. Pillate lo último de la banda."
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {retos.map((h) => (
@@ -162,6 +163,7 @@ function HomePage() {
         <SectionHeading
           eyebrow="Tu Reino más cercano"
           title="Encuentra tu castillo"
+          description="Cae con el parche, recogé o pedí a domicilio. La banda te espera."
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {sedesResumen.map((s) => (
@@ -181,6 +183,11 @@ function HomePage() {
       {/* TESTIMONIOS */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-12">
         <Testimonios />
+      </section>
+
+      {/* FAQ */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6 py-12">
+        <FaqKing />
       </section>
     </>
   );

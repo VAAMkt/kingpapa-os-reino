@@ -34,19 +34,19 @@ const TRACKING_POLL_MS = 30_000;
 
 const PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
   { label: "Recibimos tu pedido", emoji: "📋", status: ["enviado", "recibido"] },
-  { label: "Cocina confirmó", emoji: "🧀", status: ["en_preparacion"] },
+  { label: "Cocinando pa’ vos", emoji: "🧀", status: ["en_preparacion"] },
   { label: "Motorizado en camino", emoji: "🛵", status: ["en_camino"] },
-  { label: "¡A disfrutarlo!", emoji: "👑", status: ["entregado"] },
+  { label: "¡A disfrutarlo, mi rey!", emoji: "👑", status: ["entregado"] },
 ];
 
 const MICROCOPY: Record<OrderStatus, { title: string; sub: string }> = {
-  enviado: { title: "Tu Reino entró al sistema", sub: "En segundos la cocina lo verá 👑" },
-  recibido: { title: "Estamos alistando tu Reino", sub: "La cocina ya lo tiene entre manos." },
-  en_preparacion: { title: "La cocina está en modo Rey 🧀", sub: "Papas doradas + toppings al grill." },
-  en_camino: { title: "Tu Reino sale a rodar 🛵", sub: "El motorizado ya va hacia ti." },
-  entregado: { title: "¡A disfrutar como Rey! 👑", sub: "Gracias por comer con la banda." },
-  cancelado: { title: "Pedido cancelado", sub: "Mira el motivo abajo." },
-  error: { title: "Hubo un problema", sub: "Escríbenos por WhatsApp." },
+  enviado: { title: "Tu pedido entró al Reino 👑", sub: "Tranqui parcero, en segundos la cocina lo pilla." },
+  recibido: { title: "La cocina lo tiene entre manos", sub: "Ya está en la vuelta, cero drama." },
+  en_preparacion: { title: "Cocinando pa’ vos 🧀", sub: "Papas doradas + toppings al grill. Brutal." },
+  en_camino: { title: "El motorizado va rodando 🛵", sub: "Ya sale del Reino, va derechito pa’ vos." },
+  entregado: { title: "¡A disfrutarlo, mi rey! 👑", sub: "Gracias por comer con la banda 🔥" },
+  cancelado: { title: "Se cayó el pedido", sub: "Mirá el motivo abajo, te ayudamos por WhatsApp." },
+  error: { title: "Se nos enredó la vuelta", sub: "Escribinos por WhatsApp y lo resolvemos ya." },
 };
 
 function stepIndex(status: OrderStatus): number {
@@ -274,7 +274,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
           <BrutalBadge tone="yellow">Pedido #{idLargo}</BrutalBadge>
         ) : (
           <span className="text-xs font-display uppercase text-kp-cheese/70">
-            {loading ? "conectando…" : "registrando…"}
+            {loading ? "conectando…" : "en la vuelta…"}
           </span>
         )}
       </div>
@@ -298,12 +298,12 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
               </p>
             ) : (
               <p className="text-xs text-kp-cheese/90 mt-1">
-                Tu pedido fue cancelado desde el local. Contáctanos por WhatsApp.
+                Tu pedido se canceló desde el local. Escribinos por WhatsApp y lo resolvemos.
               </p>
             )
           ) : null}
           <p className="text-xs text-kp-cheese/80 mt-1">
-            Escríbenos por WhatsApp para resolverlo de inmediato.
+            Escribinos por WhatsApp y te ayudamos de una 🙏
           </p>
         </div>
       ) : (
@@ -407,7 +407,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       </div>
 
       <p className="text-xs text-kp-cheese/70 mt-4">
-        Se actualiza automáticamente. Si pasan 30 minutos sin novedad, escríbenos por WhatsApp.
+        Se actualiza solo. Si pasan 30 min sin novedad, tíranos un WhatsApp y le metemos mano.
       </p>
     </BrutalCard>
   );

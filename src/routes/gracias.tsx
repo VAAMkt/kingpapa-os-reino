@@ -160,7 +160,7 @@ function GraciasPage() {
           👑 Tu corona se está forjando
         </h1>
         <p className="mt-3 text-sm opacity-80">
-          Tu número de pedido (úsalo con el motorizado o por WhatsApp):
+          Guardá este número — es tu boleta con el motorizado o por WhatsApp:
         </p>
         <div className="mt-3 border-2 border-kp-ink bg-kp-cheese px-4 py-3 inline-block">
           <span className="font-display text-3xl md:text-4xl tracking-widest">
@@ -174,7 +174,7 @@ function GraciasPage() {
       {showSlowWarning ? (
         <BrutalCard tone="cheese" className="p-4">
           <p className="text-sm">
-            Estamos confirmando tu pedido con la cocina. Si tarda más de 10 min, escríbenos por WhatsApp y te ayudamos al instante.
+            Tranqui parcero, ya la banda está confirmando tu pedido con la cocina. Si pasa de 10 min, tíranos un WhatsApp y te ayudamos al toque 🙏
           </p>
         </BrutalCard>
       ) : null}
@@ -207,7 +207,7 @@ function GraciasPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <BrutalLink href={waUrl} external variant="fire" size="lg" block>
-          💬 Escribir a la sede por WhatsApp
+          💬 ¡Hablalooo! Escribir a la sede
         </BrutalLink>
         <Link to="/menu">
           <BrutalButton variant="ghost" size="lg" block>Volver al menú</BrutalButton>

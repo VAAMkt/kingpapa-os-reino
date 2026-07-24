@@ -144,8 +144,8 @@ function CheckoutPage() {
     return (
       <section className="mx-auto max-w-3xl px-4 md:px-6 py-12">
         <BrutalCard tone="yellow" className="p-6 text-center">
-          <h1 className="font-display text-4xl uppercase">Tu carrito está vacío</h1>
-          <p className="mt-2 text-sm">Agrega algo antes de coronar el pago.</p>
+          <h1 className="font-display text-4xl uppercase">Tu carrito está más pelado que un lunes</h1>
+          <p className="mt-2 text-sm">Metele algo al carrito, parce. Sin producto no hay corona.</p>
           <div className="mt-5">
             <Link to="/menu">
               <BrutalButton variant="fire" size="lg">Ir al menú</BrutalButton>
@@ -274,10 +274,10 @@ function CheckoutPage() {
   }
 
   const ctaLabel = enviando
-    ? "Coronando…"
+    ? "Coronando tu pedido…"
     : esRecoger
       ? `Confirmar recogida · ${cop(total)}`
-      : `Pedir a Domicilio · ${cop(total)}`;
+      : `¡Hablalooo! Pedir a domicilio · ${cop(total)}`;
 
   const direccionResumen = esRecoger
     ? sede?.label ?? "Sede"
@@ -287,7 +287,7 @@ function CheckoutPage() {
     <section className="mx-auto max-w-6xl px-4 md:px-6 py-6 md:py-10 space-y-4 pb-28 lg:pb-10">
       <BrutalBadge tone="black">Checkout</BrutalBadge>
       <h1 className="font-display text-3xl md:text-5xl uppercase leading-none">
-        Confirma tu corona
+        Confirmá tu corona
       </h1>
 
       {/* Pill discreto de tipo de entrega */}
@@ -306,9 +306,9 @@ function CheckoutPage() {
       {/* Aviso amigable si está fuera de cobertura y quedó en pickup */}
       {esRecoger && sede && !sede.enCobertura && sede.lat != null && (
         <div className="border-2 border-kp-ink bg-kp-yellow/60 px-3 py-2 text-xs">
-          Estás un poco lejos para nuestro domicilio
+          Pillate, hoy no llegamos hasta tu zona con domicilio propio
           {sede.distanciaKm ? ` (${sede.distanciaKm.toFixed(1)} km de ${sede.label.replace(/^Recoger en\s+/i, "")})` : ""}.
-          Tu pedido quedó configurado para recoger en tienda. Puedes cambiarlo si prefieres intentar domicilio.
+          Te dejamos el pedido en modo <strong>recoger en sede</strong>. Si preferís, buscanos en Rappi o DiDi — con los parceros seguro llegamos 💪🏻🏰
         </div>
       )}
 
@@ -436,7 +436,7 @@ function CheckoutPage() {
               {ctaLabel}
             </BrutalButton>
             <p className="text-xs text-center opacity-60 font-display uppercase tracking-wide mt-2">
-              Pedido directo al Reino · Sin comisiones de apps · Precio web
+              Pedido directo al Reino · Cero comisiones · Cero apps intermediarias
             </p>
           </div>
         </form>
@@ -460,7 +460,7 @@ function CheckoutPage() {
           {ctaLabel}
         </BrutalButton>
         <p className="text-xs text-center opacity-60 font-display uppercase tracking-wide mt-2">
-          Pedido directo al Reino · Sin comisiones de apps · Precio web
+          Pedido directo al Reino · Cero comisiones · Cero apps intermediarias
         </p>
       </div>
     </section>
