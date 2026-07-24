@@ -19,14 +19,14 @@ import { CartPill } from "@/components/kp/CartPill";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-kp-yellow px-4">
+    <div className="flex min-h-screen items-center justify-center bg-canvas text-on-canvas px-4">
       <div className="max-w-md text-center">
-        <h1 className="font-display text-8xl text-kp-ink">404</h1>
+        <h1 className="font-display text-8xl">404</h1>
         <h2 className="font-display text-3xl uppercase mt-2">El Reino no encontró esa página</h2>
         <p className="mt-2 text-sm">Quizás te equivocaste de cuadra, papi.</p>
         <Link
           to="/"
-          className="inline-block mt-5 px-6 py-3 bg-kp-ink text-kp-yellow font-display uppercase border-2 border-kp-ink shadow-brutal-sm"
+          className="inline-block mt-5 px-6 py-3 bg-accion text-on-accion font-display uppercase border-2 border-on-canvas shadow-brutal-sm"
         >
           Volver al Reino
         </Link>
@@ -39,13 +39,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-kp-yellow px-4">
+    <div className="flex min-h-screen items-center justify-center bg-canvas text-on-canvas px-4">
       <div className="max-w-md text-center">
         <h1 className="font-display text-3xl uppercase">Se nos quemó la papa</h1>
         <p className="mt-2 text-sm">{error.message}</p>
         <button
           onClick={() => { router.invalidate(); reset(); }}
-          className="inline-block mt-5 px-6 py-3 bg-kp-ink text-kp-yellow font-display uppercase border-2 border-kp-ink shadow-brutal-sm"
+          className="inline-block mt-5 px-6 py-3 bg-accion text-on-accion font-display uppercase border-2 border-on-canvas shadow-brutal-sm"
         >
           Reintentar
         </button>
@@ -71,6 +71,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/iBBZRJcqehepneIwBEhmDj2h9IA2/social-images/social-1779084040439-KINGPAPA_-_LOS_REYES_DE_ESTA_PENDEJA.webp" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/iBBZRJcqehepneIwBEhmDj2h9IA2/social-images/social-1779084040439-KINGPAPA_-_LOS_REYES_DE_ESTA_PENDEJA.webp" },
+      { name: "theme-color", content: "#211915" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -78,7 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700;800&display=swap",
+        // PARCHE: Cocogoose Condensed está pendiente de licencia comercial (ver Manual v2 §06 · alerta legal).
+        // Big Shoulders Display 800 es el fallback más cercano en el eje geométrico condensado.
+        // Al comprar la licencia Zetafonts, autohospedar WOFF2 y retirar este link.
+        href: "https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@300;800&family=Montserrat:wght@300;400;500;600;700;800&display=swap",
       },
     ],
   }),
@@ -90,7 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" data-zona="negra">
       <head>
         <HeadContent />
       </head>
