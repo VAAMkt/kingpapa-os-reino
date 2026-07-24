@@ -78,7 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700;800&display=swap",
+        // PARCHE: Cocogoose Condensed está pendiente de licencia comercial (ver Manual v2 §06 · alerta legal).
+        // Big Shoulders Display 800 es el fallback más cercano en el eje geométrico condensado.
+        // Al comprar la licencia Zetafonts, autohospedar WOFF2 y retirar este link.
+        href: "https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@300;800&family=Montserrat:wght@300;400;500;600;700;800&display=swap",
       },
     ],
   }),
