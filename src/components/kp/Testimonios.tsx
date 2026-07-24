@@ -1,10 +1,10 @@
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 
 const testimonios = [
-  { name: "Andrea P.", city: "Cali", text: "Me tatué la corona y me dieron papas de por vida. 10/10." },
-  { name: "Camilo R.", city: "Bogotá", text: "El KINGCHARRÓN es una vuelta. Brutal nivel de queso." },
-  { name: "Vale M.", city: "Medellín", text: "Llegué al after rumba y salí coronada. Recomendadísimo." },
-  { name: "Sebas L.", city: "Jamundí", text: "Pedimos la gigante pa' 6, sobró pa' 2 más. Locura." },
+  { name: "Andrea P.", city: "Cali", text: "Me tatué la corona y me dieron papas de por vida. Brutal, 10/10." },
+  { name: "Camilo R.", city: "Bogotá", text: "El KINGCHARRÓN es una vuelta. Brutal nivel de queso, mi so." },
+  { name: "Vale M.", city: "Medellín", text: "Llegué al after rumba y salí coronada. Cero drama, pura chimba." },
+  { name: "Sebas L.", city: "Jamundí", text: "Pedimos la gigante pa’ toda la banda, sobró hasta pa’ el pana. Locura." },
 ];
 
 export function Testimonios() {
@@ -12,9 +12,9 @@ export function Testimonios() {
     <div>
       <div className="flex items-end justify-between mb-5">
         <div>
-          <BrutalBadge tone="lime">El Reino habla por sí solo</BrutalBadge>
+          <BrutalBadge tone="lime">La banda habla por sí sola</BrutalBadge>
           <h2 className="font-display text-4xl md:text-5xl uppercase mt-2">
-            Voces del Reino
+            La banda habla
           </h2>
         </div>
       </div>
@@ -35,7 +35,7 @@ export function Testimonios() {
           rel="noopener noreferrer"
           className="font-display uppercase text-sm underline underline-offset-4 decoration-4 decoration-kp-yellow"
         >
-          Ver el Reino en Instagram →
+          Ver a la banda en Instagram →
         </a>
         <a
           href="https://tiktok.com"
@@ -43,7 +43,7 @@ export function Testimonios() {
           rel="noopener noreferrer"
           className="font-display uppercase text-sm underline underline-offset-4 decoration-4 decoration-kp-purple"
         >
-          Ver el Reino en TikTok →
+          Ver a la banda en TikTok →
         </a>
       </div>
     </div>

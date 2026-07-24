@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalBadge, BrutalChip, BrutalInput, SectionHeading } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { LocationCard } from "@/components/kp/Cards";
+import { FaqKing } from "@/components/kp/FaqKing";
 import { listPublicSedes } from "@/lib/sedes";
 
 export const Route = createFileRoute("/sedes")({
@@ -68,10 +69,10 @@ function SedesPage() {
         <div className="mx-auto max-w-7xl px-4 md:px-6 py-10 md:py-14">
           <BrutalBadge tone="yellow">Sedes</BrutalBadge>
           <h1 className="font-display text-5xl md:text-7xl uppercase mt-3 leading-none">
-            Encuentra tu Reino más cercano
+            Encontrá tu Reino más cercano
           </h1>
           <p className="mt-3 max-w-2xl">
-            {totalSedes} sedes activas en {totalCiudades} {totalCiudades === 1 ? "ciudad" : "ciudades"}. Pide directo, recoge o cae con el parche.
+            {totalSedes} sedes activas en {totalCiudades} {totalCiudades === 1 ? "ciudad" : "ciudades"}. Pedí directo, recogé o cae con el parche — la banda te espera. 👑
           </p>
         </div>
       </section>
@@ -128,7 +129,7 @@ function SedesPage() {
           <p className="text-center py-10 font-display uppercase text-xl">Cargando sedes…</p>
         ) : lista.length === 0 ? (
           <p className="text-center py-10 font-display uppercase text-2xl">
-            No hay sedes que matchen. Cambia el filtro, papi.
+            Uy parce, ninguna sede matchea. Cambiá el filtro y probá de nuevo 🙏
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -141,12 +142,12 @@ function SedesPage() {
 
       {/* CÓMO PEDIR */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
-        <SectionHeading eyebrow="¿Nuevo en el Reino?" title="Cómo pedir en KINGPAPA" />
+        <SectionHeading eyebrow="¿Nuevo en la banda?" title="Cómo pedir en KINGPAPA" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { t: "Delivery", d: "Por nuestra web o por Rappi y DiDi. La corona llega a tu puerta." },
-            { t: "Pick-up", d: "Pide, paga y recoges en sede sin filas. Express y sin esperar mesa." },
-            { t: "QR en mesa", d: "En sedes con QR escaneás, pedís y pagás desde el celular." },
+            { t: "Delivery", d: "Pedí directo por la web y evitá comisiones. Si no llegamos a tu zona, buscanos en Rappi o DiDi." },
+            { t: "Pick-up", d: "Pedí, pagá y arrimate en unos 45 min. Si sale antes te tiramos un call 👑" },
+            { t: "QR en mesa", d: "En sedes con QR escaneás, pedís y pagás desde el celular. Cero fila, cero espera." },
           ].map((c) => (
             <BrutalCard key={c.t} tone="cheese" className="p-5">
               <h3 className="font-display text-2xl uppercase">{c.t}</h3>
@@ -154,6 +155,11 @@ function SedesPage() {
             </BrutalCard>
           ))}
         </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
+        <FaqKing />
       </section>
 
       {/* CTA FRANQUICIAS */}

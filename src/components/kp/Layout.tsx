@@ -119,7 +119,7 @@ export function Footer() {
             </div>
             <p className="text-sm text-kp-cheese/80 max-w-sm">
               Los REYES de esta pendeja’. Salchipapas monstruosas, bowls coronados y retos
-              que solo un verdadero súbdito del Reino se atreve a probar.
+              pa’ toda la banda. Cero dieta, cero drama. 👑🔥
             </p>
           </div>
           <div>
@@ -132,13 +132,28 @@ export function Footer() {
             </ul>
           </div>
           <div>
-            <h4 className="font-display text-kp-yellow text-lg mb-3">Comunidad</h4>
+            <h4 className="font-display text-kp-yellow text-lg mb-3">Trabaja con la banda</h4>
             <ul className="space-y-1 text-sm">
-              <li><a href="https://wa.me/573000000000" target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
+              <li>
+                <a href="https://wa.me/573172455336" target="_blank" rel="noopener noreferrer">
+                  WhatsApp · 317 245 5336
+                </a>
+              </li>
+              <li>
+                <a href="https://wa.me/573150272030" target="_blank" rel="noopener noreferrer">
+                  Hojas de vida · 315 027 2030
+                </a>
+              </li>
+              <li>
+                <a href="https://wa.me/573164317572" target="_blank" rel="noopener noreferrer">
+                  Proveedores · 316 431 7572
+                </a>
+              </li>
+              <li>
+                <a href="mailto:contabilidadmvk@gmail.com">Factura electrónica</a>
+              </li>
               <li><a href="https://instagram.com" target="_blank" rel="noopener noreferrer">Instagram</a></li>
               <li><a href="https://tiktok.com" target="_blank" rel="noopener noreferrer">TikTok</a></li>
-              <li><a href="#">PQR</a></li>
-              <li><a href="#">Trabaja con nosotros</a></li>
             </ul>
           </div>
         </div>

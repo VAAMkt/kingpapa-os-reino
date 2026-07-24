@@ -22,9 +22,9 @@ export const Route = createFileRoute("/menu")({
   head: () => ({
     meta: [
       { title: "Menú del Reino — KINGPAPA" },
-      { name: "description", content: "Escoge tu corona según tu hambre, tu parche y tu antojo." },
+      { name: "description", content: "Escogé tu corona: personal pa’ uno, X2 pa’ dos, Legendaria pa’ tres o Kingpapa pa’ toda la banda (hasta 7). Sin diplomacia." },
       { property: "og:title", content: "Menú del Reino — KINGPAPA" },
-      { property: "og:description", content: "Salchipapas, bowls, combos imán y retos brutales." },
+      { property: "og:description", content: "Salchipapas monstruosas, bowls coronados, combos solo web y retos brutales pa’ toda la banda." },
       { property: "og:url", content: "/menu" },
     ],
     links: [{ rel: "canonical", href: "/menu" }],
@@ -193,11 +193,14 @@ function MenuPage() {
             El Menú del Reino
           </h1>
           <p className="mt-3 max-w-2xl">
-            Escoge tu corona según tu hambre, tu parche y tu antojo. Sin diplomacia.
+            Escogé tu corona: <strong>personal</strong> pa’ uno con buen diente, <strong>X2</strong> pa’ dos, <strong>Legendaria</strong> pa’ tres, o <strong>Kingpapa</strong> pa’ toda la banda (hasta 7). Sin diplomacia. 👑🍟
+          </p>
+          <p className="mt-2 text-sm text-kp-cheese/80 max-w-2xl">
+            ¿Vegetariano? Siza — pedila sin proteína animal y metele queso, maíz, cebolla crispy o aguacate. 🥑
           </p>
           <div className="mt-5">
             <BrutalLink href="#pedir" variant="primary" size="lg">
-              Pedir ahora
+              ¡Hablalooo, quiero pedir!
             </BrutalLink>
           </div>
         </div>
@@ -340,7 +343,7 @@ function MenuPage() {
             </h2>
             <p className="mt-3 text-sm">
               Salchipapa mediana + bebida + brownie por menos de lo que cuesta un domicilio.
-              Sólo si pides desde la web, parce. No se lo cuentes a Rappi.
+              Sólo si pedís desde la web, parcero. No se lo cuentes a Rappi 🤫
             </p>
             <p className="font-display text-5xl mt-3">$19.900</p>
           </div>
