@@ -272,6 +272,67 @@ function AdminIntegracionesPage() {
         )}
       </BrutalCard>
 
+      {/* Bloque 1c — Backlog Quipu (Fase 1: anti-atasco pre-POS) */}
+      <BrutalCard
+        tone={(backlogQuery.data?.matchedOurs.length ?? 0) > 0 ? "red" : "cheese"}
+        className="p-4"
+      >
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-display uppercase text-sm">Backlog Quipu</span>
+            <BrutalBadge
+              tone={(backlogQuery.data?.matchedOurs.length ?? 0) > 0 ? "red" : "lime"}
+            >
+              {backlogQuery.data?.matchedOurs.length ?? 0} KP
+            </BrutalBadge>
+            <span className="text-[11px] text-kp-ink/60">
+              (total RP: {backlogQuery.data?.bySede.reduce((a, b) => a + b.total_stuck, 0) ?? 0})
+            </span>
+          </div>
+          <BrutalButton
+            variant="ghost"
+            onClick={handleReconcileNow}
+            disabled={isReconciling}
+          >
+            {isReconciling ? "Reconciliando…" : "Reconciliar ahora"}
+          </BrutalButton>
+        </div>
+        <p className="text-xs text-kp-ink/70 mb-2">
+          Pedidos que llegaron a Restaurant.pe pero <strong>no</strong> al POS Quipu del local.
+          "KP" = pedidos nuestros afectados. Si &gt;0, hay que revisar el Quipu del PC de la sede.
+        </p>
+        {(backlogQuery.data?.matchedOurs.length ?? 0) === 0 ? (
+          <p className="text-xs text-kp-ink/60">
+            Sin pedidos KingPapa atascados antes de Quipu.
+          </p>
+        ) : (
+          <ul className="divide-y-2 divide-kp-ink/10 text-xs font-mono">
+            {backlogQuery.data!.matchedOurs.slice(0, 10).map((s) => (
+              <li key={s.delivery_id} className="py-2 flex items-center gap-2 flex-wrap">
+                <span className="truncate flex-1 min-w-0">
+                  {s.sede_slug} · #{s.delivery_id} · {s.matched_order_id?.slice(0, 8)} · {s.ageMinutes}m · match={s.matched_by}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {(backlogQuery.data?.bySede.length ?? 0) > 0 && (
+          <details className="mt-3 text-[11px] font-mono text-kp-ink/60">
+            <summary className="cursor-pointer">Detalle por sede</summary>
+            <ul className="mt-1 space-y-0.5">
+              {backlogQuery.data!.bySede.map((b) => (
+                <li key={b.sede_id}>
+                  {b.sede_slug} (local {b.local_id}): {b.total_stuck} stuck
+                  {b.error ? ` · error: ${b.error}` : ""}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </BrutalCard>
+
+
+
 
       {/* Bloque 2 — Buscar */}
       <BrutalCard tone="cheese" className="p-4">
