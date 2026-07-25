@@ -65,6 +65,7 @@ export function CartDrawer() {
                       <img
                         src={i.imagen}
                         alt=""
+                        loading="lazy"
                         className="w-14 h-14 object-cover border-2 border-kp-ink"
                       />
                     )}

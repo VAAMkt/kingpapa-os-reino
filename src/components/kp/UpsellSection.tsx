@@ -139,6 +139,7 @@ export function UpsellSection({
               <img
                 src={p.imagen}
                 alt=""
+                loading="lazy"
                 className="w-14 h-14 object-cover border-2 border-kp-ink shrink-0"
               />
             ) : (
