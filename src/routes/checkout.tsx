@@ -224,6 +224,10 @@ function CheckoutPage() {
           opcionId: m.opcionId,
         })),
       })),
+      destino:
+        tipo === "delivery" && sede?.lat != null && sede?.lng != null
+          ? { lat: Number(sede.lat), lng: Number(sede.lng) }
+          : null,
     };
   }
 
