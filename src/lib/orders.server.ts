@@ -357,7 +357,8 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   subtotal: number;
   total: number;
 }> {
-  const { sede, detalle, subtotal, total } = await resolveOrder(input);
+  const { sede, detalle, subtotal, total, deliveryFee, deliveryDistanceKm, deliveryQuote } =
+    await resolveOrder(input);
 
   // 1) Insertar registro local PRIMERO para tener UUID que sirva como
   //    delivery_codigointegracion (antiduplica en el POS, Swagger V2).
@@ -382,7 +383,9 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       subtotal,
       total,
       notas: input.notas ?? null,
-    })
+      delivery_fee: deliveryFee,
+      delivery_distance_km: deliveryDistanceKm,
+    } as never)
     .select("id")
     .single();
   if (insErr) throw new Error(`No se pudo guardar el pedido: ${insErr.message}`);
