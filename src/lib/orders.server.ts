@@ -11,6 +11,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import { rpGetCatalogo, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
 import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
+import { quoteDeliveryInternal } from "@/lib/delivery-quote.server";
 
 export type CheckoutInputItem = {
   productoId: string; // productos_master.id (uuid)
