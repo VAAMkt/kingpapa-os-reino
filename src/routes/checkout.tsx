@@ -244,6 +244,14 @@ function CheckoutPage() {
       toast.error("Selecciona una sede antes de continuar");
       return;
     }
+    if (tipo === "delivery" && !quoteReady) {
+      toast.error(
+        outOfCoverage
+          ? "Esta dirección está fuera de cobertura. Prueba recoger en sede."
+          : "Estamos calculando el domicilio…",
+      );
+      return;
+    }
     setEnviando(true);
     track("order_submitted", {
       items_count: count,
