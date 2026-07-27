@@ -404,6 +404,17 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   // En producción debe configurarse: RP_EMIT_SOCKET=true
   // Rollback sin cambio de código: RP_EMIT_SOCKET=false (puede requerir reinicio del runtime).
   const emitSocket = process.env.RP_EMIT_SOCKET === "true";
+  // Prefijo con costo de domicilio para que el POS lo vea en observación.
+  // Nota: Swagger V2 no expone un campo oficial de "costo de envío" en
+  // `registrarDelivery`; para no inventar nombres, lo enviamos como texto en
+  // observación. Supabase queda como fuente de verdad del total cobrado.
+  const domicilioTag =
+    input.tipo === "delivery" && deliveryFee > 0
+      ? `[Domicilio $${deliveryFee.toLocaleString("es-CO")}${
+          deliveryDistanceKm ? `, ~${deliveryDistanceKm.toFixed(1)} km` : ""
+        }] `
+      : "";
+  const observacionFinal = `${domicilioTag}${input.notas ?? ""}`.trim();
   const payload = {
     delivery: {
       local_id: sede.rp_local_id,
@@ -415,14 +426,15 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
       delivery_direccionenvio: input.cliente.direccion ?? "",
       delivery_referencia: input.cliente.detalles ?? "",
-      delivery_observacion: input.notas ?? "",
-      delivery_notageneral: input.notas ?? "",
+      delivery_observacion: observacionFinal,
+      delivery_notageneral: observacionFinal,
       delivery_comprobante: 1,
       delivery_codigointegracion: localId,
       ...(sedeLatLng.lat != null ? { delivery_latitud: String(sedeLatLng.lat) } : {}),
       ...(sedeLatLng.lng != null ? { delivery_longitud: String(sedeLatLng.lng) } : {}),
       emitSocket,
     },
+    delivery_quote: deliveryQuote,
     cliente: {
       cliente_nombres: input.cliente.nombre,
       cliente_apellidos: "",
