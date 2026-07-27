@@ -10,6 +10,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabase } from "@/integrations/supabase/client";
 import {
   rpGetDominioInfo,
   rpGetCatalogo,
@@ -272,7 +273,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
     z.object({ sedeSlug: z.string().min(1).max(80) }).parse(input),
   )
   .handler(async ({ data }) => {
-    const { data: sede, error: sedeErr } = await supabaseAdmin
+    const { data: sede, error: sedeErr } = await supabase
       .from("sedes")
       .select("id, slug, nombre, ciudad, rp_local_id")
       .eq("slug", data.sedeSlug)
@@ -282,7 +283,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
     if (!sede) return { sede: null, categorias: [], productos: [] };
 
     // Overrides disponibles para esta sede + producto maestro activo.
-    const { data: ovr, error: ovrErr } = await supabaseAdmin
+    const { data: ovr, error: ovrErr } = await supabase
       .from("sede_producto_overrides")
       .select(
         `disponible, precio_override, stock_cache,
@@ -362,7 +363,7 @@ export const getMenuForSede = createServerFn({ method: "GET" })
     );
     let categorias: Array<{ id: string; rp_id: number; nombre: string; orden: number }> = [];
     if (catIds.length > 0) {
-      const { data: cats, error: catErr } = await supabaseAdmin
+      const { data: cats, error: catErr } = await supabase
         .from("categorias_master")
         .select("id, rp_id, nombre, nombre_override, orden")
         .in("id", catIds)
