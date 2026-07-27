@@ -264,6 +264,8 @@ export type Database = {
           cancelled_at: string | null
           cliente: Json
           created_at: string
+          delivery_distance_km: number | null
+          delivery_fee: number
           id: string
           items: Json
           notas: string | null
@@ -285,6 +287,8 @@ export type Database = {
           cancelled_at?: string | null
           cliente: Json
           created_at?: string
+          delivery_distance_km?: number | null
+          delivery_fee?: number
           id?: string
           items: Json
           notas?: string | null
@@ -306,6 +310,8 @@ export type Database = {
           cancelled_at?: string | null
           cliente?: Json
           created_at?: string
+          delivery_distance_km?: number | null
+          delivery_fee?: number
           id?: string
           items?: Json
           notas?: string | null
@@ -620,6 +626,10 @@ export type Database = {
           cobertura_radio_km: number
           created_at: string
           delivery: boolean
+          delivery_base_distance_km: number
+          delivery_base_fee: number | null
+          delivery_extra_km_fee: number
+          delivery_max_distance_km: number | null
           direccion: string
           horario: string
           horarios: Json
@@ -649,6 +659,10 @@ export type Database = {
           cobertura_radio_km?: number
           created_at?: string
           delivery?: boolean
+          delivery_base_distance_km?: number
+          delivery_base_fee?: number | null
+          delivery_extra_km_fee?: number
+          delivery_max_distance_km?: number | null
           direccion: string
           horario?: string
           horarios?: Json
@@ -678,6 +692,10 @@ export type Database = {
           cobertura_radio_km?: number
           created_at?: string
           delivery?: boolean
+          delivery_base_distance_km?: number
+          delivery_base_fee?: number | null
+          delivery_extra_km_fee?: number
+          delivery_max_distance_km?: number | null
           direccion?: string
           horario?: string
           horarios?: Json
