@@ -477,7 +477,13 @@ function CheckoutPage() {
             esRecoger={esRecoger}
             direccion={direccion}
             subtotal={subtotal}
+            deliveryFee={deliveryFee}
+            deliveryKm={deliveryKm}
             total={total}
+            quoting={quoting}
+            outOfCoverage={outOfCoverage}
+            quoteError={quoteError}
+            onSwitchToPickup={() => setOrderType("pickup")}
           />
 
 
@@ -497,7 +503,7 @@ function CheckoutPage() {
 
           {/* CTA desktop */}
           <div className="hidden lg:block">
-            <BrutalButton type="submit" variant="fire" size="lg" block disabled={enviando}>
+            <BrutalButton type="submit" variant="fire" size="lg" block disabled={ctaDisabled}>
               {ctaLabel}
             </BrutalButton>
             <p className="text-xs text-center opacity-60 font-display uppercase tracking-wide mt-2">
@@ -508,7 +514,15 @@ function CheckoutPage() {
 
         {/* RESUMEN desktop */}
         <aside className="hidden lg:block lg:sticky lg:top-4 self-start">
-          <ResumenPedido items={items} total={total} puntos={puntos} />
+          <ResumenPedido
+            items={items}
+            subtotal={subtotal}
+            deliveryFee={deliveryFee}
+            total={total}
+            puntos={puntos}
+            esRecoger={esRecoger}
+            quoting={quoting}
+          />
         </aside>
       </div>
 
@@ -519,7 +533,7 @@ function CheckoutPage() {
           variant="fire"
           size="lg"
           block
-          disabled={enviando}
+          disabled={ctaDisabled}
           onClick={(e) => confirmar(e as unknown as React.FormEvent)}
         >
           {ctaLabel}
