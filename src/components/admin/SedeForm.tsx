@@ -494,6 +494,83 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
       </BrutalCard>
 
       <BrutalCard tone="cheese" className="p-5 space-y-3">
+        <h3 className="font-display uppercase text-lg">Tarifa de domicilio</h3>
+        <p className="text-xs text-kp-ink/70">
+          El costo del domicilio se calcula por distancia vial real desde esta sede.
+          Fórmula: <strong>tarifa base</strong> hasta la distancia base + <strong>$/km extra</strong> por cada km adicional (redondeado hacia arriba).
+        </p>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className={fieldCls}>
+            <label className={labelCls}>Tarifa base (COP)</label>
+            <BrutalInput
+              type="number"
+              step="500"
+              min={0}
+              value={form.delivery_base_fee ?? ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  delivery_base_fee: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+              placeholder="Ej: 5000"
+            />
+            {errors.delivery_base_fee && <p className="text-xs text-kp-red">{errors.delivery_base_fee}</p>}
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Distancia base (km)</label>
+            <BrutalInput
+              type="number"
+              step="0.5"
+              min={0}
+              value={form.delivery_base_distance_km}
+              onChange={(e) =>
+                setForm({ ...form, delivery_base_distance_km: Number(e.target.value) })
+              }
+            />
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Costo por km extra (COP)</label>
+            <BrutalInput
+              type="number"
+              step="100"
+              min={0}
+              value={form.delivery_extra_km_fee}
+              onChange={(e) =>
+                setForm({ ...form, delivery_extra_km_fee: Number(e.target.value) })
+              }
+              placeholder="Ej: 1200"
+            />
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Distancia máxima (km, opcional)</label>
+            <BrutalInput
+              type="number"
+              step="0.5"
+              min={0}
+              value={form.delivery_max_distance_km ?? ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  delivery_max_distance_km:
+                    e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+              placeholder="Ej: 8"
+            />
+            <p className="text-[11px] text-kp-ink/60">
+              Si el destino supera este límite, se bloquea el domicilio y se ofrece recoger en sede.
+            </p>
+          </div>
+        </div>
+        {form.delivery_base_fee == null && (
+          <p className="text-xs text-kp-red">
+            Sin tarifa base no se puede cotizar domicilio en esta sede.
+          </p>
+        )}
+      </BrutalCard>
+
+      <BrutalCard tone="cheese" className="p-5 space-y-3">
         <h3 className="font-display uppercase text-lg">Servicios y estado</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {([
