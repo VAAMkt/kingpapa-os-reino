@@ -325,11 +325,15 @@ function CheckoutPage() {
     }
   }
 
+  const totalLabel = tipo === "delivery" ? `≈ ${cop(total)}` : cop(total);
   const ctaLabel = enviando
     ? "Coronando tu pedido…"
-    : esRecoger
-      ? `Confirmar recogida · ${cop(total)}`
-      : `¡Hablalooo! Pedir a domicilio · ${cop(total)}`;
+    : quoting
+      ? "Calculando domicilio…"
+      : esRecoger
+        ? `Confirmar recogida · ${cop(total)}`
+        : `¡Hablalooo! Pedir a domicilio · ${totalLabel}`;
+  const ctaDisabled = enviando || quoting || outOfCoverage || !!quoteError;
 
   const direccionResumen = esRecoger
     ? sede?.label ?? "Sede"
@@ -374,11 +378,19 @@ function CheckoutPage() {
           <span>
             {resumenAbierto ? "Ocultar" : "Ver"} pedido · {count} ítem{count === 1 ? "" : "s"}
           </span>
-          <span className="text-base">{cop(total)}</span>
+        <span className="text-base">{totalLabel}</span>
         </button>
         {resumenAbierto && (
           <div className="mt-2">
-            <ResumenPedido items={items} total={total} puntos={puntos} />
+            <ResumenPedido
+              items={items}
+              subtotal={subtotal}
+              deliveryFee={deliveryFee}
+              total={total}
+              puntos={puntos}
+              esRecoger={esRecoger}
+              quoting={quoting}
+            />
           </div>
         )}
       </div>
