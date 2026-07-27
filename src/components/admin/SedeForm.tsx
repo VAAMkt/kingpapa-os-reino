@@ -137,6 +137,10 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
       horarios?: typeof DEFAULT_HORARIOS;
       tz?: string;
       kill_switch?: boolean;
+      delivery_base_fee?: number | null;
+      delivery_base_distance_km?: number | null;
+      delivery_extra_km_fee?: number | null;
+      delivery_max_distance_km?: number | null;
     };
     return {
       slug: initial.slug,
@@ -158,6 +162,13 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
       lat: initial.lat != null ? Number(initial.lat) : null,
       lng: initial.lng != null ? Number(initial.lng) : null,
       cobertura_radio_km: initial.cobertura_radio_km != null ? Number(initial.cobertura_radio_km) : 5,
+      delivery_base_fee: extra.delivery_base_fee != null ? Number(extra.delivery_base_fee) : 5000,
+      delivery_base_distance_km:
+        extra.delivery_base_distance_km != null ? Number(extra.delivery_base_distance_km) : 1,
+      delivery_extra_km_fee:
+        extra.delivery_extra_km_fee != null ? Number(extra.delivery_extra_km_fee) : 1200,
+      delivery_max_distance_km:
+        extra.delivery_max_distance_km != null ? Number(extra.delivery_max_distance_km) : 8,
       tz: extra.tz ?? "America/Bogota",
       kill_switch: extra.kill_switch ?? false,
       horarios: (extra.horarios && Object.keys(extra.horarios).length > 0)
@@ -209,6 +220,16 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         lat: form.lat != null && String(form.lat).length > 0 ? Number(form.lat) : null,
         lng: form.lng != null && String(form.lng).length > 0 ? Number(form.lng) : null,
         cobertura_radio_km: Number(form.cobertura_radio_km) || 5,
+        delivery_base_fee:
+          form.delivery_base_fee != null && String(form.delivery_base_fee).length > 0
+            ? Number(form.delivery_base_fee)
+            : null,
+        delivery_base_distance_km: Number(form.delivery_base_distance_km) || 1,
+        delivery_extra_km_fee: Number(form.delivery_extra_km_fee) || 0,
+        delivery_max_distance_km:
+          form.delivery_max_distance_km != null && String(form.delivery_max_distance_km).length > 0
+            ? Number(form.delivery_max_distance_km)
+            : null,
       };
       const parsed = SedeSchema.safeParse(cleaned);
       if (!parsed.success) {
