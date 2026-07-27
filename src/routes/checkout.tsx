@@ -9,6 +9,7 @@ import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-se
 import { listPublicSedes } from "@/lib/sedes";
 import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
 import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
+import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
 
@@ -52,6 +53,7 @@ function loadPersistedForm(): PersistedForm {
 function CheckoutPage() {
   const submitOrder = useServerFn(submitCheckoutOrder);
   const precheckFn = useServerFn(precheckStock);
+  const quoteFn = useServerFn(quoteDelivery);
   const { items, count, subtotal, orderType } = useCart();
   const sede = useActiveSede();
   const navigate = useNavigate();
@@ -141,8 +143,42 @@ function CheckoutPage() {
     () => sedesQ.data?.find((item) => item.id === sede?.sedeId) ?? null,
     [sedesQ.data, sede?.sedeId],
   );
-  const total = useMemo(() => subtotal, [subtotal]);
-  const puntos = Math.floor(subtotal / 1000) * 10;
+
+  // Cotización de domicilio (server autoritativo).
+  const canQuote =
+    !!sede?.sedeId && sede?.lat != null && sede?.lng != null && tipo === "delivery";
+  const quoteQ = useQuery({
+    queryKey: [
+      "deliveryQuote",
+      sede?.sedeId,
+      tipo,
+      sede?.lat != null ? Number(sede.lat).toFixed(5) : null,
+      sede?.lng != null ? Number(sede.lng).toFixed(5) : null,
+    ],
+    queryFn: () =>
+      quoteFn({
+        data: {
+          sedeId: sede!.sedeId!,
+          tipo: "delivery" as const,
+          destino: { lat: Number(sede!.lat), lng: Number(sede!.lng) },
+        },
+      }),
+    enabled: canQuote,
+    staleTime: 60_000,
+  });
+  const quote = quoteQ.data;
+  const quoting = tipo === "delivery" && (quoteQ.isLoading || quoteQ.isFetching);
+  const deliveryFee =
+    tipo === "pickup" ? 0 : quote && quote.ok ? quote.deliveryFee : 0;
+  const deliveryKm = quote && quote.ok ? quote.distanceKm : null;
+  const outOfCoverage = !!quote && !quote.ok && quote.code === "OUT_OF_COVERAGE";
+  const quoteError =
+    tipo === "delivery" && !!quote && !quote.ok && !outOfCoverage
+      ? quote.message
+      : null;
+  const quoteReady = tipo === "pickup" || (!!quote && quote.ok);
+  const total = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee]);
+  const puntos = Math.floor(total / 1000) * 10;
 
   if (count === 0) {
     return (
