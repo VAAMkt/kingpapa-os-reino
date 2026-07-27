@@ -32,6 +32,7 @@ export type CheckoutInput = {
   notas?: string | null;
   items: CheckoutInputItem[];
   userId?: string | null;
+  destino?: { lat: number; lng: number } | null;
 };
 
 type ModOption = { id: number; nombre: string; precio: number };
@@ -175,6 +176,17 @@ async function resolveOrder(input: CheckoutInput): Promise<{
   detalle: DetallePedido[];
   subtotal: number;
   total: number;
+  deliveryFee: number;
+  deliveryDistanceKm: number | null;
+  deliveryQuote: {
+    distanceKm: number;
+    deliveryFee: number;
+    base: number;
+    extraKmFee: number;
+    baseDistanceKm: number;
+    ciudad: string;
+    quotedAt: string;
+  } | null;
 }> {
   // 1) Sede + validación de horarios y banderas RP (FASE 3)
   const { data: sedeRaw, error: sedeErr } = await supabaseAdmin
@@ -283,7 +295,54 @@ async function resolveOrder(input: CheckoutInput): Promise<{
     };
   });
 
-  return { sede, detalle, subtotal, total: subtotal };
+  // 5) Cotización de domicilio (autoritativa server-side)
+  let deliveryFee = 0;
+  let deliveryDistanceKm: number | null = null;
+  let deliveryQuote: {
+    distanceKm: number;
+    deliveryFee: number;
+    base: number;
+    extraKmFee: number;
+    baseDistanceKm: number;
+    ciudad: string;
+    quotedAt: string;
+  } | null = null;
+  if (input.tipo === "delivery") {
+    if (!input.destino) {
+      throw new Error(
+        "Falta la ubicación del cliente para cotizar el domicilio. Reabre el mapa y elige tu dirección.",
+      );
+    }
+    const q = await quoteDeliveryInternal({
+      sedeId: sede.id,
+      tipo: "delivery",
+      destino: input.destino,
+    });
+    if (!q.ok) {
+      throw new Error(q.message);
+    }
+    deliveryFee = q.deliveryFee;
+    deliveryDistanceKm = q.distanceKm;
+    deliveryQuote = {
+      distanceKm: q.distanceKm,
+      deliveryFee: q.deliveryFee,
+      base: q.base,
+      extraKmFee: q.extraKmFee,
+      baseDistanceKm: q.baseDistanceKm,
+      ciudad: q.ciudad,
+      quotedAt: new Date().toISOString(),
+    };
+  }
+
+  return {
+    sede,
+    detalle,
+    subtotal,
+    total: subtotal + deliveryFee,
+    deliveryFee,
+    deliveryDistanceKm,
+    deliveryQuote,
+  };
 }
 
 /**
