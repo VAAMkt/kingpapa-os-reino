@@ -137,6 +137,10 @@ function CheckoutPage() {
     }
   }, [sede, sedesQ.data, tipo]);
 
+  const selectedSede = useMemo(
+    () => sedesQ.data?.find((item) => item.id === sede?.sedeId) ?? null,
+    [sedesQ.data, sede?.sedeId],
+  );
   const total = useMemo(() => subtotal, [subtotal]);
   const puntos = Math.floor(subtotal / 1000) * 10;
 
@@ -409,6 +413,7 @@ function CheckoutPage() {
           {/* Detalles de entrega siempre visibles */}
           <DetallesEntrega
             sede={sede}
+            sedeNombre={selectedSede?.nombre}
             esRecoger={esRecoger}
             direccion={direccion}
             subtotal={subtotal}
@@ -557,12 +562,14 @@ function ResumenPedido({
 
 function DetallesEntrega({
   sede,
+  sedeNombre,
   esRecoger,
   direccion,
   subtotal,
   total,
 }: {
   sede: ReturnType<typeof useActiveSede>;
+  sedeNombre?: string;
   esRecoger: boolean;
   direccion: string;
   subtotal: number;
@@ -571,7 +578,7 @@ function DetallesEntrega({
   // TODO: enchufar costo de domicilio desde Restaurant.pe
   // cuando esté disponible en el modelo de sede / getMenuForSede.
   // Tiempo estimado: fallback fijo por ahora.
-  const tiempoEstimado = "20–40 min (estimado)";
+  const tiempoEstimado = "40–60 min (estimado)";
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="flex items-start justify-between gap-3 text-sm">
       <span className="font-display uppercase opacity-70">{label}</span>
@@ -581,7 +588,7 @@ function DetallesEntrega({
   return (
     <BrutalCard tone="cheese" className="p-4 space-y-2">
       <h2 className="font-display uppercase text-lg">Detalles de entrega</h2>
-      <Row label="Sede" value={sede?.label ?? "—"} />
+      <Row label="Sede" value={sedeNombre ?? sede?.slug ?? "—"} />
       <Row label="Tiempo estimado" value={tiempoEstimado} />
       <Row label="Tipo" value={esRecoger ? "Recoger en sede" : "Domicilio"} />
       {!esRecoger && (
