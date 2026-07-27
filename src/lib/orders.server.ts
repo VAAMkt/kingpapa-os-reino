@@ -461,7 +461,12 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   let rpNumeroComanda: string | null = null;
   let rpCabecera: unknown = null;
   try {
-    rpResponse = await rpRegistrarDelivery(payload);
+    // No enviamos `delivery_quote` al POS (campo no oficial). Solo se persiste en DB.
+    const { delivery_quote: _dq, ...payloadForPos } = payload as typeof payload & {
+      delivery_quote: unknown;
+    };
+    void _dq;
+    rpResponse = await rpRegistrarDelivery(payloadForPos);
     if (typeof rpResponse === "number" || typeof rpResponse === "string") {
       const s = String(rpResponse).trim();
       if (s) rpPedidoId = s;
