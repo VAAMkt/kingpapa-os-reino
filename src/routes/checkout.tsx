@@ -557,12 +557,20 @@ function Field({ error, children }: { error?: string; children: React.ReactNode 
 
 function ResumenPedido({
   items,
+  subtotal,
+  deliveryFee,
   total,
   puntos,
+  esRecoger,
+  quoting,
 }: {
   items: ReturnType<typeof useCart>["items"];
+  subtotal: number;
+  deliveryFee: number;
   total: number;
   puntos: number;
+  esRecoger: boolean;
+  quoting: boolean;
 }) {
   return (
     <BrutalCard tone="yellow" className="p-4">
@@ -622,9 +630,25 @@ function ResumenPedido({
           </li>
         ))}
       </ul>
-      <div className="flex items-center justify-between mt-3 pt-3 border-t-2 border-kp-ink">
-        <span className="font-display uppercase">Total</span>
-        <span className="font-display text-2xl">{cop(total)}</span>
+      <div className="mt-3 pt-3 border-t-2 border-kp-ink space-y-1 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="font-display uppercase opacity-70">Subtotal</span>
+          <span className="font-display">{cop(subtotal)}</span>
+        </div>
+        {!esRecoger && (
+          <div className="flex items-center justify-between">
+            <span className="font-display uppercase opacity-70">Domicilio</span>
+            <span className="font-display">
+              {quoting ? "Calculando…" : deliveryFee > 0 ? cop(deliveryFee) : "—"}
+            </span>
+          </div>
+        )}
+        <div className="flex items-center justify-between pt-2 mt-1 border-t-2 border-kp-ink">
+          <span className="font-display uppercase">Total</span>
+          <span className="font-display text-2xl">
+            {esRecoger ? cop(total) : `≈ ${cop(total)}`}
+          </span>
+        </div>
       </div>
       <div className="mt-3 border-2 border-kp-ink bg-kp-yellow px-3 py-2 font-display uppercase text-xs flex items-center justify-between">
         <span>👑 Sumas al confirmar</span>
@@ -640,18 +664,27 @@ function DetallesEntrega({
   esRecoger,
   direccion,
   subtotal,
+  deliveryFee,
+  deliveryKm,
   total,
+  quoting,
+  outOfCoverage,
+  quoteError,
+  onSwitchToPickup,
 }: {
   sede: ReturnType<typeof useActiveSede>;
   sedeNombre?: string;
   esRecoger: boolean;
   direccion: string;
   subtotal: number;
+  deliveryFee: number;
+  deliveryKm: number | null;
   total: number;
+  quoting: boolean;
+  outOfCoverage: boolean;
+  quoteError: string | null;
+  onSwitchToPickup: () => void;
 }) {
-  // TODO: enchufar costo de domicilio desde Restaurant.pe
-  // cuando esté disponible en el modelo de sede / getMenuForSede.
-  // Tiempo estimado: fallback fijo por ahora.
   const tiempoEstimado = "40–60 min (estimado)";
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="flex items-start justify-between gap-3 text-sm">
@@ -659,6 +692,15 @@ function DetallesEntrega({
       <span className="font-display text-right">{value}</span>
     </div>
   );
+  const domicilioValue = esRecoger
+    ? "—"
+    : quoting
+      ? "Calculando…"
+      : outOfCoverage
+        ? "Fuera de cobertura"
+        : deliveryFee > 0
+          ? `${cop(deliveryFee)}${deliveryKm != null ? ` · ~${deliveryKm.toFixed(1)} km` : ""}`
+          : "—";
   return (
     <BrutalCard tone="cheese" className="p-4 space-y-2">
       <h2 className="font-display uppercase text-lg">Detalles de entrega</h2>
@@ -670,13 +712,32 @@ function DetallesEntrega({
       )}
       <div className="border-t-2 border-kp-ink/30 pt-2 space-y-1">
         <Row label="Subtotal" value={cop(subtotal)} />
-        {!esRecoger && (
-          <Row label="Domicilio" value="A confirmar por WhatsApp" />
-        )}
+        {!esRecoger && <Row label="Domicilio" value={domicilioValue} />}
         <div className="flex items-center justify-between pt-2 mt-1 border-t-2 border-kp-ink">
           <span className="font-display uppercase">Total</span>
-          <span className="font-display text-2xl">{cop(total)}</span>
+          <span className="font-display text-2xl">
+            {esRecoger ? cop(total) : `≈ ${cop(total)}`}
+          </span>
         </div>
+        {!esRecoger && (
+          <p className="text-[11px] opacity-60 font-display uppercase pt-1">
+            Total aproximado. El domicilio se calcula por distancia real desde la sede.
+          </p>
+        )}
+        {!esRecoger && (outOfCoverage || quoteError) && (
+          <div className="mt-2 border-2 border-kp-ink bg-kp-yellow/60 px-3 py-2 text-xs">
+            {outOfCoverage
+              ? "Pillate, esta dirección quedó fuera de cobertura de domicilio propio."
+              : `No pudimos cotizar el domicilio: ${quoteError}`}
+            <button
+              type="button"
+              onClick={onSwitchToPickup}
+              className="ml-2 underline font-display uppercase"
+            >
+              Cambiar a recoger en sede
+            </button>
+          </div>
+        )}
       </div>
     </BrutalCard>
   );
