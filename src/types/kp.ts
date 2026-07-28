@@ -122,12 +122,5 @@ export interface Subdito {
   createdAt: string;
 }
 
-export interface LeadFranquicia {
-  nombre: string;
-  ciudad: string;
-  whatsapp: string;
-  email: string;
-  rangoInversion: "50-100M" | "100-200M" | "200M+";
-  experiencia: string;
-  comentarios?: string;
-}
+// LeadFranquicia deprecated: el flujo de franquicia ahora vive en el Ops Hub.
+// Ver src/components/kp/LeadFormFranquicia.tsx + src/lib/ops-hub.ts.
