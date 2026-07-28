@@ -88,6 +88,7 @@ function CheckoutPage() {
   const [enviando, setEnviando] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [resumenAbierto, setResumenAbierto] = useState(false);
+  const [selectorSedesAbierto, setSelectorSedesAbierto] = useState(false);
 
   // checkout_started: dispara una vez al montar si hay carrito.
   useEffect(() => {
@@ -144,7 +145,9 @@ function CheckoutPage() {
     staleTime: 60_000,
   });
   useEffect(() => {
-    if (!sede || !sedesQ.data) return;
+    // La sede elegida manualmente para recoger no debe ser reemplazada por
+    // el cálculo de cercanía, que solo aplica al domicilio.
+    if (tipo !== "delivery" || !sede || !sedesQ.data) return;
     const { active: updated, changed } = recomputeCoverage(sede, sedesQ.data);
     if (changed && updated) {
       setActiveSede(updated);
@@ -155,6 +158,30 @@ function CheckoutPage() {
     () => sedesQ.data?.find((item) => item.id === sede?.sedeId) ?? null,
     [sedesQ.data, sede?.sedeId],
   );
+  const pickupSedes = useMemo(
+    () => (sedesQ.data ?? []).filter((item) => item.pickup && !item.kill_switch),
+    [sedesQ.data],
+  );
+
+  function elegirSedeRecogida(item: (typeof pickupSedes)[number]) {
+    setActiveSede({
+      sedeId: item.id,
+      slug: item.slug,
+      label: `Recoger en ${item.nombre}`,
+      source: "manual",
+      enCobertura: false,
+      ts: Date.now(),
+      // Conservamos la ubicación/dirección del cliente por si vuelve a domicilio.
+      lat: sede?.lat,
+      lng: sede?.lng,
+      direccionTexto: sede?.direccionTexto,
+      detalles: sede?.detalles,
+    });
+    setOrderType("pickup");
+    setSelectorSedesAbierto(false);
+    track("pickup_branch_selected", { sede_id: item.id, sede_nombre: item.nombre });
+    toast.success(`Recogerás en ${item.nombre}`);
+  }
 
   // Cotización de domicilio (server autoritativo).
   const canQuote =
@@ -379,6 +406,7 @@ function CheckoutPage() {
             aria-checked={!esRecoger}
             onClick={() => {
               setOrderType("delivery");
+              setSelectorSedesAbierto(false);
               track("delivery_method_selected", { tipo: "delivery" });
             }}
             className={`min-h-[72px] border-2 border-kp-ink px-3 py-3 text-left transition active:translate-y-[1px] ${
@@ -425,15 +453,74 @@ function CheckoutPage() {
         </div>
         <button
           type="button"
-          onClick={() => window.dispatchEvent(new CustomEvent("kp:open-order-intent"))}
+          aria-expanded={esRecoger ? selectorSedesAbierto : undefined}
+          aria-controls={esRecoger ? "selector-sedes-recogida" : undefined}
+          onClick={() => {
+            if (esRecoger) {
+              setSelectorSedesAbierto((value) => !value);
+            } else {
+              window.dispatchEvent(new CustomEvent("kp:open-order-intent"));
+            }
+          }}
           className="shrink-0 min-h-11 px-3 border-2 border-kp-ink bg-kp-yellow font-display uppercase text-xs hover:bg-kp-ink hover:text-kp-yellow"
         >
-          Cambiar
+          {esRecoger && selectorSedesAbierto ? "Cerrar" : "Cambiar"}
         </button>
       </div>
 
+      {esRecoger && selectorSedesAbierto && (
+        <div
+          id="selector-sedes-recogida"
+          className="border-2 border-kp-ink bg-kp-cheese p-3 shadow-brutal-sm"
+        >
+          <div className="mb-3">
+            <h2 className="font-display uppercase text-base">Elige dónde recoger</h2>
+            <p className="text-xs opacity-70">Selecciona la sede que te quede más cómoda.</p>
+          </div>
+          {sedesQ.isLoading ? (
+            <p className="py-4 text-center font-display uppercase text-xs">Cargando sedes…</p>
+          ) : pickupSedes.length === 0 ? (
+            <p className="border-2 border-kp-ink bg-kp-yellow px-3 py-3 text-sm">
+              No encontramos sedes disponibles para recoger en este momento.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" role="radiogroup" aria-label="Sede de recogida">
+              {pickupSedes.map((item) => {
+                const seleccionada = item.id === sede?.sedeId;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={seleccionada}
+                    onClick={() => elegirSedeRecogida(item)}
+                    className={`min-h-[72px] border-2 border-kp-ink p-3 text-left transition active:translate-y-px ${
+                      seleccionada
+                        ? "bg-kp-ink text-kp-yellow shadow-brutal-sm"
+                        : "bg-kp-cheese hover:bg-kp-yellow"
+                    }`}
+                  >
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="font-display uppercase text-sm">{item.nombre}</span>
+                      {seleccionada && (
+                        <span className="shrink-0 bg-kp-yellow text-kp-ink px-2 py-0.5 font-display uppercase text-[10px]">
+                          Elegida
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-1 block text-xs opacity-75">
+                      {item.direccion}{item.ciudad ? ` · ${item.ciudad}` : ""}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Aviso amigable si está fuera de cobertura y quedó en pickup */}
-      {esRecoger && sede && !sede.enCobertura && sede.lat != null && (
+      {esRecoger && sede && sede.source !== "manual" && !sede.enCobertura && sede.lat != null && (
         <div className="border-2 border-kp-ink bg-kp-yellow/60 px-3 py-2 text-xs">
           Pillate, hoy no llegamos hasta tu zona con domicilio propio
           {sede.distanciaKm ? ` (${sede.distanciaKm.toFixed(1)} km de ${sede.label.replace(/^Recoger en\s+/i, "")})` : ""}.
