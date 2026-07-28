@@ -22,6 +22,7 @@ const checkoutSchema = z.object({
     detalles: z.string().max(300).nullable().optional(),
   }),
   notas: z.string().max(500).nullable().optional(),
+  pickupScheduledFor: z.string().datetime().nullable().optional(),
   items: z
     .array(
       z.object({

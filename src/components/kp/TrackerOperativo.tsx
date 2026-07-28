@@ -32,12 +32,29 @@ const BACKOFFS_MS = [60_000, 120_000, 180_000, 300_000, 300_000, 300_000, 300_00
 const ORDER_TTL_MS = 45 * 60_000;
 const TRACKING_POLL_MS = 30_000;
 
-const PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
+const DELIVERY_PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
   { label: "Recibimos tu pedido", emoji: "📋", status: ["enviado", "recibido"] },
   { label: "Cocinando pa’ vos", emoji: "🧀", status: ["en_preparacion"] },
   { label: "Motorizado en camino", emoji: "🛵", status: ["en_camino"] },
   { label: "¡A disfrutarlo, mi rey!", emoji: "👑", status: ["entregado"] },
 ];
+
+const PICKUP_PASOS: { label: string; emoji: string; status: OrderStatus[] }[] = [
+  { label: "Recibimos tu pedido", emoji: "📋", status: ["enviado", "recibido"] },
+  { label: "Cocinando pa’ vos", emoji: "🧀", status: ["en_preparacion"] },
+  { label: "Listo para recoger", emoji: "🛍️", status: ["en_camino"] },
+  { label: "Pedido recogido", emoji: "👑", status: ["entregado"] },
+];
+
+const PICKUP_MICROCOPY: Record<OrderStatus, { title: string; sub: string }> = {
+  enviado: { title: "Tu pedido entró al Reino 👑", sub: "La sede está confirmando tu recogida." },
+  recibido: { title: "La cocina recibió tu pedido", sub: "Lo prepararemos para la hora elegida." },
+  en_preparacion: { title: "Cocinando pa’ vos 🧀", sub: "Tu corona está en preparación." },
+  en_camino: { title: "¡Listo para recoger! 🛍️", sub: "Puedes acercarte a la sede por tu pedido." },
+  entregado: { title: "Pedido recogido 👑", sub: "Gracias por comer con la banda 🔥" },
+  cancelado: { title: "Se cayó el pedido", sub: "Mirá el motivo abajo, te ayudamos por WhatsApp." },
+  error: { title: "Se nos enredó la vuelta", sub: "Escribinos por WhatsApp y lo resolvemos ya." },
+};
 
 const MICROCOPY: Record<OrderStatus, { title: string; sub: string }> = {
   enviado: { title: "Tu pedido entró al Reino 👑", sub: "Tranqui parcero, en segundos la cocina lo pilla." },
@@ -49,9 +66,12 @@ const MICROCOPY: Record<OrderStatus, { title: string; sub: string }> = {
   error: { title: "Se nos enredó la vuelta", sub: "Escribinos por WhatsApp y lo resolvemos ya." },
 };
 
-function stepIndex(status: OrderStatus): number {
-  for (let i = PASOS.length - 1; i >= 0; i--) {
-    if (PASOS[i].status.includes(status)) return i + 1;
+function stepIndex(
+  status: OrderStatus,
+  pasos: { status: OrderStatus[] }[],
+): number {
+  for (let i = pasos.length - 1; i >= 0; i--) {
+    if (pasos[i].status.includes(status)) return i + 1;
   }
   return 0;
 }
@@ -244,9 +264,11 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
   }
 
   const status: OrderStatus = order?.status ?? "enviado";
+  const isPickup = order?.tipo === "pickup";
+  const pasos = isPickup ? PICKUP_PASOS : DELIVERY_PASOS;
   const isError = status === "cancelado" || status === "error";
-  const step = isError ? 0 : stepIndex(status);
-  const progreso = Math.min((step / PASOS.length) * 100, 100);
+  const step = isError ? 0 : stepIndex(status, pasos);
+  const progreso = Math.min((step / pasos.length) * 100, 100);
   const idLargo = order?.rp_pedido_id ?? null;
   const motorizado = tracking?.motorizado ?? null;
 
@@ -259,16 +281,19 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     step >= 4 ? formatTime(motorizado?.entregado_at ?? order?.updated_at ?? null) : null,
   ];
 
-  const copy = MICROCOPY[status] ?? MICROCOPY.enviado;
+  const copy = isPickup
+    ? PICKUP_MICROCOPY[status] ?? PICKUP_MICROCOPY.enviado
+    : MICROCOPY[status] ?? MICROCOPY.enviado;
 
   const celular = onlyDigits(motorizado?.celular);
-  const showMotorizadoCard = status === "en_camino" && !!(motorizado?.nombre || celular);
+  const showMotorizadoCard =
+    !isPickup && status === "en_camino" && !!(motorizado?.nombre || celular);
 
   return (
     <BrutalCard tone="black" className="p-5 md:p-7">
       <div className="flex items-start justify-between mb-4 gap-3">
         <h3 className="font-display text-2xl md:text-3xl text-kp-yellow uppercase">
-          Tu Reino en camino
+          {isPickup ? "Tu pedido para recoger" : "Tu Reino en camino"}
         </h3>
         {idLargo ? (
           <BrutalBadge tone="yellow">Pedido #{idLargo}</BrutalBadge>
@@ -316,7 +341,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       )}
 
       <ol className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {PASOS.map((p, idx) => {
+        {pasos.map((p, idx) => {
           const done = idx < step;
           const active = idx === step - 1;
           const time = stepTimes[idx];

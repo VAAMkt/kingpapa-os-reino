@@ -36,6 +36,8 @@ type PersistedForm = Partial<{
   detalles: string;
   notas: string;
   pago: PagoMetodo;
+  pickupDate: string;
+  pickupTime: string;
 }>;
 
 function loadPersistedForm(): PersistedForm {
@@ -50,6 +52,18 @@ function loadPersistedForm(): PersistedForm {
   }
 }
 
+function defaultPickupSchedule(): { date: string; time: string } {
+  const d = new Date(Date.now() + 45 * 60_000);
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
+  const date = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Bogota", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(d);
+  return { date, time };
+}
+
 function CheckoutPage() {
   const submitOrder = useServerFn(submitCheckoutOrder);
   const precheckFn = useServerFn(precheckStock);
@@ -59,12 +73,15 @@ function CheckoutPage() {
   const navigate = useNavigate();
 
   const persisted = useMemo(() => loadPersistedForm(), []);
+  const pickupDefault = useMemo(() => defaultPickupSchedule(), []);
 
   const [nombre, setNombre] = useState(persisted.nombre ?? "");
   const [telefono, setTelefono] = useState(persisted.telefono ?? "");
   const [direccion, setDireccion] = useState(persisted.direccion ?? sede?.direccionTexto ?? "");
   const [detalles, setDetalles] = useState(persisted.detalles ?? sede?.detalles ?? "");
   const [notas, setNotas] = useState(persisted.notas ?? "");
+  const [pickupDate, setPickupDate] = useState(persisted.pickupDate ?? pickupDefault.date);
+  const [pickupTime, setPickupTime] = useState(persisted.pickupTime ?? pickupDefault.time);
   const [pago, setPago] = useState<PagoMetodo>(() => {
     const p = persisted.pago ?? "efectivo";
     return p === "online" && !PAYMENTS_ENABLED ? "efectivo" : p;
@@ -86,12 +103,12 @@ function CheckoutPage() {
     try {
       window.localStorage.setItem(
         FORM_KEY,
-        JSON.stringify({ nombre, telefono, direccion, detalles, notas, pago }),
+        JSON.stringify({ nombre, telefono, direccion, detalles, notas, pago, pickupDate, pickupTime }),
       );
     } catch {
       /* ignore quota errors */
     }
-  }, [nombre, telefono, direccion, detalles, notas, pago]);
+  }, [nombre, telefono, direccion, detalles, notas, pago, pickupDate, pickupTime]);
 
   // Si la sede activa trae una dirección nueva (p.ej. el usuario reabrió
   // el LocationGate y eligió otra) y el campo sigue vacío, la adoptamos.
@@ -201,6 +218,9 @@ function CheckoutPage() {
     if (!nombre.trim()) errs.nombre = "¿Cómo te llamas?";
     if (!/^\d{7,}$/.test(telefono.replace(/\D/g, ""))) errs.telefono = "Teléfono inválido";
     if (!esRecoger && !direccion.trim()) errs.direccion = "Dirección obligatoria";
+    if (esRecoger && (!pickupDate || !pickupTime)) {
+      toast.error("Selecciona el día y la hora para recoger tu pedido");
+    }
     return errs;
   }
 
@@ -216,6 +236,9 @@ function CheckoutPage() {
         detalles: detalles || null,
       },
       notas: notas || null,
+      pickupScheduledFor: esRecoger
+        ? new Date(`${pickupDate}T${pickupTime}:00-05:00`).toISOString()
+        : null,
       items: items.map((i) => ({
         productoId: i.productoId,
         cantidad: i.cantidad,
@@ -302,6 +325,9 @@ function CheckoutPage() {
         pago,
         cliente: { nombre, telefono, direccion: esRecoger ? null : direccion, detalles },
         notas,
+        pickupScheduledFor: esRecoger
+          ? new Date(`${pickupDate}T${pickupTime}:00-05:00`).toISOString()
+          : null,
         sede: sede
           ? { id: sede.sedeId, slug: sede.slug, label: sede.label }
           : null,
@@ -441,6 +467,44 @@ function CheckoutPage() {
               </>
             )}
           </BrutalCard>
+
+          {esRecoger && (
+            <BrutalCard tone="yellow" className="p-4 space-y-3">
+              <div>
+                <h2 className="font-display uppercase text-lg">¿Cuándo vas a recoger?</h2>
+                <p className="text-xs opacity-70 mt-1">
+                  Lo tendremos listo en {selectedSede?.nombre ?? "la sede seleccionada"}.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1">
+                  <span className="font-display uppercase text-xs">Día</span>
+                  <input
+                    type="date"
+                    value={pickupDate}
+                    min={pickupDefault.date}
+                    onChange={(e) => setPickupDate(e.target.value)}
+                    className="w-full min-h-12 border-2 border-kp-ink bg-kp-cheese px-3 font-display"
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="font-display uppercase text-xs">Hora</span>
+                  <input
+                    type="time"
+                    value={pickupTime}
+                    step={900}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                    className="w-full min-h-12 border-2 border-kp-ink bg-kp-cheese px-3 font-display"
+                    required
+                  />
+                </label>
+              </div>
+              <p className="text-xs">
+                Programa con mínimo 20 minutos y máximo 7 días de anticipación.
+              </p>
+            </BrutalCard>
+          )}
 
           {/* Pago compacto */}
           <BrutalCard tone="cheese" className="p-4 space-y-2">

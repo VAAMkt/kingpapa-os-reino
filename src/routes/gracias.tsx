@@ -35,6 +35,7 @@ type LastOrder = {
   orderId: string;
   tipo: "delivery" | "pickup";
   pago: string;
+  pickupScheduledFor?: string | null;
   cliente: { nombre: string; telefono: string; direccion: string | null; detalles: string };
   sede: { id: string; slug: string; label: string } | null;
   items: { key: string; nombre: string; cantidad: number; precio: number }[];
@@ -187,6 +188,19 @@ function GraciasPage() {
             <strong>{esRecoger ? "Recoges en" : "Llega a"}:</strong>{" "}
             {esRecoger ? order.sede?.label : order.cliente.direccion}
           </p>
+          {esRecoger && order.pickupScheduledFor ? (
+            <p className="text-sm">
+              <strong>Hora de recogida:</strong>{" "}
+              {new Date(order.pickupScheduledFor).toLocaleString("es-CO", {
+                timeZone: "America/Bogota",
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          ) : null}
           <p className="text-sm">
             <strong>Contacto:</strong> {order.cliente.nombre} · {order.cliente.telefono}
           </p>
