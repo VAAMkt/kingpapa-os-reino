@@ -16,7 +16,7 @@ import {
   type RpSinQuipuRow,
 } from "@/lib/restaurantpe.server";
 import {
-  mapDeliveryEstado,
+  mapPolledDeliveryEstado,
   extractDeliveryEstado,
   extractComandaNumber,
   extractMotorizadoInfo,
@@ -243,7 +243,7 @@ export const pollActiveOrders = createServerFn({ method: "POST" }).handler(
         if (!snap) continue;
 
         const numeric = extractDeliveryEstado(snap);
-        const mapped = mapDeliveryEstado(numeric);
+        const mapped = mapPolledDeliveryEstado(numeric, row.status);
         if (!mapped) continue;
 
         const currentRank = STATUS_RANK[row.status] ?? 0;

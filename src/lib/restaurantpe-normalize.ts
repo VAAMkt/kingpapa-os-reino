@@ -99,6 +99,27 @@ export function mapDeliveryEstado(estado: unknown): RpOrderStatus | null {
 }
 
 /**
+ * El endpoint tenant reutiliza delivery_estado=0 en dos momentos distintos:
+ * pedido recién registrado (pendiente) y delivery anulado. Para no cancelar
+ * pedidos nuevos, sólo interpretamos el retorno a 0 como anulación cuando el
+ * pedido local ya había avanzado a un estado confirmado.
+ */
+export function mapPolledDeliveryEstado(
+  estado: unknown,
+  currentStatus: RpOrderStatus | string,
+): RpOrderStatus | null {
+  const n = Number(estado);
+  if (
+    Number.isFinite(n) &&
+    Math.trunc(n) === 0 &&
+    ["recibido", "en_preparacion", "en_camino"].includes(currentStatus)
+  ) {
+    return "cancelado";
+  }
+  return mapDeliveryEstado(estado);
+}
+
+/**
  * Mapea el `statusCode` que envía Restaurant.pe al webhook.
  *
  * Fuente de verdad: Swagger oficial OAS3 (actualización 30/07/2024) +
