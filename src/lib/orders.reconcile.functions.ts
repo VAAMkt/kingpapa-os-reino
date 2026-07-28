@@ -13,6 +13,7 @@ import {
   rpGetDeliveryById,
 } from "@/lib/restaurantpe.server";
 import {
+  extractComandaNumber,
   extractMotorizadoInfo,
   mapDeliveryEstado,
   mapRpEstadoToLocal,
@@ -117,6 +118,7 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
         ? mapRpEstadoToLocal(rawEstado)
         : mapDeliveryEstado(rawEstado);
     const motorizado = extractMotorizadoInfo(snapshot);
+    const numeroComanda = extractComandaNumber(snapshot);
     const nowIso = new Date().toISOString();
     const rank: Record<string, number> = {
       enviado: 0,
@@ -149,6 +151,7 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
       },
     };
     if (canAdvance) updates.status = mapped;
+    if (numeroComanda) updates.rp_numero_comanda = numeroComanda;
     const { error: updateError } = await supabaseAdmin
       .from("orders")
       .update(updates as never)
