@@ -182,17 +182,21 @@ export const syncBranches = createServerFn({ method: "POST" })
 
     const rpLocalIds = locales.map((l) => l.rp_local_id);
 
-    // 1) Fetch existing records in bulk
-    const { data: existingSedes } = await supabase
-      .from("sedes")
-      .select("id, rp_local_id")
-      .in("rp_local_id", rpLocalIds);
-
+    // 1) Fetch existing records in bulk, chunked to respect PostgREST row limits
     const existingMap = new Map<number, { id: string; rp_local_id: number | null }>();
-    if (existingSedes) {
-      for (const sede of existingSedes) {
-        if (sede.rp_local_id != null) {
-          existingMap.set(sede.rp_local_id, sede as { id: string; rp_local_id: number });
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < rpLocalIds.length; i += CHUNK_SIZE) {
+      const chunk = rpLocalIds.slice(i, i + CHUNK_SIZE);
+      const { data: existingSedes } = await supabase
+        .from("sedes")
+        .select("id, rp_local_id")
+        .in("rp_local_id", chunk);
+
+      if (existingSedes) {
+        for (const sede of existingSedes) {
+          if (sede.rp_local_id != null) {
+            existingMap.set(sede.rp_local_id, sede as { id: string; rp_local_id: number });
+          }
         }
       }
     }
