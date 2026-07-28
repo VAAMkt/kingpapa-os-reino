@@ -389,8 +389,11 @@ function CheckoutPage() {
       } catch {
         /* ignore */
       }
+      // Mantener el carrito mientras el router monta la confirmación. Si lo
+      // vaciamos antes, este componente alcanza a renderizar por un instante
+      // el estado "carrito vacío", aunque el pedido se haya creado bien.
+      await navigate({ to: "/gracias", search: { order_id: orderId } });
       clearCart();
-      navigate({ to: "/gracias", search: { order_id: orderId } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "No pudimos enviar tu pedido";
       track("order_error", { error_type: "submit", mensaje: msg });
