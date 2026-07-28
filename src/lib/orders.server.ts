@@ -447,15 +447,23 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       delivery_tipopago: tipoPago,
       tarjeta_id: input.pago === "datafono" ? 1 : null,
       delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
-      ...(pickupSchedule
-        ? {
-            delivery_programado: "1",
-            delivery_fechaentrega: pickupSchedule.date,
-            delivery_horarecojo: pickupSchedule.time,
-            delivery_sesolicitorecojo: "1",
-            delivery_personarecoje: input.cliente.nombre,
-          }
-        : { delivery_programado: "0", delivery_sesolicitorecojo: "0" }),
+      ...((() => {
+        if (!input.pickupScheduledFor) {
+          return { delivery_programado: "0", delivery_sesolicitorecojo: "0" };
+        }
+        const d = new Date(input.pickupScheduledFor);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        return {
+          delivery_programado: "1",
+          delivery_fechaentrega: date,
+          delivery_horarecojo: time,
+          delivery_sesolicitorecojo: "1",
+          delivery_personarecoje: input.cliente.nombre,
+        };
+      })()),
+
       delivery_direccionenvio: input.cliente.direccion ?? "",
       delivery_referencia: input.cliente.detalles ?? "",
       delivery_observacion: observacionFinal,
