@@ -35,8 +35,8 @@ const STATUS_RANK: Record<string, number> = {
 };
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
 
-// Ventana defensiva: sólo tocamos pedidos creados hace <6h. Fuera de ahí
-// dejamos el auto-abandono del reconciliador viejo hacer su trabajo.
+// Ventana defensiva: sólo consultamos pedidos creados hace <6h.
+// Los pedidos fuera de la ventana quedan visibles para revisión; nunca se auto-cancelan.
 const POLL_WINDOW_MS = 6 * 60 * 60_000;
 // No pollear pedidos recién creados (<60s): dar chance al POS de procesar.
 const POLL_MIN_AGE_MS = 60_000;
@@ -106,13 +106,18 @@ export const checkQuipuBacklog = createServerFn({ method: "POST" }).handler(
     }
 
     if (allStuck.length === 0) {
+      const failed = bySede.filter((item) => !!item.error);
+      const checked = bySede.length - failed.length;
+      const ok = failed.length === 0;
       await supabaseAdmin.from("rp_sync_log").insert({
         tipo: "quipu_backlog",
-        ok: true,
-        mensaje: `Backlog Quipu vacío en ${bySede.length} sede(s).`,
-        payload: { bySede } as unknown as Json,
+        ok,
+        mensaje: ok
+          ? `Backlog Quipu vacío en ${checked} sede(s) consultadas correctamente.`
+          : `Backlog Quipu no verificable: ${failed.length} sede(s) fallaron; ${checked} respondieron sin pedidos.`,
+        payload: { bySede, failed_sedes: failed.length, checked_sedes: checked } as unknown as Json,
       });
-      return { ok: true, bySede, matchedOurs: [] };
+      return { ok, bySede, matchedOurs: [] };
     }
 
     // Cruce con nuestras órdenes: match por rp_pedido_id (delivery_id)

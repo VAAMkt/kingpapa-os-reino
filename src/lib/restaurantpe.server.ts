@@ -314,19 +314,43 @@ async function rpTenantFetch<T = unknown>(
     if (!res.ok) {
       throw new Error(`Restaurant.pe tenant ${res.status} en ${path}`);
     }
-    const json = (await res.json()) as {
+    const contentType = res.headers.get("content-type") ?? "desconocido";
+    const bodyText = await res.text();
+    if (!bodyText.trim()) {
+      throw new Error(
+        `Restaurant.pe tenant devolvió cuerpo vacío (status=${res.status}, content-type=${contentType}, path=${path})`,
+      );
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      // No registramos el body: podría contener HTML de sesión o información sensible.
+      throw new Error(
+        `Restaurant.pe tenant devolvió contenido no JSON (status=${res.status}, content-type=${contentType}, bytes=${bodyText.length}, path=${path})`,
+      );
+    }
+
+    // Algunos endpoints alternan entre envelope, objeto directo y arreglo directo.
+    if (Array.isArray(parsed)) return parsed as T;
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error(
+        `Restaurant.pe tenant devolvió JSON primitivo inesperado (tipo=${typeof parsed}, path=${path})`,
+      );
+    }
+
+    const json = parsed as {
       tipo?: string | number;
       mensajes?: string[];
       data?: T;
       [key: string]: unknown;
     };
-    // Algunos endpoints tenant alternan entre:
-    // 1) envelope { tipo: 1, data: ... }
-    // 2) registro/array directo sin la propiedad tipo.
-    // Solo tratamos como error un tipo explícito distinto de 1.
     if (json.tipo != null && String(json.tipo) !== "1") {
-      const msg = json.mensajes?.join("; ") || `Error tipo=${json.tipo}`;
-      throw new Error(`Restaurant.pe tenant: ${msg}`);
+      const msg =
+        json.mensajes?.join("; ") ||
+        `tipo=${String(json.tipo)}, campos=${Object.keys(json).slice(0, 12).join(",") || "ninguno"}`;
+      throw new Error(`Restaurant.pe tenant rechazó la consulta: ${msg} (path=${path})`);
     }
     if (Object.prototype.hasOwnProperty.call(json, "data")) {
       return (json.data ?? (null as unknown)) as T;
