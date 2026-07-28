@@ -244,15 +244,32 @@ function AdminMenuPage() {
         </ul>
       </details>
 
-      <BrutalCard tone="cheese" className="p-4 flex items-center gap-4">
+      <BrutalCard tone="cheese" className="p-4 flex items-center gap-4 flex-wrap">
         <label className="flex items-center gap-2 font-display uppercase text-sm">
           <Switch checked={hideInactive} onCheckedChange={setHideInactive} />
           Ocultar inactivos
         </label>
+        {(() => {
+          const destacadosCount = productos.filter((p) => p.destacado && p.disponible).length;
+          const tone =
+            destacadosCount === 0
+              ? "text-red-700"
+              : destacadosCount > 4
+                ? "text-orange-700"
+                : "text-kp-ink/80";
+          return (
+            <span className={`text-xs font-display uppercase ${tone}`}>
+              👑 {destacadosCount}/4 destacados en home
+              {destacadosCount > 4 && " · se muestran solo los primeros 4 (alfabético)"}
+              {destacadosCount === 0 && " · usando fallback automático"}
+            </span>
+          );
+        })()}
         <span className="text-xs text-kp-ink/60 ml-auto">
           {categorias.length} categorías · {productos.length} productos
         </span>
       </BrutalCard>
+
 
       {menuQ.isLoading && <p className="text-sm">Cargando catálogo…</p>}
 
