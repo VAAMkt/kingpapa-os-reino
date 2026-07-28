@@ -1,121 +1,78 @@
+## Objetivo
 
-# Cotización de domicilio en checkout
+Que el formulario de `/franquicias` en KINGPAPA envíe la postulación directamente al backend del Ops Hub (Perfect Operations Hub), en el mismo flujo de 2 pasos que hoy vive en `https://kingpapaops.com/postula-tu-franquicia/`, para que los leads caigan en el CRM único que ya administras allá.
 
-Objetivo: el total del checkout deja de decir "A confirmar por WhatsApp". El costo del domicilio se calcula en el servidor, con distancia vial real, tarifa por ciudad configurable por sede, y se persiste como fuente única de verdad.
+## Cómo funciona el flujo del Ops Hub (contexto)
 
-## 1. Migración de base de datos (sedes + orders)
+El Ops Hub expone una edge function pública `franchise-lead-intake` (Supabase project `wjgfozxecslnujwhvmrm`), llamada con `apikey` = anon key (pública, seguro exponerla). El contrato:
 
-Nuevas columnas en `public.sedes` (todas administrables desde /admin/sedes):
-- `delivery_base_fee numeric` — tarifa base del primer km. Sin default (obligar a fijarlo por sede en admin; hasta que se fije, el checkout muestra error claro).
-- `delivery_base_distance_km numeric NOT NULL DEFAULT 1`.
-- `delivery_extra_km_fee numeric NOT NULL DEFAULT 1200`.
-- `delivery_max_distance_km numeric` — opcional; si es NULL usa `cobertura_radio_km`.
+- **Paso 1 — datos básicos** → `POST { step: 1, full_name, email, phone, city, country: "CO", source, utm_source?, utm_medium?, utm_campaign? }` → devuelve `{ lead_id }`. Crea un lead parcial en el CRM y dispara notificaciones internas.
+- **Paso 2 — cualificación** → `POST { step: 2, lead_id, barrio?, ha_probado_producto, motivacion, participa_operacion: 'si'|'no'|'tal_vez', current_occupation?, has_food_industry_exp, declared_investment_cop, has_proof_of_funds }` → devuelve `{ score, is_high_priority }`. Crea el `franchise_application` real y dispara el correo con brochure/NDA cuando aplica.
 
-Nuevas columnas en `public.orders` para auditoría:
-- `delivery_fee numeric NOT NULL DEFAULT 0`.
-- `delivery_distance_km numeric` (nullable — pickup queda NULL).
+Si el usuario abandona tras el paso 1, ya queda como lead parcial y el Ops Hub envía correo de "retoma tu postulación" con un link `?lead=<uuid>` que salta al paso 2.
 
-Seed inicial en la misma migración (UPDATE) para las sedes existentes según ciudad:
-- Cali/Jamundí: `delivery_base_fee = 5000`.
-- Bogotá: `delivery_base_fee = 7000`.
+## Solución propuesta
 
-No se cambian políticas RLS (las existentes cubren estas columnas).
+Reemplazar el `LeadFormFranquicia` actual (que solo guarda en `localStorage`) por un formulario nativo de 2 pasos en `/franquicias` que consume la edge function del Ops Hub. Mantenemos el look brutalist (amarillo/negro, `BrutalCard`, `BrutalInput`, `BrutalButton`) — el usuario NO sale a `kingpapaops.com`, todo pasa dentro de `kingpapa.co`.
 
-## 2. Server function `quoteDelivery`
+### Cambios de archivos
 
-Nuevo archivo `src/lib/delivery-quote.functions.ts` (thin wrapper) + `src/lib/delivery-quote.server.ts` (lógica).
+1. `**src/lib/ops-hub.ts` (nuevo)** — cliente ligero para la edge function:
+  - Constantes `OPS_SUPABASE_URL` y `OPS_SUPABASE_ANON_KEY` (hardcoded — son claves públicas y viven en el bundle del Ops Hub también).
+  - `postFranchiseIntake(payload)` con `fetch` a `${OPS_SUPABASE_URL}/functions/v1/franchise-lead-intake` con headers `apikey` + `Content-Type`.
+  - Tipos `Step1Payload`, `Step2Payload`, `IntakeStep1Response`, `IntakeStep2Response`.
+2. `**src/components/kp/LeadFormFranquicia.tsx` (rework)** — mismo componente, misma ubicación en `/franquicias`, misma estética brutalist, pero:
+  - Estado `step: 1 | 2`, `leadId`, `s1`, `s2`, `errors`, `submitting`, `serverError`, `success`.
+  - Validación con `zod` (schemas equivalentes a los del Ops Hub).
+  - Paso 1: `Nombre completo`, `Email`, `WhatsApp`, `Ciudad` + captura de `utm_*` desde `window.location.search`. Botón `Continuar →`.
+  - Paso 2: `Barrio (opcional)`, `Rango de inversión` (mismo listado del Ops Hub: <$50M, $50–100M, $101–300M, $301–500M, >$500M), `¿Acreditación de fondos?` (Sí/No), `¿Experiencia en F&B?` (Sí/No), `¿A qué te dedicas?` (opcional), `¿Participarías en la operación?` (Sí/Tal vez/No), `¿Has probado el producto?` (Sí/No), `Motivación` (textarea, min 20 chars). Botón `Enviar postulación` + `← Atrás`.
+  - Stepper visual "1 · Datos básicos → 2 · Cualificación" con los pills brutalist (amarillo activo, gris inactivo).
+  - Manejo de `?lead=<uuid>` en la URL: si viene, saltar directo al paso 2 (idéntico al Ops Hub; para el correo de recuperación funcione tanto si el link apunta a `kingpapaops.com` como a `kingpapa.co/franquicias?lead=...`). El pre-fill de nombre/email lo hace el Ops Hub usando `get_partial_lead`; en KP no exponemos ese RPC — mostramos solo el mensaje "Retomando tu postulación, solo falta un paso" con el paso 2 activo. (Opción: dejar el link del correo apuntando al Ops Hub como hoy y no manejar `?lead=` acá.)
+  - Estado `success`: pantalla brutalist con `SuccessTimeline` propio (badge "¡Recibimos tu postulación!", 5 pasos: Revisión inicial 24–48h, Información detallada, NDA digital, Cita 1:1, Decisión y onboarding). Si `is_high_priority` → badge rojo "Perfil prioritario" y copys "HOY / ~1 semana".
+  - Ya no se escribe nada en `localStorage`.
+3. `**src/types/kp.ts**` — quitar `LeadFranquicia` (o marcarlo deprecated) porque ya no representa el payload real.
+4. `**src/routes/franquicias.tsx**` — sin cambios de contenido; sigue montando `<LeadFormFranquicia />` en la sección `#aplicar`.
 
-Input validado con Zod:
-```
-{ sedeId: uuid, tipo: "delivery" | "pickup",
-  destino: { lat: number, lng: number, direccion?: string } }
-```
+### Analytics
 
-Handler (server-only, `supabaseAdmin`):
-1. Si `tipo === "pickup"` → devuelve `{ deliveryFee: 0, distanceKm: 0, currency: "COP", sedeId, sedeNombre, ciudad }` sin llamar a mapas.
-2. Lee sede: `id, nombre, ciudad, lat, lng, cobertura_radio_km, delivery, kill_switch, delivery_base_fee, delivery_base_distance_km, delivery_extra_km_fee, delivery_max_distance_km`.
-   - Falla clara si la sede no ofrece delivery o le falta `delivery_base_fee` o coordenadas.
-3. Llama a Google Routes API a través del gateway Lovable ya conectado (`routes/directions/v2:computeRoutes`, `travelMode: DRIVE`, `routingPreference: TRAFFIC_UNAWARE`, `X-Goog-FieldMask: routes.distanceMeters`). Origen = coordenadas de la sede. Destino = `destino.lat/lng`. Timeout 4s. Reutiliza el mismo patrón de `getCreds()` de `geocode.functions.ts`.
-4. `distanceKm = distanceMeters / 1000`.
-5. Valida cobertura: `distanceKm ≤ (delivery_max_distance_km ?? cobertura_radio_km)`. Si no → `{ ok: false, code: "OUT_OF_COVERAGE", distanceKm }`.
-6. Fórmula (redondeo al peso, luego "aprox."):
-   `deliveryFee = base + max(0, ceil(distanceKm - baseDistanceKm)) * extraKmFee`.
-7. Devuelve `{ ok: true, distanceKm, deliveryFee, currency: "COP", sedeId, sedeNombre, ciudad }`.
+Añadir eventos en `src/lib/analytics.ts`:
 
-Errores del proveedor de rutas → `{ ok: false, code: "ROUTES_UNAVAILABLE" }`. Nunca lanza secretos ni PII al log; solo status del gateway.
+- `franquicia_form_view` (mount del form).
+- `franquicia_step1_submit` (éxito paso 1, con `lead_id`).
+- `franquicia_step2_submit` (éxito paso 2, con `score`, `high_priority`).
+- `franquicia_form_error` (con `step` y `message`).
 
-Función interna `computeDeliveryFee(distanceKm, sede)` exportada para reusar en `orders.server.ts`.
+### Seguridad y validaciones
 
-## 3. `orders.server.ts` — reconstruir cotización en servidor
+- Anon key del Ops Hub embebida en cliente = OK (es publishable, ya está expuesta en su propio bundle).
+- Validación con `zod` en cliente antes del POST + la edge function revalida server-side con los mismos schemas.
+- `trim` + `maxLength` en todos los inputs (nombre 120, email 255, phone 40, city 120, barrio 120, motivación 2000).
+- Sin `dangerouslySetInnerHTML`, sin logging de datos del formulario a consola.
 
-- Extender `CheckoutInput` con `destino?: { lat, lng }` (obligatorio si `tipo === "delivery"`).
-- Después de calcular `subtotal`, si `tipo === "delivery"`:
-  1. Llama a `quoteDeliveryInternal({ sedeId, destino })` (no confía en nada del navegador).
-  2. Si falla o queda fuera de cobertura → aborta con mensaje amigable; el pedido NO se crea.
-  3. `total = subtotal + deliveryFee`.
-- Persiste en `orders`: `delivery_fee`, `delivery_distance_km`, y también dentro de `rp_payload.delivery_quote = { distanceKm, deliveryFee, base, extraKmFee, ciudad, quotedAt }` para auditoría.
-- Payload Restaurant.pe:
-  - Verificar Swagger V2 (`RESTAURANT_PE_TENANT_TOKEN` ya disponible) para el campo oficial de costo de envío en `registrarDelivery`. Candidatos documentados a validar: `delivery_montoenvio` / `delivery_costoenvio`. Solo se agrega si aparece en la especificación oficial; **no inventar nombres**.
-  - Si el campo existe → mapear `deliveryFee` allí.
-  - Si no existe → concatenar `"[Domicilio $X, ~Y km]"` al inicio de `delivery_observacion` y dejar comentario en el código documentando la limitación. Supabase sigue siendo la fuente del total cobrado.
-  - `delivery_pagocon` (efectivo) pasa a usar `total` (ya incluye envío).
+### Fuera de alcance (para no meter cambios no pedidos)
 
-## 4. Checkout UI (`src/routes/checkout.tsx`)
+- No tocamos routing del Ops Hub ni su edge function.
+- No creamos tablas nuevas en el Supabase de KP.
+- No migramos leads viejos guardados en `localStorage` (no había forma real de recuperarlos).
+- No cambiamos el diseño visual del resto de `/franquicias`.
 
-- Nuevo hook local: `useQuery(["deliveryQuote", sedeId, lat, lng, tipo])` con `queryFn` que llama al server fn `quoteDelivery`. `enabled = tipo === "delivery" && sede?.lat && sede?.lng && sede?.sedeId`. Debounce 300ms sobre lat/lng.
-- Estado derivado:
-  - `deliveryFee = tipo === "pickup" ? 0 : quote?.deliveryFee`.
-  - `total = subtotal + (deliveryFee ?? 0)`.
-  - `quoting = tipo === "delivery" && isFetching`.
-  - `quoteReady = tipo === "pickup" || quote?.ok === true`.
-  - `outOfCoverage = quote?.code === "OUT_OF_COVERAGE"`.
-- `DetallesEntrega`:
-  - Reemplaza "A confirmar por WhatsApp" por:
-    - Estado cargando: "Calculando domicilio…"
-    - Estado ok: `Domicilio ≈ $X` + fila secundaria `Distancia ≈ Y,Y km (vial)`.
-    - Estado error: mensaje "No pudimos calcular el domicilio. Revisa la dirección o intenta nuevamente."
-  - Total muestra `≈ $Z` con la nota "aprox." al lado (según pedido explícito del usuario).
-- `ResumenPedido` recibe `subtotal`, `deliveryFee`, `total`, `quoting` y los muestra por separado.
-- CTA (mobile + desktop): label incluye `total` recalculado; `disabled = enviando || !quoteReady`. Si `outOfCoverage`: bloquea el submit y ofrece cambiar a "Recoger en sede" (usa `setOrderType("pickup")` como ya existe).
-- `buildOrderPayload()` incluye `destino: { lat: sede.lat, lng: sede.lng }` (coordenadas del cliente en `ActiveSede`). No envía `deliveryFee` — el servidor lo recalcula.
-- Pickup: nunca llama al cotizador; muestra `Domicilio $0`.
+## Decisión abierta
 
-## 5. Admin (`SedeForm.tsx`)
+¿Cómo quieres manejar el link de "retoma tu postulación" que el Ops Hub manda por correo?
 
-Nueva sección "Tarifa de domicilio":
-- Inputs numéricos para `delivery_base_fee`, `delivery_base_distance_km`, `delivery_extra_km_fee`, `delivery_max_distance_km` (opcional).
-- Validación: base > 0, extra ≥ 0. Guardado vía `updateSede` (ya usa `SedeUpdate` tipado de Supabase, así los nuevos campos aparecen automáticamente tras regenerar tipos).
+- **A)** Dejarlo apuntando a `kingpapaops.com/postula-tu-franquicia?lead=...` (más simple, no requiere exponer `get_partial_lead` en KP). R/ SI
 
-## 6. Consistencia post-pedido
+Si no indicas, voy con **A** por defecto (cero cambios en el Ops Hub, cero exposición de RPCs nuevos).
 
-- `/gracias`, Mi Reino (pedidos), y `/admin/pedidos` ya leen `orders.subtotal / total`. Se agrega una fila "Domicilio" cuando `delivery_fee > 0` (lectura directa de las nuevas columnas). No cambia lógica de puntos (siguen calculándose sobre `total` como hoy vía `loyalty_earn_on_delivery`, lo que es congruente).
+**Además tener en cuenta:**
 
-## 7. Pruebas manuales (con `delivery_base_distance_km=1`, `extra=1200`)
+1. Variables de entorno.
+2. Turnstile y rate limiting.
+3. Paso 2 idempotente.
+4. Consentimiento de privacidad.
+5. Booleanos sin selección predeterminada.
+6. No exponer score ni prioridad.
+7. Mantener por ahora la recuperación en Ops Hub.
+8. Identificar el origen como `kingpapa.co/franquicias`, no simplemente `web`.
 
-| Ciudad  | dist km | fee esperado |
-|---------|---------|--------------|
-| Cali    | 0.8     | $5.000       |
-| Cali    | 1.1     | $6.200       |
-| Cali    | 2.0     | $6.200       |
-| Cali    | 2.1     | $7.400       |
-| Bogotá  | 0.8     | $7.000       |
-| Pickup  | —       | $0           |
-| Fuera   | > radio | bloqueado    |
-
-Se prueba también que manipular `deliveryFee` desde devtools no altera el total: el servidor recalcula y persiste su propio valor.
-
-## 8. Fuera de alcance (no se toca)
-
-- Diseño brutalista, textos de marca, tracker, webhook, reconciler.
-- Sistema de puntos/loyalty.
-- Reglas de cobertura ya existentes (solo se **complementan** con la validación explícita en `quoteDelivery`).
-
----
-
-## Detalles técnicos
-
-- Google Maps: Routes API vía gateway (`GATEWAY_URL/routes/directions/v2:computeRoutes`) con `LOVABLE_API_KEY` + `GOOGLE_MAPS_API_KEY_1`. Manejo de 403 con `error.details[].reason` (ya documentado en el proyecto).
-- Server fn `quoteDelivery` es público (no requiere auth) porque el checkout también corre como invitado; no expone secretos y solo lee datos de sede + Routes.
-- `orders.server.ts` importa `quoteDeliveryInternal` desde `delivery-quote.server.ts` (server-only), NO desde `.functions.ts`, para evitar RPC dentro del server.
-- Tipos Supabase se regeneran tras aprobar la migración; hasta entonces, el código nuevo usará `as unknown as` mínimo solo donde sea imprescindible.
-- Verificación: `bunx tsgo --noEmit` y prueba manual del flujo (mobile + desktop).
+Con esos cambios, la integración sería suficientemente sólida para convertirse en el canal público principal de captación de franquiciados.
