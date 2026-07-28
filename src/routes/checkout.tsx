@@ -379,6 +379,7 @@ function CheckoutPage() {
         sede: sede ? { id: sede.sedeId, slug: sede.slug, label: sede.label } : null,
         items,
         subtotal,
+        deliveryFee,
         total: result.total,
       };
       try {
