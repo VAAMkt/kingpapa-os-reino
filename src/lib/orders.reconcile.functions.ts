@@ -15,7 +15,7 @@ import {
 import {
   extractComandaNumber,
   extractMotorizadoInfo,
-  mapDeliveryEstado,
+  mapPolledDeliveryEstado,
   mapRpEstadoToLocal,
 } from "@/lib/restaurantpe-normalize";
 
@@ -116,7 +116,7 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
     const mapped =
       typeof rawEstado === "string" && !/^\d+$/.test(rawEstado.trim())
         ? mapRpEstadoToLocal(rawEstado)
-        : mapDeliveryEstado(rawEstado);
+        : mapPolledDeliveryEstado(rawEstado, row.status);
     const motorizado = extractMotorizadoInfo(snapshot);
     const numeroComanda = extractComandaNumber(snapshot);
     const nowIso = new Date().toISOString();
