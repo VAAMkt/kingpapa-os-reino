@@ -231,7 +231,11 @@ function AdminMenuPage() {
             muestra en la web sin tocar la foto del POS (Restaurant.pe conserva la original)
           </li>
           <li>"Revertir foto" devuelve la imagen original del POS</li>
-          <li>Estrella (★) = producto destacado → aparece en "Más pedidos"</li>
+          <li>
+            Estrella (★ Destacado) = <b>Corona del Rey</b> → aparece en la sección "Los más bravos
+            del menú" del home. Elegí hasta 4.
+          </li>
+
           <li>
             Clasificación ME: Star = mostrar arriba / Plowhorse = vender con upsell / Puzzle = mejor
             foto+copy / Dog = esconder o reformular
