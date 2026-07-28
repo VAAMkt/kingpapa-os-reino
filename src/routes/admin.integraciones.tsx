@@ -249,8 +249,8 @@ function AdminIntegracionesPage() {
           </div>
         </div>
         <p className="text-xs text-kp-ink/70 mb-2">
-          Pedidos con &gt;15 min sin webhook que los toque. El sistema reconcilia solo en segundo
-          plano y auto-cancela a los 45 min (zero-touch).
+          Pedidos activos con &gt;15 min sin webhook asociado. El sistema intenta consultar
+          Restaurant.pe en segundo plano, pero nunca cancela automáticamente un pedido.
         </p>
         {(orphansQuery.data?.orphans.length ?? 0) === 0 ? (
           <p className="text-xs text-kp-ink/60">Sin huérfanos. Webhook al día.</p>
