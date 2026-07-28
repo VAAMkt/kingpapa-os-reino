@@ -236,7 +236,12 @@ function MenuPage() {
       {/* SELECTOR DE SEDE */}
       {sedes.length > 1 && (
         <section className="mx-auto max-w-7xl px-4 md:px-6 flex items-center gap-3 flex-wrap">
+          <label htmlFor="menu-sede-select" className="sr-only">
+            Elegí la sede del Reino
+          </label>
           <select
+            id="menu-sede-select"
+            aria-label="Elegí la sede del Reino"
             value={sedeSlug ?? ""}
             onChange={(e) => navigate({ search: { sede: e.target.value } })}
             className="border-2 border-kp-ink bg-kp-cheese shadow-brutal-sm px-3 py-2 font-display uppercase text-xs"

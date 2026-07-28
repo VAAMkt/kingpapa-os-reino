@@ -12,9 +12,17 @@ import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { LocationCard } from "@/components/kp/Cards";
 import { FaqKing } from "@/components/kp/FaqKing";
 import { listPublicSedes } from "@/lib/sedes";
+import { faqPageJsonLd, sedesLocalBusinessJsonLd, SITE_URL } from "@/lib/seo-schema";
 
 export const Route = createFileRoute("/sedes")({
-  head: () => ({
+  loader: async ({ context }) => {
+    const sedes = await context.queryClient.ensureQueryData({
+      queryKey: ["sedes", "public"],
+      queryFn: listPublicSedes,
+    });
+    return { sedes };
+  },
+  head: ({ loaderData }) => ({
     meta: [
       { title: "Sedes del Reino — KINGPAPA" },
       {
@@ -27,9 +35,19 @@ export const Route = createFileRoute("/sedes")({
         property: "og:description",
         content: "15 sedes en Cali, Jamundí y Bogotá. Encuentra tu castillo más cercano.",
       },
-      { property: "og:url", content: "/sedes" },
+      { property: "og:url", content: `${SITE_URL}/sedes` },
     ],
-    links: [{ rel: "canonical", href: "/sedes" }],
+    links: [{ rel: "canonical", href: `${SITE_URL}/sedes` }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(sedesLocalBusinessJsonLd(loaderData?.sedes ?? [])),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(faqPageJsonLd()),
+      },
+    ],
   }),
   component: SedesPage,
 });
@@ -91,6 +109,7 @@ function SedesPage() {
 
       {/* STATS DEL REINO */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-8">
+        <h2 className="sr-only">Stats del Reino</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <BrutalCard tone="yellow" className="p-5">
             <div className="font-display text-5xl md:text-6xl leading-none">{totalSedes}</div>
@@ -115,7 +134,12 @@ function SedesPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          <label htmlFor="sedes-ciudad-select" className="sr-only">
+            Filtrar por ciudad
+          </label>
           <select
+            id="sedes-ciudad-select"
+            aria-label="Filtrar por ciudad"
             value={ciudad}
             onChange={(e) => setCiudad(e.target.value)}
             className="px-4 py-3 bg-kp-cheese border-2 border-kp-ink shadow-brutal-sm font-body"

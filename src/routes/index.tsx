@@ -16,6 +16,12 @@ import { listPublicPosts } from "@/lib/posts";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { rpProductoToProducto, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
 import heroAsset from "@/assets/salchitender-lto.jpeg.asset.json";
+import {
+  faqPageJsonLd,
+  organizationJsonLd,
+  websiteJsonLd,
+  SITE_URL,
+} from "@/lib/seo-schema";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -32,9 +38,14 @@ export const Route = createFileRoute("/")({
         content:
           "Salchipapas monstruosas, bowls coronados y retos pa’ toda la banda. Cero dieta, cero drama.",
       },
-      { property: "og:url", content: "/" },
+      { property: "og:url", content: `${SITE_URL}/` },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [{ rel: "canonical", href: `${SITE_URL}/` }],
+    scripts: [
+      { type: "application/ld+json", children: JSON.stringify(organizationJsonLd()) },
+      { type: "application/ld+json", children: JSON.stringify(websiteJsonLd()) },
+      { type: "application/ld+json", children: JSON.stringify(faqPageJsonLd()) },
+    ],
   }),
   component: HomePage,
 });
@@ -129,6 +140,7 @@ function HomePage() {
 
       {/* ORDER ROUTER */}
       <section id="pedir" className="mx-auto max-w-7xl px-4 md:px-6 py-12">
+        <h2 className="sr-only">Pedí en KINGPAPA</h2>
         <OrderRouter />
       </section>
 
