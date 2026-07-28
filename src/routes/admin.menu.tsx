@@ -231,7 +231,11 @@ function AdminMenuPage() {
             muestra en la web sin tocar la foto del POS (Restaurant.pe conserva la original)
           </li>
           <li>"Revertir foto" devuelve la imagen original del POS</li>
-          <li>Estrella (★) = producto destacado → aparece en "Más pedidos"</li>
+          <li>
+            Estrella (★ Destacado) = <b>Corona del Rey</b> → aparece en la sección "Los más bravos
+            del menú" del home. Elegí hasta 4.
+          </li>
+
           <li>
             Clasificación ME: Star = mostrar arriba / Plowhorse = vender con upsell / Puzzle = mejor
             foto+copy / Dog = esconder o reformular
@@ -240,15 +244,32 @@ function AdminMenuPage() {
         </ul>
       </details>
 
-      <BrutalCard tone="cheese" className="p-4 flex items-center gap-4">
+      <BrutalCard tone="cheese" className="p-4 flex items-center gap-4 flex-wrap">
         <label className="flex items-center gap-2 font-display uppercase text-sm">
           <Switch checked={hideInactive} onCheckedChange={setHideInactive} />
           Ocultar inactivos
         </label>
+        {(() => {
+          const destacadosCount = productos.filter((p) => p.destacado && p.disponible).length;
+          const tone =
+            destacadosCount === 0
+              ? "text-red-700"
+              : destacadosCount > 4
+                ? "text-orange-700"
+                : "text-kp-ink/80";
+          return (
+            <span className={`text-xs font-display uppercase ${tone}`}>
+              👑 {destacadosCount}/4 destacados en home
+              {destacadosCount > 4 && " · se muestran solo los primeros 4 (alfabético)"}
+              {destacadosCount === 0 && " · usando fallback automático"}
+            </span>
+          );
+        })()}
         <span className="text-xs text-kp-ink/60 ml-auto">
           {categorias.length} categorías · {productos.length} productos
         </span>
       </BrutalCard>
+
 
       {menuQ.isLoading && <p className="text-sm">Cargando catálogo…</p>}
 
@@ -548,11 +569,12 @@ function SortableProdRow({
       {/* Ingeniería de menú: badges + clasificación */}
       <div className="flex flex-wrap gap-1 items-center pl-[60px]">
         <Pill
-          label="★ Destacado"
+          label="★ Corona del Rey"
           active={prod.destacado}
           onClick={() => onPatch({ destacado: !prod.destacado })}
-          title="Sale grande en el menú (col-span-2)"
+          title='Aparece en "Los más bravos del menú" del home (máx 4)'
         />
+
         <Pill
           label="🆕 Nuevo"
           active={prod.es_nuevo}
