@@ -32,10 +32,12 @@ async function callGateway(system: string, user: string): Promise<string> {
 export const generateExcerpt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      titulo: z.string().min(1).max(300),
-      contenido: z.string().min(1).max(20000),
-    }).parse(input),
+    z
+      .object({
+        titulo: z.string().min(1).max(300),
+        contenido: z.string().min(1).max(20000),
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
     const system =
@@ -51,10 +53,12 @@ export const generateExcerpt = createServerFn({ method: "POST" })
 export const suggestSeoTitle = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      titulo: z.string().min(1).max(300),
-      contenido: z.string().max(20000).optional().default(""),
-    }).parse(input),
+    z
+      .object({
+        titulo: z.string().min(1).max(300),
+        contenido: z.string().max(20000).optional().default(""),
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
     const system =

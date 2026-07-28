@@ -10,7 +10,10 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Iniciar sesión — KINGPAPA OS" },
-      { name: "description", content: "Entra al Reino: pide, acumula puntos y desbloquea combos secretos." },
+      {
+        name: "description",
+        content: "Entra al Reino: pide, acumula puntos y desbloquea combos secretos.",
+      },
     ],
   }),
   component: LoginPage,

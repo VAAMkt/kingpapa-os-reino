@@ -42,9 +42,21 @@ export function LoyaltyModule() {
             Descúbrelo en 30 segundos. 6 preguntas. Sin sermón.
           </p>
           <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="border-2 border-kp-ink p-2">🍻<br/>Rumbero</div>
-            <div className="border-2 border-kp-ink p-2">👷<br/>Obrero</div>
-            <div className="border-2 border-kp-ink p-2">👑<br/>Cabezón</div>
+            <div className="border-2 border-kp-ink p-2">
+              🍻
+              <br />
+              Rumbero
+            </div>
+            <div className="border-2 border-kp-ink p-2">
+              👷
+              <br />
+              Obrero
+            </div>
+            <div className="border-2 border-kp-ink p-2">
+              👑
+              <br />
+              Cabezón
+            </div>
           </div>
           <BrutalButton block className="mt-4" onClick={() => setOpenQuiz(true)}>
             Empezar test
@@ -87,21 +99,28 @@ function QuizModal({ onClose }: { onClose: () => void }) {
     // TODO: POST /api/subditos
     try {
       localStorage.setItem("kp_subdito", JSON.stringify(subdito));
-    } catch {/* ignore */}
+    } catch {
+      /* ignore */
+    }
     setDone(true);
   }
 
   const arquetipo = done ? calcularArquetipo(respuestas) : null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-kp-ink/70 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 bg-kp-ink/70 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         <BrutalCard tone="yellow" className="p-5 md:p-7">
           <div className="flex items-center justify-between mb-4">
             <BrutalBadge tone="black">
               {done ? "Coronado" : idx < total ? `Pregunta ${idx + 1}/${total}` : "Casi listo"}
             </BrutalBadge>
-            <button onClick={onClose} className="font-display text-lg" aria-label="Cerrar">✕</button>
+            <button onClick={onClose} className="font-display text-lg" aria-label="Cerrar">
+              ✕
+            </button>
           </div>
 
           {!done && idx < total && (
@@ -110,7 +129,8 @@ function QuizModal({ onClose }: { onClose: () => void }) {
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {q.opciones.map((o) => (
                   <BrutalButton key={o.id} variant="ghost" onClick={() => answer(o.id)}>
-                    {o.emoji ? `${o.emoji} ` : ""}{o.label}
+                    {o.emoji ? `${o.emoji} ` : ""}
+                    {o.label}
                   </BrutalButton>
                 ))}
               </div>

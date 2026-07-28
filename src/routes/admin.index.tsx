@@ -59,35 +59,77 @@ function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Kpi tone="cheese" label="Súbditos nuevos" value={data.kpis.subditosNuevos.toString()} />
-            <Kpi tone="cheese" label="Súbditos totales" value={data.kpis.subditosTotal.toString()} />
-            <Kpi tone="cheese" label="Estados activos" value={data.porEstado.filter((e) => !["entregado", "cancelado", "error"].includes(e.status)).reduce((a, b) => a + b.count, 0).toString()} />
+            <Kpi
+              tone="cheese"
+              label="Súbditos nuevos"
+              value={data.kpis.subditosNuevos.toString()}
+            />
+            <Kpi
+              tone="cheese"
+              label="Súbditos totales"
+              value={data.kpis.subditosTotal.toString()}
+            />
+            <Kpi
+              tone="cheese"
+              label="Estados activos"
+              value={data.porEstado
+                .filter((e) => !["entregado", "cancelado", "error"].includes(e.status))
+                .reduce((a, b) => a + b.count, 0)
+                .toString()}
+            />
             <Kpi tone="cheese" label="Sedes con venta" value={data.porSede.length.toString()} />
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <BrutalCard tone="cheese" className="p-5">
               <h2 className="font-display text-xl uppercase mb-3">Pedidos por canal</h2>
-              <BarList data={data.porCanal.map((c) => ({ label: c.tipo, value: c.pedidos, meta: fmt(c.ingresos) }))} />
+              <BarList
+                data={data.porCanal.map((c) => ({
+                  label: c.tipo,
+                  value: c.pedidos,
+                  meta: fmt(c.ingresos),
+                }))}
+              />
             </BrutalCard>
             <BrutalCard tone="cheese" className="p-5">
               <h2 className="font-display text-xl uppercase mb-3">Sedes top</h2>
-              <BarList data={data.porSede.map((s) => ({ label: s.sede_nombre, value: s.pedidos, meta: fmt(s.ingresos) }))} />
+              <BarList
+                data={data.porSede.map((s) => ({
+                  label: s.sede_nombre,
+                  value: s.pedidos,
+                  meta: fmt(s.ingresos),
+                }))}
+              />
             </BrutalCard>
             <BrutalCard tone="cheese" className="p-5">
               <h2 className="font-display text-xl uppercase mb-3">Productos top</h2>
-              <BarList data={data.productosTop.map((p) => ({ label: p.nombre, value: p.cantidad, meta: `${p.cantidad} u` }))} />
+              <BarList
+                data={data.productosTop.map((p) => ({
+                  label: p.nombre,
+                  value: p.cantidad,
+                  meta: `${p.cantidad} u`,
+                }))}
+              />
             </BrutalCard>
             <BrutalCard tone="cheese" className="p-5">
               <h2 className="font-display text-xl uppercase mb-3">Por estado</h2>
-              <BarList data={data.porEstado.map((e) => ({ label: e.status, value: e.count, meta: `${e.count}` }))} />
+              <BarList
+                data={data.porEstado.map((e) => ({
+                  label: e.status,
+                  value: e.count,
+                  meta: `${e.count}`,
+                }))}
+              />
             </BrutalCard>
           </div>
 
           <BrutalCard tone="cheese" className="p-5">
             <div className="flex justify-between items-center mb-3">
               <h2 className="font-display text-xl uppercase">Últimos pedidos</h2>
-              <Link to="/admin/pedidos" className="font-display uppercase text-xs border-2 border-kp-ink bg-kp-yellow px-3 py-2">
+              <Link
+                to="/admin/pedidos"
+                className="font-display uppercase text-xs border-2 border-kp-ink bg-kp-yellow px-3 py-2"
+              >
                 Ver todos
               </Link>
             </div>
@@ -105,7 +147,12 @@ function AdminDashboard() {
                 <tbody>
                   {data.ultimos.map((o) => (
                     <tr key={o.id} className="border-b border-kp-ink/10">
-                      <td className="py-2">{new Date(o.created_at).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}</td>
+                      <td className="py-2">
+                        {new Date(o.created_at).toLocaleString("es-CO", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                      </td>
                       <td className="py-2">{o.cliente_nombre}</td>
                       <td className="py-2 font-mono">{o.rp_numero_comanda ?? "—"}</td>
                       <td className="py-2 uppercase text-xs">{o.status}</td>
@@ -113,7 +160,11 @@ function AdminDashboard() {
                     </tr>
                   ))}
                   {data.ultimos.length === 0 && (
-                    <tr><td colSpan={5} className="py-3 text-center text-kp-ink/60">Sin pedidos en el rango.</td></tr>
+                    <tr>
+                      <td colSpan={5} className="py-3 text-center text-kp-ink/60">
+                        Sin pedidos en el rango.
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -125,7 +176,15 @@ function AdminDashboard() {
   );
 }
 
-function Kpi({ tone, label, value }: { tone: "yellow" | "cheese" | "purple" | "red"; label: string; value: string }) {
+function Kpi({
+  tone,
+  label,
+  value,
+}: {
+  tone: "yellow" | "cheese" | "purple" | "red";
+  label: string;
+  value: string;
+}) {
   return (
     <BrutalCard tone={tone} className="p-4">
       <p className="text-xs font-display uppercase">{label}</p>

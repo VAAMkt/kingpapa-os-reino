@@ -4,7 +4,7 @@ import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import type { SedeRow } from "@/lib/sedes";
 
 // Formato estable SSR/CSR (evita hydration mismatch por locale del runtime).
-const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 export function formatFecha(iso: string): string {
   const [y, m] = iso.split("-");
   const idx = Math.max(0, Math.min(11, parseInt(m, 10) - 1));
@@ -41,7 +41,10 @@ export function LocationCard({ sede }: { sede: SedeRow }) {
       <p className="text-xs font-display uppercase">{sede.horario}</p>
       <div className="flex flex-wrap gap-1">
         {services.map((s) => (
-          <span key={s} className="text-[10px] font-display uppercase bg-kp-ink text-kp-cheese px-2 py-1">
+          <span
+            key={s}
+            className="text-[10px] font-display uppercase bg-kp-ink text-kp-cheese px-2 py-1"
+          >
             {s}
           </span>
         ))}

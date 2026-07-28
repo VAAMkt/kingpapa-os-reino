@@ -11,32 +11,33 @@ const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
 type UpsellGroupKey = "adicion" | "bebida" | "postre" | "acompan";
 
-const GROUP_ORDER: { key: UpsellGroupKey; keywords: string[]; title: string; subtitle: string }[] = [
-  {
-    key: "adicion",
-    keywords: ["adicion"],
-    title: "Súmale una adición",
-    subtitle: "Tocino, queso extra, salsas… arma tu corona.",
-  },
-  {
-    key: "bebida",
-    keywords: ["bebida"],
-    title: "¿Lo acompañas con bebida?",
-    subtitle: "Una fría siempre cae bien 👑",
-  },
-  {
-    key: "postre",
-    keywords: ["postre"],
-    title: "Cierra con un postre",
-    subtitle: "El final perfecto del reinado.",
-  },
-  {
-    key: "acompan",
-    keywords: ["acompan"],
-    title: "Pídele un acompañamiento",
-    subtitle: "Papas, aros, lo que se te antoje.",
-  },
-];
+const GROUP_ORDER: { key: UpsellGroupKey; keywords: string[]; title: string; subtitle: string }[] =
+  [
+    {
+      key: "adicion",
+      keywords: ["adicion"],
+      title: "Súmale una adición",
+      subtitle: "Tocino, queso extra, salsas… arma tu corona.",
+    },
+    {
+      key: "bebida",
+      keywords: ["bebida"],
+      title: "¿Lo acompañas con bebida?",
+      subtitle: "Una fría siempre cae bien 👑",
+    },
+    {
+      key: "postre",
+      keywords: ["postre"],
+      title: "Cierra con un postre",
+      subtitle: "El final perfecto del reinado.",
+    },
+    {
+      key: "acompan",
+      keywords: ["acompan"],
+      title: "Pídele un acompañamiento",
+      subtitle: "Papas, aros, lo que se te antoje.",
+    },
+  ];
 
 export type UpsellGroup = {
   key: UpsellGroupKey;
@@ -50,10 +51,12 @@ export type UpsellGroup = {
  * de prioridad fijo (adiciones → bebidas → postres → acompañamientos).
  * Cada grupo trae hasta `maxPerGroup` productos y excluye los `excludeIds`.
  */
-export function useUpsellGroups(opts: {
-  excludeIds?: string[];
-  maxPerGroup?: number;
-} = {}): UpsellGroup[] {
+export function useUpsellGroups(
+  opts: {
+    excludeIds?: string[];
+    maxPerGroup?: number;
+  } = {},
+): UpsellGroup[] {
   const { excludeIds = [], maxPerGroup = 3 } = opts;
   const qc = useQueryClient();
   const sede = useActiveSede();
@@ -145,9 +148,7 @@ export function UpsellSection({
               <div className="w-14 h-14 bg-kp-ink shrink-0" />
             )}
             <div className="flex-1 min-w-0">
-              <p className="font-display uppercase text-sm leading-tight truncate">
-                {p.nombre}
-              </p>
+              <p className="font-display uppercase text-sm leading-tight truncate">{p.nombre}</p>
               <p className="font-display text-base">{cop(p.precioDesde)}</p>
             </div>
             <BrutalButton

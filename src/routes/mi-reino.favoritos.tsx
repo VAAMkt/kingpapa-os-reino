@@ -35,7 +35,9 @@ function Favoritos() {
       <BrutalCard tone="cheese" className="p-6">
         <BrutalBadge tone="red">Favoritos</BrutalBadge>
         <h2 className="font-display text-2xl uppercase mt-2">Marca tus combos</h2>
-        <p className="text-sm mt-1">Guarda tus pedidos favoritos desde "Pedidos" para repetirlos en un click.</p>
+        <p className="text-sm mt-1">
+          Guarda tus pedidos favoritos desde "Pedidos" para repetirlos en un click.
+        </p>
         <BrutalLink href="/mi-reino/pedidos" variant="primary" className="mt-4">
           Ver mis pedidos
         </BrutalLink>
@@ -49,12 +51,16 @@ function Favoritos() {
           <div className="flex justify-between items-start gap-3">
             <div className="min-w-0">
               <BrutalBadge tone="lime">Favorito</BrutalBadge>
-              <p className="font-display text-lg uppercase mt-2">{o.alias || `Pedido ${new Date(o.created_at).toLocaleDateString("es-CO")}`}</p>
+              <p className="font-display text-lg uppercase mt-2">
+                {o.alias || `Pedido ${new Date(o.created_at).toLocaleDateString("es-CO")}`}
+              </p>
               <p className="text-sm mt-1 line-clamp-2">
                 {o.items.map((i) => `${i.cantidad}× ${i.nombre}`).join(" · ")}
               </p>
             </div>
-            <span className="font-mono text-sm whitespace-nowrap">${Math.round(o.total).toLocaleString("es-CO")}</span>
+            <span className="font-mono text-sm whitespace-nowrap">
+              ${Math.round(o.total).toLocaleString("es-CO")}
+            </span>
           </div>
           {editing === o.id ? (
             <div className="mt-3 flex gap-2">
@@ -65,8 +71,12 @@ function Favoritos() {
                 onChange={(e) => setAlias(e.target.value)}
                 maxLength={60}
               />
-              <BrutalButton size="sm" onClick={() => upd.mutate({ order_id: o.id, alias })}>Guardar</BrutalButton>
-              <BrutalButton size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancelar</BrutalButton>
+              <BrutalButton size="sm" onClick={() => upd.mutate({ order_id: o.id, alias })}>
+                Guardar
+              </BrutalButton>
+              <BrutalButton size="sm" variant="ghost" onClick={() => setEditing(null)}>
+                Cancelar
+              </BrutalButton>
             </div>
           ) : (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -95,7 +105,11 @@ function Favoritos() {
               <BrutalButton
                 size="sm"
                 variant="ghost"
-                onClick={() => toggleFn({ data: { order_id: o.id } }).then(() => qc.invalidateQueries({ queryKey: ["my-favorites"] }))}
+                onClick={() =>
+                  toggleFn({ data: { order_id: o.id } }).then(() =>
+                    qc.invalidateQueries({ queryKey: ["my-favorites"] }),
+                  )
+                }
               >
                 Quitar
               </BrutalButton>

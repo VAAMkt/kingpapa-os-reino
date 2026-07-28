@@ -44,8 +44,12 @@ function AdminLayout() {
     return (
       <section className="mx-auto max-w-3xl px-4 py-16 text-center">
         <div className="border-2 border-kp-ink bg-kp-red p-6 shadow-brutal-sm">
-          <p className="font-display uppercase text-3xl leading-none text-kp-cheese">No pudimos verificar tu corona</p>
-          <p className="mt-3 text-sm text-kp-cheese/90">La sesión está activa, pero falló la consulta de roles.</p>
+          <p className="font-display uppercase text-3xl leading-none text-kp-cheese">
+            No pudimos verificar tu corona
+          </p>
+          <p className="mt-3 text-sm text-kp-cheese/90">
+            La sesión está activa, pero falló la consulta de roles.
+          </p>
           <button
             type="button"
             onClick={() => window.location.reload()}

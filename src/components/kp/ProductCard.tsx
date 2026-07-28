@@ -5,11 +5,7 @@ import type { Producto } from "@/types/kp";
 import { addItem } from "@/lib/cart";
 import { useActiveSede } from "@/lib/active-sede";
 import { openLocationGate } from "@/components/kp/LocationGate";
-import {
-  setPendingIntent,
-  GATE_CONFIRMED_EVENT,
-  runPendingIntent,
-} from "@/lib/pending-intent";
+import { setPendingIntent, GATE_CONFIRMED_EVENT, runPendingIntent } from "@/lib/pending-intent";
 import { ProductCustomizerSheet } from "@/components/kp/ProductCustomizerSheet";
 import { toast } from "sonner";
 
@@ -37,7 +33,9 @@ export function ProductCard({
 }) {
   const sede = useActiveSede();
   const [openCustomizer, setOpenCustomizer] = useState(false);
-  useEffect(() => { ensureListener(); }, []);
+  useEffect(() => {
+    ensureListener();
+  }, []);
 
   const tieneMods = (producto.modificadores?.length ?? 0) > 0;
 

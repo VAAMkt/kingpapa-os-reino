@@ -54,15 +54,31 @@ function Datos() {
         <div className="grid gap-3">
           <label className="text-sm font-display uppercase">
             Nombre
-            <input className="mt-1 w-full border-2 border-kp-ink bg-white px-3 py-2" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
+            <input
+              className="mt-1 w-full border-2 border-kp-ink bg-white px-3 py-2"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={120}
+            />
           </label>
           <label className="text-sm font-display uppercase">
             WhatsApp
-            <input className="mt-1 w-full border-2 border-kp-ink bg-white px-3 py-2" value={wa} onChange={(e) => setWa(e.target.value)} placeholder="3xx xxx xxxx" maxLength={40} />
+            <input
+              className="mt-1 w-full border-2 border-kp-ink bg-white px-3 py-2"
+              value={wa}
+              onChange={(e) => setWa(e.target.value)}
+              placeholder="3xx xxx xxxx"
+              maxLength={40}
+            />
           </label>
           <label className="text-sm font-display uppercase">
             Ciudad
-            <input className="mt-1 w-full border-2 border-kp-ink bg-white px-3 py-2" value={ciudad} onChange={(e) => setCiudad(e.target.value)} maxLength={80} />
+            <input
+              className="mt-1 w-full border-2 border-kp-ink bg-white px-3 py-2"
+              value={ciudad}
+              onChange={(e) => setCiudad(e.target.value)}
+              maxLength={80}
+            />
           </label>
         </div>
         <BrutalButton onClick={() => save.mutate()} disabled={save.isPending}>
@@ -75,7 +91,9 @@ function Datos() {
         <h3 className="font-display text-2xl uppercase mt-2">Trae a la banda</h3>
         <p className="text-sm mt-1">Comparte tu código y sumen puntos juntos (próximamente).</p>
         <div className="mt-4 flex gap-2 items-center">
-          <span className="font-mono text-2xl border-2 border-kp-ink bg-kp-cheese text-kp-ink px-3 py-2 shadow-brutal-sm">{code}</span>
+          <span className="font-mono text-2xl border-2 border-kp-ink bg-kp-cheese text-kp-ink px-3 py-2 shadow-brutal-sm">
+            {code}
+          </span>
           <BrutalButton
             size="sm"
             variant="dark"

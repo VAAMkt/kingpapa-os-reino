@@ -50,7 +50,9 @@ function Puntos() {
           <div>
             <BrutalBadge tone="yellow">Puntos del Reino</BrutalBadge>
             <p className="font-display text-6xl leading-none mt-2">{bal}</p>
-            <p className="text-xs mt-1">Lifetime: {life} pts · Tier: {tier.toUpperCase()}</p>
+            <p className="text-xs mt-1">
+              Lifetime: {life} pts · Tier: {tier.toUpperCase()}
+            </p>
           </div>
           <span className="text-5xl">👑</span>
         </div>
@@ -59,7 +61,9 @@ function Puntos() {
             <div className="h-full bg-kp-yellow" style={{ width: `${pct}%` }} />
           </div>
           <p className="text-xs mt-1">
-            {next ? `${life}/${next.target} pts para ${next.name.toUpperCase()}` : "Corona máxima 👑"}
+            {next
+              ? `${life}/${next.target} pts para ${next.name.toUpperCase()}`
+              : "Corona máxima 👑"}
           </p>
         </div>
       </BrutalCard>
@@ -74,7 +78,9 @@ function Puntos() {
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <h3 className="font-display text-lg uppercase leading-tight">{r.nombre}</h3>
-                    {r.descripcion && <p className="text-xs mt-1 text-kp-ink/70">{r.descripcion}</p>}
+                    {r.descripcion && (
+                      <p className="text-xs mt-1 text-kp-ink/70">{r.descripcion}</p>
+                    )}
                   </div>
                   <BrutalBadge tone="yellow">{r.costo_puntos} pts</BrutalBadge>
                 </div>
@@ -106,7 +112,11 @@ function Puntos() {
             <p className="text-sm text-kp-ink/60">Todavía no has canjeado nada.</p>
           )}
           {(reds ?? []).map((r) => (
-            <BrutalCard key={r.id} tone="cheese" className="p-3 flex flex-wrap justify-between items-center gap-2">
+            <BrutalCard
+              key={r.id}
+              tone="cheese"
+              className="p-3 flex flex-wrap justify-between items-center gap-2"
+            >
               <div>
                 <p className="font-display uppercase text-sm">{r.reward?.nombre ?? "Recompensa"}</p>
                 <p className="text-xs text-kp-ink/60">
@@ -140,11 +150,17 @@ function Puntos() {
                 <div className="min-w-0">
                   <p className="truncate">{l.motivo}</p>
                   <p className="text-xs text-kp-ink/60">
-                    {new Date(l.created_at).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                    {new Date(l.created_at).toLocaleString("es-CO", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
                   </p>
                 </div>
-                <span className={`font-mono font-bold ${l.puntos < 0 ? "text-kp-red" : "text-green-700"}`}>
-                  {l.puntos > 0 ? "+" : ""}{l.puntos}
+                <span
+                  className={`font-mono font-bold ${l.puntos < 0 ? "text-kp-red" : "text-green-700"}`}
+                >
+                  {l.puntos > 0 ? "+" : ""}
+                  {l.puntos}
                 </span>
               </li>
             ))}

@@ -4,7 +4,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
-import { useCart, clearCart, setOrderType, incItem, decItem, removeItem, type OrderType } from "@/lib/cart";
+import {
+  useCart,
+  clearCart,
+  setOrderType,
+  incItem,
+  decItem,
+  removeItem,
+  type OrderType,
+} from "@/lib/cart";
 import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-sede";
 import { listPublicSedes } from "@/lib/sedes";
 import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
@@ -14,10 +22,7 @@ import { track } from "@/lib/analytics";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
-    meta: [
-      { title: "Checkout — KINGPAPA" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Checkout — KINGPAPA" }, { name: "robots", content: "noindex" }],
   }),
   component: CheckoutPage,
 });
@@ -55,10 +60,16 @@ function defaultPickupSchedule(): { date: string; time: string } {
   const d = new Date(Date.now() + 45 * 60_000);
   d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
   const date = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   }).format(d);
   const time = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Bogota", hour: "2-digit", minute: "2-digit", hour12: false,
+    timeZone: "America/Bogota",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   }).format(d);
   return { date, time };
 }
@@ -96,14 +107,22 @@ function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
   // Persiste el formulario en localStorage para que recargar la página
   // o editar por error no borre lo que el usuario ya escribió.
   useEffect(() => {
     try {
       window.localStorage.setItem(
         FORM_KEY,
-        JSON.stringify({ nombre, telefono, direccion, detalles, notas, pago, pickupDate, pickupTime }),
+        JSON.stringify({
+          nombre,
+          telefono,
+          direccion,
+          detalles,
+          notas,
+          pago,
+          pickupDate,
+          pickupTime,
+        }),
       );
     } catch {
       /* ignore quota errors */
@@ -184,8 +203,7 @@ function CheckoutPage() {
   }
 
   // Cotización de domicilio (server autoritativo).
-  const canQuote =
-    !!sede?.sedeId && sede?.lat != null && sede?.lng != null && tipo === "delivery";
+  const canQuote = !!sede?.sedeId && sede?.lat != null && sede?.lng != null && tipo === "delivery";
   const quoteQ = useQuery({
     queryKey: [
       "deliveryQuote",
@@ -207,14 +225,11 @@ function CheckoutPage() {
   });
   const quote = quoteQ.data;
   const quoting = tipo === "delivery" && (quoteQ.isLoading || quoteQ.isFetching);
-  const deliveryFee =
-    tipo === "pickup" ? 0 : quote && quote.ok ? quote.deliveryFee : 0;
+  const deliveryFee = tipo === "pickup" ? 0 : quote && quote.ok ? quote.deliveryFee : 0;
   const deliveryKm = quote && quote.ok ? quote.distanceKm : null;
   const outOfCoverage = !!quote && !quote.ok && quote.code === "OUT_OF_COVERAGE";
   const quoteError =
-    tipo === "delivery" && !!quote && !quote.ok && !outOfCoverage
-      ? quote.message
-      : null;
+    tipo === "delivery" && !!quote && !quote.ok && !outOfCoverage ? quote.message : null;
   const quoteReady = tipo === "pickup" || (!!quote && quote.ok);
   const total = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee]);
   const puntos = Math.floor(total / 1000) * 10;
@@ -223,11 +238,15 @@ function CheckoutPage() {
     return (
       <section className="mx-auto max-w-3xl px-4 md:px-6 py-12">
         <BrutalCard tone="yellow" className="p-6 text-center">
-          <h1 className="font-display text-4xl uppercase">Tu carrito está más pelado que un lunes</h1>
+          <h1 className="font-display text-4xl uppercase">
+            Tu carrito está más pelado que un lunes
+          </h1>
           <p className="mt-2 text-sm">Metele algo al carrito, parce. Sin producto no hay corona.</p>
           <div className="mt-5">
             <Link to="/menu">
-              <BrutalButton variant="fire" size="lg">Ir al menú</BrutalButton>
+              <BrutalButton variant="fire" size="lg">
+                Ir al menú
+              </BrutalButton>
             </Link>
           </div>
         </BrutalCard>
@@ -357,9 +376,7 @@ function CheckoutPage() {
         pickupScheduledFor: esRecoger
           ? new Date(`${pickupDate}T${pickupTime}:00-05:00`).toISOString()
           : null,
-        sede: sede
-          ? { id: sede.sedeId, slug: sede.slug, label: sede.label }
-          : null,
+        sede: sede ? { id: sede.sedeId, slug: sede.slug, label: sede.label } : null,
         items,
         subtotal,
         total: result.total,
@@ -391,7 +408,7 @@ function CheckoutPage() {
   const ctaDisabled = enviando || quoting || outOfCoverage || !!quoteError;
 
   const direccionResumen = esRecoger
-    ? sede?.label ?? "Sede"
+    ? (sede?.label ?? "Sede")
     : direccion || sede?.direccionTexto || "Tu dirección";
 
   return (
@@ -530,8 +547,11 @@ function CheckoutPage() {
       {esRecoger && sede && sede.source !== "manual" && !sede.enCobertura && sede.lat != null && (
         <div className="border-2 border-kp-ink bg-kp-yellow/60 px-3 py-2 text-xs">
           Pillate, hoy no llegamos hasta tu zona con domicilio propio
-          {sede.distanciaKm ? ` (${sede.distanciaKm.toFixed(1)} km de ${sede.label.replace(/^Recoger en\s+/i, "")})` : ""}.
-          Te dejamos el pedido en modo <strong>recoger en sede</strong>. Si preferís, buscanos en Rappi o DiDi — con los parceros seguro llegamos 💪🏻🏰
+          {sede.distanciaKm
+            ? ` (${sede.distanciaKm.toFixed(1)} km de ${sede.label.replace(/^Recoger en\s+/i, "")})`
+            : ""}
+          . Te dejamos el pedido en modo <strong>recoger en sede</strong>. Si preferís, buscanos en
+          Rappi o DiDi — con los parceros seguro llegamos 💪🏻🏰
         </div>
       )}
 
@@ -545,7 +565,7 @@ function CheckoutPage() {
           <span>
             {resumenAbierto ? "Ocultar" : "Ver"} pedido · {count} ítem{count === 1 ? "" : "s"}
           </span>
-        <span className="text-base">{totalLabel}</span>
+          <span className="text-base">{totalLabel}</span>
         </button>
         {resumenAbierto && (
           <div className="mt-2">
@@ -651,11 +671,13 @@ function CheckoutPage() {
           <BrutalCard tone="cheese" className="p-4 space-y-2">
             <h2 className="font-display uppercase text-lg">Método de pago</h2>
             <div className="flex flex-wrap gap-2">
-              {(([
-                { id: "efectivo", label: "💵 Efectivo" },
-                { id: "datafono", label: "💳 Datáfono" },
-                ...(PAYMENTS_ENABLED ? [{ id: "online", label: "🌐 Online" }] : []),
-              ]) as { id: PagoMetodo; label: string }[]).map((opt) => (
+              {(
+                [
+                  { id: "efectivo", label: "💵 Efectivo" },
+                  { id: "datafono", label: "💳 Datáfono" },
+                  ...(PAYMENTS_ENABLED ? [{ id: "online", label: "🌐 Online" }] : []),
+                ] as { id: PagoMetodo; label: string }[]
+              ).map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
@@ -690,7 +712,6 @@ function CheckoutPage() {
             quoteError={quoteError}
             onSwitchToPickup={() => setOrderType("pickup")}
           />
-
 
           {/* Notas colapsadas */}
           <details className="border-2 border-kp-ink/30 bg-kp-cheese px-3 py-2">
@@ -912,9 +933,7 @@ function DetallesEntrega({
       <Row label="Sede" value={sedeNombre ?? sede?.slug ?? "—"} />
       <Row label="Tiempo estimado" value={tiempoEstimado} />
       <Row label="Tipo" value={esRecoger ? "Recoger en sede" : "Domicilio"} />
-      {!esRecoger && (
-        <Row label="Dirección" value={direccion || sede?.direccionTexto || "—"} />
-      )}
+      {!esRecoger && <Row label="Dirección" value={direccion || sede?.direccionTexto || "—"} />}
       <div className="border-t-2 border-kp-ink/30 pt-2 space-y-1">
         <Row label="Subtotal" value={cop(subtotal)} />
         {!esRecoger && <Row label="Domicilio" value={domicilioValue} />}
@@ -947,4 +966,3 @@ function DetallesEntrega({
     </BrutalCard>
   );
 }
-

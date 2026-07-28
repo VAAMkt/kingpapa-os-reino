@@ -10,10 +10,7 @@
 // Route path: /api/public/hooks/rp-reconcile  (bypassa auth por prefijo).
 
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  checkQuipuBacklog,
-  pollActiveOrders,
-} from "@/lib/rp-reconcile.functions";
+import { checkQuipuBacklog, pollActiveOrders } from "@/lib/rp-reconcile.functions";
 
 export const Route = createFileRoute("/api/public/hooks/rp-reconcile")({
   server: {
@@ -39,10 +36,7 @@ export const Route = createFileRoute("/api/public/hooks/rp-reconcile")({
         return Response.json({
           ok: true,
           elapsed_ms: Date.now() - startedAt,
-          poll:
-            pollRes.status === "fulfilled"
-              ? pollRes.value
-              : { error: String(pollRes.reason) },
+          poll: pollRes.status === "fulfilled" ? pollRes.value : { error: String(pollRes.reason) },
           backlog:
             backlogRes.status === "fulfilled"
               ? backlogRes.value

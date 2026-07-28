@@ -67,9 +67,7 @@ function haversineKm(
   const dLng = toRad(dest.lng - origin.lng);
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(origin.lat)) *
-      Math.cos(toRad(dest.lat)) *
-      Math.sin(dLng / 2) ** 2;
+    Math.cos(toRad(origin.lat)) * Math.cos(toRad(dest.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * radiusKm * Math.asin(Math.sqrt(a));
 }
 
@@ -78,8 +76,7 @@ async function googleRouteDistanceKm(
   dest: { lat: number; lng: number },
 ): Promise<number | null> {
   const lovable = process.env.LOVABLE_API_KEY;
-  const connectionKey =
-    process.env.GOOGLE_MAPS_API_KEY_1 || process.env.GOOGLE_MAPS_API_KEY;
+  const connectionKey = process.env.GOOGLE_MAPS_API_KEY_1 || process.env.GOOGLE_MAPS_API_KEY;
 
   // En conexiones "Managed by Lovable" no se inyecta una clave Google propia:
   // el gateway resuelve las credenciales. Solo enviamos X-Connection-Api-Key
@@ -118,9 +115,7 @@ async function googleRouteDistanceKm(
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      console.error(
-        `[delivery-quote] Google Routes ${res.status}: ${detail.slice(0, 500)}`,
-      );
+      console.error(`[delivery-quote] Google Routes ${res.status}: ${detail.slice(0, 500)}`);
       return null;
     }
     const json = (await res.json()) as {
@@ -187,9 +182,7 @@ async function routeDistanceKm(
   // evita cobrar como si la ruta fuera una línea recta y mantiene operativo el
   // checkout ante caídas breves de ambos proveedores.
   const estimatedKm = haversineKm(origin, dest) * 1.25;
-  console.warn(
-    `[delivery-quote] Usando distancia estimada: ${estimatedKm.toFixed(3)} km`,
-  );
+  console.warn(`[delivery-quote] Usando distancia estimada: ${estimatedKm.toFixed(3)} km`);
   return {
     distanceKm: Math.max(0.01, estimatedKm),
     source: "estimated",

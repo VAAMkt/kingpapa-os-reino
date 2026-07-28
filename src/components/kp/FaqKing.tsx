@@ -29,7 +29,9 @@ const FAQS: FaqItem[] = [
     q: "¿Puedo recoger en punto?",
     a: (
       <>
-        Podés llegar al punto por el pedido sin mente. Regalános <strong>nombre, teléfono, pedido y sede</strong>, y arrimate en unos 45 min. Si sale antes te tiramos un call 👑
+        Podés llegar al punto por el pedido sin mente. Regalános{" "}
+        <strong>nombre, teléfono, pedido y sede</strong>, y arrimate en unos 45 min. Si sale antes
+        te tiramos un call 👑
       </>
     ),
   },
@@ -37,7 +39,8 @@ const FAQS: FaqItem[] = [
     q: "¿Manejan reservas?",
     a: (
       <>
-        Que pena omme, pilla que no manejamos reservas porque la afluencia es mucha y el lugar no es tan grande… Pero llegate que acá <strong>sí o sí</strong> la vas a pasar melito.
+        Que pena omme, pilla que no manejamos reservas porque la afluencia es mucha y el lugar no es
+        tan grande… Pero llegate que acá <strong>sí o sí</strong> la vas a pasar melito.
       </>
     ),
   },
@@ -45,7 +48,8 @@ const FAQS: FaqItem[] = [
     q: "¿Tienen opciones vegetarianas?",
     a: (
       <>
-        Sí. Podés pedirla <strong>sin proteína animal</strong> y meterle queso, maíz, cebolla crispy o aguacate. 🥑
+        Sí. Podés pedirla <strong>sin proteína animal</strong> y meterle queso, maíz, cebolla crispy
+        o aguacate. 🥑
       </>
     ),
   },
@@ -53,7 +57,8 @@ const FAQS: FaqItem[] = [
     q: "¿Qué salsas manejan?",
     a: (
       <>
-        En el Reino siempre hay pa' todos los gustos: <strong>Salsa de la casa, BBQ, Salsa KING con pepinillos, Picante y de Ajo</strong> 😎
+        En el Reino siempre hay pa' todos los gustos:{" "}
+        <strong>Salsa de la casa, BBQ, Salsa KING con pepinillos, Picante y de Ajo</strong> 😎
       </>
     ),
   },
@@ -61,7 +66,9 @@ const FAQS: FaqItem[] = [
     q: "¿Cómo funciona el Reto Kingpapa?",
     a: (
       <>
-        Llegate a cualquier sede y pedí la del reto ($139.900). Tenés que terminar <strong>4.1 kilos</strong> en menos de <strong>30 minutos</strong>. ¡Ya es 1 palo! Aplica sólo para mayores de edad. 💪🏻🏰
+        Llegate a cualquier sede y pedí la del reto ($139.900). Tenés que terminar{" "}
+        <strong>4.1 kilos</strong> en menos de <strong>30 minutos</strong>. ¡Ya es 1 palo! Aplica
+        sólo para mayores de edad. 💪🏻🏰
       </>
     ),
   },
@@ -69,7 +76,8 @@ const FAQS: FaqItem[] = [
     q: "¿Tienen algo pa' cumpleaños?",
     a: (
       <>
-        Tenemos el combo cumpleaños por <strong>$55.000</strong> 🥳: Show de chicharrón a la mesa, show de queso a la mesa, 1 corona, 1 vela volcán y 1 brownie.
+        Tenemos el combo cumpleaños por <strong>$55.000</strong> 🥳: Show de chicharrón a la mesa,
+        show de queso a la mesa, 1 corona, 1 vela volcán y 1 brownie.
       </>
     ),
   },
@@ -77,7 +85,9 @@ const FAQS: FaqItem[] = [
     q: "¿Y si no hay cobertura en mi zona?",
     a: (
       <>
-        Lamentablemente hoy no llegamos hasta tu zona, pero nos podés encontrar en <strong>Rappi o DiDi</strong> — seguro que con los parceros llegamos. O si preferís, te esperamos en una de nuestras sedes, estamos ready pa' atenderte 💪🏻🏰
+        Lamentablemente hoy no llegamos hasta tu zona, pero nos podés encontrar en{" "}
+        <strong>Rappi o DiDi</strong> — seguro que con los parceros llegamos. O si preferís, te
+        esperamos en una de nuestras sedes, estamos ready pa' atenderte 💪🏻🏰
       </>
     ),
   },
@@ -154,9 +164,7 @@ export function FaqKing({ title = "Preguntas de la banda" }: { title?: string })
     <div>
       <div className="mb-5">
         <BrutalBadge tone="yellow">FAQ</BrutalBadge>
-        <h2 className="font-display text-4xl md:text-5xl uppercase mt-2 leading-none">
-          {title}
-        </h2>
+        <h2 className="font-display text-4xl md:text-5xl uppercase mt-2 leading-none">{title}</h2>
         <p className="mt-2 text-sm text-kp-ink/70">
           Lo que más nos preguntan, respondido como te lo diría The King.
         </p>
@@ -166,9 +174,7 @@ export function FaqKing({ title = "Preguntas de la banda" }: { title?: string })
         {FAQS.map((f, i) => (
           <details key={i} className="group">
             <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-3 hover:bg-kp-yellow/40">
-              <span className="font-display uppercase text-sm md:text-base">
-                {f.q}
-              </span>
+              <span className="font-display uppercase text-sm md:text-base">{f.q}</span>
               <span
                 aria-hidden
                 className="text-lg font-display transition-transform group-open:rotate-45"
@@ -176,9 +182,7 @@ export function FaqKing({ title = "Preguntas de la banda" }: { title?: string })
                 +
               </span>
             </summary>
-            <div className="px-4 pb-4 text-sm text-kp-ink/90 leading-relaxed">
-              {f.a}
-            </div>
+            <div className="px-4 pb-4 text-sm text-kp-ink/90 leading-relaxed">{f.a}</div>
           </details>
         ))}
       </div>

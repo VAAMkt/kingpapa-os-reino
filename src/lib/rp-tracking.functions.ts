@@ -22,13 +22,9 @@ export type OrderTrackingSnapshot = {
 };
 
 export const getOrderTracking = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
-    z.object({ orderId: z.string().regex(UUID_RE) }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ orderId: z.string().regex(UUID_RE) }).parse(input))
   .handler(async ({ data }): Promise<OrderTrackingSnapshot | null> => {
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
       .from("orders")
       .select(

@@ -16,12 +16,16 @@ function NoAutorizadoPage() {
         <BrutalBadge tone="black">403</BrutalBadge>
         <h1 className="font-display text-5xl uppercase mt-3 leading-none">No tienes corona</h1>
         <p className="mt-3 text-sm">
-          Esta zona del Reino es solo para la nobleza. Si crees que es un error,
-          dile al super_admin que te asigne rol.
+          Esta zona del Reino es solo para la nobleza. Si crees que es un error, dile al super_admin
+          que te asigne rol.
         </p>
         <div className="mt-6 grid gap-2">
-          <BrutalLink href="/mi-reino" variant="primary" block>Ir a Mi Reino</BrutalLink>
-          <Link to="/" className="font-display uppercase text-sm underline">Volver al inicio</Link>
+          <BrutalLink href="/mi-reino" variant="primary" block>
+            Ir a Mi Reino
+          </BrutalLink>
+          <Link to="/" className="font-display uppercase text-sm underline">
+            Volver al inicio
+          </Link>
         </div>
       </BrutalCard>
     </section>

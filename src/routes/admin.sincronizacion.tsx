@@ -5,12 +5,7 @@ import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { listAllSedes } from "@/lib/sedes";
-import {
-  syncBranches,
-  syncMenuForSede,
-  syncAllMenus,
-  listSyncLog,
-} from "@/lib/rp.functions";
+import { syncBranches, syncMenuForSede, syncAllMenus, listSyncLog } from "@/lib/rp.functions";
 
 export const Route = createFileRoute("/admin/sincronizacion")({
   head: () => ({ meta: [{ title: "Sincronización Restaurant.pe — Admin" }] }),
@@ -137,9 +132,7 @@ function SyncPage() {
                 disabled={!s.rp_local_id || (menuMut.isPending && menuMut.variables === s.id)}
                 onClick={() => menuMut.mutate(s.id)}
               >
-                {menuMut.isPending && menuMut.variables === s.id
-                  ? "Sync…"
-                  : "Sync menú"}
+                {menuMut.isPending && menuMut.variables === s.id ? "Sync…" : "Sync menú"}
               </BrutalButton>
             </div>
           ))}

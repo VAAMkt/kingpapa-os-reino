@@ -45,7 +45,11 @@ type OrderRow = {
   sede_id: string;
 };
 
-const STATUS_OPTIONS: { value: OrderStatus; label: string; tone: "yellow" | "lime" | "red" | "black" }[] = [
+const STATUS_OPTIONS: {
+  value: OrderStatus;
+  label: string;
+  tone: "yellow" | "lime" | "red" | "black";
+}[] = [
   { value: "enviado", label: "Enviado", tone: "yellow" },
   { value: "recibido", label: "Recibido", tone: "yellow" },
   { value: "en_preparacion", label: "En preparación", tone: "yellow" },
@@ -93,10 +97,8 @@ function AdminPedidosPage() {
   useEffect(() => {
     const channel = supabase
       .channel("admin-pedidos")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => queryClient.invalidateQueries({ queryKey: ["admin", "pedidos"] }),
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () =>
+        queryClient.invalidateQueries({ queryKey: ["admin", "pedidos"] }),
       )
       .subscribe();
     return () => {
@@ -275,9 +277,7 @@ function AdminPedidosPage() {
             </div>
             <Textarea
               placeholder={
-                cancelPreset === "Otro"
-                  ? "Describe el motivo…"
-                  : "Detalles adicionales (opcional)…"
+                cancelPreset === "Otro" ? "Describe el motivo…" : "Detalles adicionales (opcional)…"
               }
               value={cancelDetail}
               onChange={(e) => setCancelDetail(e.target.value)}

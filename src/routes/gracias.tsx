@@ -7,7 +7,6 @@ import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
 import { resolveOrderId } from "@/lib/orders.poll.functions";
 import { supabase } from "@/integrations/supabase/client";
 
-
 export const Route = createFileRoute("/gracias")({
   validateSearch: (s: Record<string, unknown>) => {
     const raw =
@@ -52,7 +51,6 @@ function GraciasPage() {
   const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const resolveFn = useServerFn(resolveOrderId);
-
 
   // Resolver UUID real de orders.id (acepta UUID o rp_pedido_id numérico).
   useEffect(() => {
@@ -113,11 +111,7 @@ function GraciasPage() {
   const ageMin = orderCreatedAt
     ? Math.floor((now - new Date(orderCreatedAt).getTime()) / 60_000)
     : 0;
-  const showSlowWarning =
-    !!resolvedId && orderStatus === "enviado" && ageMin >= 5;
-
-
-
+  const showSlowWarning = !!resolvedId && orderStatus === "enviado" && ageMin >= 5;
 
   useEffect(() => {
     try {
@@ -126,17 +120,21 @@ function GraciasPage() {
         const parsed = JSON.parse(raw) as LastOrder;
         if (parsed.orderId === order_id) setOrder(parsed);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [order_id]);
 
   // Buscar WhatsApp de la sede desde el backend público.
   useEffect(() => {
     if (!order?.sede?.slug) return;
     import("@/lib/sedes").then(({ listPublicSedes }) =>
-      listPublicSedes().then((sedes) => {
-        const s = sedes.find((x) => x.slug === order.sede!.slug);
-        if (s?.whatsapp) setSedeWa(s.whatsapp);
-      }).catch(() => {})
+      listPublicSedes()
+        .then((sedes) => {
+          const s = sedes.find((x) => x.slug === order.sede!.slug);
+          if (s?.whatsapp) setSedeWa(s.whatsapp);
+        })
+        .catch(() => {}),
     );
   }, [order?.sede?.slug]);
 
@@ -145,13 +143,14 @@ function GraciasPage() {
   const refVisible = rpPedidoId ?? order_id;
 
   // Mensaje WhatsApp estructurado para optimizar el tiempo del call center.
-  const waText = encodeURIComponent(buildWhatsAppMessage({
-    refVisible,
-    esRecoger,
-    order,
-  }));
+  const waText = encodeURIComponent(
+    buildWhatsAppMessage({
+      refVisible,
+      esRecoger,
+      order,
+    }),
+  );
   const waUrl = `https://wa.me/${waNumber}?text=${waText}`;
-
 
   return (
     <section className="mx-auto max-w-3xl px-4 md:px-6 py-10 space-y-5">
@@ -164,9 +163,7 @@ function GraciasPage() {
           Guardá este número — es tu boleta con el motorizado o por WhatsApp:
         </p>
         <div className="mt-3 border-2 border-kp-ink bg-kp-cheese px-4 py-3 inline-block">
-          <span className="font-display text-3xl md:text-4xl tracking-widest">
-            #{refVisible}
-          </span>
+          <span className="font-display text-3xl md:text-4xl tracking-widest">#{refVisible}</span>
         </div>
       </BrutalCard>
 
@@ -175,11 +172,11 @@ function GraciasPage() {
       {showSlowWarning ? (
         <BrutalCard tone="cheese" className="p-4">
           <p className="text-sm">
-            Tranqui parcero, ya la banda está confirmando tu pedido con la cocina. Si pasa de 10 min, tíranos un WhatsApp y te ayudamos al toque 🙏
+            Tranqui parcero, ya la banda está confirmando tu pedido con la cocina. Si pasa de 10
+            min, tíranos un WhatsApp y te ayudamos al toque 🙏
           </p>
         </BrutalCard>
       ) : null}
-
 
       {order && (
         <BrutalCard tone="cheese" className="p-5">
@@ -207,7 +204,9 @@ function GraciasPage() {
           <ul className="mt-3 divide-y-2 divide-kp-ink/20">
             {order.items.map((i) => (
               <li key={i.key} className="py-2 flex justify-between gap-3">
-                <span className="font-display uppercase text-sm">{i.cantidad}× {i.nombre}</span>
+                <span className="font-display uppercase text-sm">
+                  {i.cantidad}× {i.nombre}
+                </span>
                 <span className="font-display text-sm">{cop(i.precio * i.cantidad)}</span>
               </li>
             ))}
@@ -224,7 +223,9 @@ function GraciasPage() {
           💬 ¡Hablalooo! Escribir a la sede
         </BrutalLink>
         <Link to="/menu">
-          <BrutalButton variant="ghost" size="lg" block>Volver al menú</BrutalButton>
+          <BrutalButton variant="ghost" size="lg" block>
+            Volver al menú
+          </BrutalButton>
         </Link>
       </div>
     </section>
@@ -259,4 +260,3 @@ function buildWhatsAppMessage(args: {
   }
   return lines.join("\n");
 }
-

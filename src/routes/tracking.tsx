@@ -53,8 +53,8 @@ function TrackingPage() {
           Rastrea tu pedido 👑
         </h1>
         <p className="mt-3 text-sm opacity-80">
-          Ingresa tu número de comanda, ID de pedido o el teléfono con el que pediste
-          en las últimas 24 horas.
+          Ingresa tu número de comanda, ID de pedido o el teléfono con el que pediste en las últimas
+          24 horas.
         </p>
         <form onSubmit={handleSubmit} className="mt-5 space-y-3">
           <Input

@@ -73,10 +73,7 @@ export const toggleFavorite = createServerFn({ method: "POST" })
         await supabase.from("order_favorites").delete().eq("id", existing.id);
         return { favorite: false };
       }
-      await supabase
-        .from("order_favorites")
-        .update({ alias: data.alias })
-        .eq("id", existing.id);
+      await supabase.from("order_favorites").update({ alias: data.alias }).eq("id", existing.id);
       return { favorite: true };
     }
     await supabase
@@ -91,7 +88,9 @@ export const listMyFavorites = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const { data: favs } = await supabase
       .from("order_favorites")
-      .select("order_id, alias, created_at, orders(id, status, tipo, total, subtotal, created_at, sede_id, rp_numero_comanda, items)")
+      .select(
+        "order_id, alias, created_at, orders(id, status, tipo, total, subtotal, created_at, sede_id, rp_numero_comanda, items)",
+      )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     return (favs ?? [])
@@ -118,17 +117,15 @@ export const updateMyProfile = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await supabase
-      .from("profiles")
-      .upsert(
-        {
-          id: userId,
-          display_name: data.display_name ?? null,
-          whatsapp: data.whatsapp ?? null,
-          ciudad: data.ciudad ?? null,
-        },
-        { onConflict: "id" },
-      );
+    const { error } = await supabase.from("profiles").upsert(
+      {
+        id: userId,
+        display_name: data.display_name ?? null,
+        whatsapp: data.whatsapp ?? null,
+        ciudad: data.ciudad ?? null,
+      },
+      { onConflict: "id" },
+    );
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -141,5 +138,13 @@ export const getMyProfile = createServerFn({ method: "GET" })
       .select("id, display_name, whatsapp, ciudad, arquetipo")
       .eq("id", context.userId)
       .maybeSingle();
-    return data ?? { id: context.userId, display_name: null, whatsapp: null, ciudad: null, arquetipo: null };
+    return (
+      data ?? {
+        id: context.userId,
+        display_name: null,
+        whatsapp: null,
+        ciudad: null,
+        arquetipo: null,
+      }
+    );
   });

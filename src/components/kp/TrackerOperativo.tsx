@@ -57,19 +57,25 @@ const PICKUP_MICROCOPY: Record<OrderStatus, { title: string; sub: string }> = {
 };
 
 const MICROCOPY: Record<OrderStatus, { title: string; sub: string }> = {
-  enviado: { title: "Tu pedido entró al Reino 👑", sub: "Tranqui parcero, en segundos la cocina lo pilla." },
+  enviado: {
+    title: "Tu pedido entró al Reino 👑",
+    sub: "Tranqui parcero, en segundos la cocina lo pilla.",
+  },
   recibido: { title: "La cocina lo tiene entre manos", sub: "Ya está en la vuelta, cero drama." },
-  en_preparacion: { title: "Cocinando pa’ vos 🧀", sub: "Papas doradas + toppings al grill. Brutal." },
-  en_camino: { title: "El motorizado va rodando 🛵", sub: "Ya sale del Reino, va derechito pa’ vos." },
+  en_preparacion: {
+    title: "Cocinando pa’ vos 🧀",
+    sub: "Papas doradas + toppings al grill. Brutal.",
+  },
+  en_camino: {
+    title: "El motorizado va rodando 🛵",
+    sub: "Ya sale del Reino, va derechito pa’ vos.",
+  },
   entregado: { title: "¡A disfrutarlo, mi rey! 👑", sub: "Gracias por comer con la banda 🔥" },
   cancelado: { title: "Se cayó el pedido", sub: "Mirá el motivo abajo, te ayudamos por WhatsApp." },
   error: { title: "Se nos enredó la vuelta", sub: "Escribinos por WhatsApp y lo resolvemos ya." },
 };
 
-function stepIndex(
-  status: OrderStatus,
-  pasos: { status: OrderStatus[] }[],
-): number {
+function stepIndex(status: OrderStatus, pasos: { status: OrderStatus[] }[]): number {
   for (let i = pasos.length - 1; i >= 0; i--) {
     if (pasos[i].status.includes(status)) return i + 1;
   }
@@ -282,8 +288,8 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
   ];
 
   const copy = isPickup
-    ? PICKUP_MICROCOPY[status] ?? PICKUP_MICROCOPY.enviado
-    : MICROCOPY[status] ?? MICROCOPY.enviado;
+    ? (PICKUP_MICROCOPY[status] ?? PICKUP_MICROCOPY.enviado)
+    : (MICROCOPY[status] ?? MICROCOPY.enviado);
 
   const celular = onlyDigits(motorizado?.celular);
   const showMotorizadoCard =
@@ -355,13 +361,9 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
               }`}
             >
               <div className="text-2xl mb-1">{p.emoji}</div>
-              <span className="block font-display uppercase text-xs leading-tight">
-                {p.label}
-              </span>
+              <span className="block font-display uppercase text-xs leading-tight">{p.label}</span>
               {time ? (
-                <span className="block mt-1 text-[10px] font-display opacity-70">
-                  {time}
-                </span>
+                <span className="block mt-1 text-[10px] font-display opacity-70">{time}</span>
               ) : null}
             </li>
           );
@@ -372,16 +374,12 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
         <div className="mt-5 border-2 border-kp-yellow bg-kp-yellow/10 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="font-display uppercase text-kp-yellow text-xs">
-                Tu motorizado
-              </p>
+              <p className="font-display uppercase text-kp-yellow text-xs">Tu motorizado</p>
               <p className="font-display uppercase text-kp-cheese text-lg leading-tight">
                 {motorizado?.nombre ?? "En ruta"}
               </p>
               {motorizado?.transportista ? (
-                <p className="text-[11px] text-kp-cheese/70">
-                  vía {motorizado.transportista}
-                </p>
+                <p className="text-[11px] text-kp-cheese/70">vía {motorizado.transportista}</p>
               ) : null}
             </div>
             <span className="text-4xl">🛵</span>
@@ -420,12 +418,7 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
           🔗 Compartir tracking
         </BrutalButton>
         {!notifyOn && typeof window !== "undefined" && "Notification" in window ? (
-          <BrutalButton
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={requestNotifications}
-          >
+          <BrutalButton type="button" variant="primary" size="sm" onClick={requestNotifications}>
             🔔 Avisarme cuando cambie
           </BrutalButton>
         ) : null}

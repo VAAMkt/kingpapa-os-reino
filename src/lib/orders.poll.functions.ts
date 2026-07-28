@@ -13,9 +13,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const resolveOrderId = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
-    z.object({ ref: z.string().min(1).max(64) }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ ref: z.string().min(1).max(64) }).parse(input))
   .handler(async ({ data }) => {
     const ref = data.ref.trim();
     if (UUID_RE.test(ref)) {

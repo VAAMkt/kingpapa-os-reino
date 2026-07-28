@@ -38,7 +38,12 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
     .maybeSingle();
 
   if (selErr || !row) {
-    return { changed: false, status: null, source: "error", message: selErr?.message ?? "not_found" };
+    return {
+      changed: false,
+      status: null,
+      source: "error",
+      message: selErr?.message ?? "not_found",
+    };
   }
   if (TERMINAL.has(row.status)) {
     return { changed: false, status: row.status, source: "noop", message: "terminal" };
@@ -46,13 +51,9 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
 
   // Única regla activa — Auto-Kill (TTL 45 min). Sin llamadas a RP.
   const ageMs = Date.now() - new Date(row.created_at).getTime();
-  if (
-    ageMs > ABANDON_AFTER_MS &&
-    (row.status === "enviado" || row.status === "recibido")
-  ) {
+  if (ageMs > ABANDON_AFTER_MS && (row.status === "enviado" || row.status === "recibido")) {
     const nowIso = new Date().toISOString();
-    const reason =
-      "timeout_sistema: Abandonado por falta de respuesta en POS tras 45 min";
+    const reason = "timeout_sistema: Abandonado por falta de respuesta en POS tras 45 min";
     await supabaseAdmin
       .from("orders")
       .update({
@@ -82,9 +83,7 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const reconcileOrder = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
-    z.object({ orderId: z.string().regex(UUID_RE) }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ orderId: z.string().regex(UUID_RE) }).parse(input))
   .handler(async ({ data }) => reconcileOne(data.orderId));
 
 // -----------------------------------------------------------------------------

@@ -59,10 +59,15 @@ function MiReinoInicio() {
                   {last.items.length} producto{last.items.length !== 1 ? "s" : ""}
                 </p>
                 <p className="text-xs text-kp-ink/60">
-                  {new Date(last.created_at).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}
+                  {new Date(last.created_at).toLocaleString("es-CO", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
                 </p>
               </div>
-              <span className="font-mono text-sm">${Math.round(last.total).toLocaleString("es-CO")}</span>
+              <span className="font-mono text-sm">
+                ${Math.round(last.total).toLocaleString("es-CO")}
+              </span>
             </div>
             <p className="text-sm mt-2 line-clamp-2">
               {last.items.map((i) => `${i.cantidad}× ${i.nombre}`).join(" · ")}

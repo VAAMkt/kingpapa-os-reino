@@ -19,9 +19,7 @@ const nav = [
 function LocationPill({ className = "" }: { className?: string }) {
   const sede = useActiveSede();
   const hasReal = !!sede && sede.source !== "exploring";
-  const label = hasReal
-    ? (sede!.direccionTexto || sede!.label)
-    : "Selecciona tu ubicación";
+  const label = hasReal ? sede!.direccionTexto || sede!.label : "Selecciona tu ubicación";
   return (
     <button
       onClick={openLocationGate}
@@ -42,7 +40,9 @@ export function TopAppBar() {
   useEffect(() => {
     if (open) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   return (
@@ -118,17 +118,25 @@ export function Footer() {
               <img src={logoLight.url} alt="KINGPAPA" className="h-10 w-auto" />
             </div>
             <p className="text-sm text-kp-cheese/80 max-w-sm">
-              Los REYES de esta pendeja’. Salchipapas monstruosas, bowls coronados y retos
-              pa’ toda la banda. Cero dieta, cero drama. 👑🔥
+              Los REYES de esta pendeja’. Salchipapas monstruosas, bowls coronados y retos pa’ toda
+              la banda. Cero dieta, cero drama. 👑🔥
             </p>
           </div>
           <div>
             <h4 className="font-display text-kp-yellow text-lg mb-3">El Reino</h4>
             <ul className="space-y-1 text-sm">
-              <li><Link to="/menu">Menú</Link></li>
-              <li><Link to="/sedes">Sedes</Link></li>
-              <li><Link to="/franquicias">Franquicias</Link></li>
-              <li><Link to="/historias">Historias</Link></li>
+              <li>
+                <Link to="/menu">Menú</Link>
+              </li>
+              <li>
+                <Link to="/sedes">Sedes</Link>
+              </li>
+              <li>
+                <Link to="/franquicias">Franquicias</Link>
+              </li>
+              <li>
+                <Link to="/historias">Historias</Link>
+              </li>
             </ul>
           </div>
           <div>
@@ -152,8 +160,16 @@ export function Footer() {
               <li>
                 <a href="mailto:contabilidadmvk@gmail.com">Factura electrónica</a>
               </li>
-              <li><a href="https://instagram.com" target="_blank" rel="noopener noreferrer">Instagram</a></li>
-              <li><a href="https://tiktok.com" target="_blank" rel="noopener noreferrer">TikTok</a></li>
+              <li>
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
+                  Instagram
+                </a>
+              </li>
+              <li>
+                <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer">
+                  TikTok
+                </a>
+              </li>
             </ul>
           </div>
         </div>

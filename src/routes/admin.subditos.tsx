@@ -55,7 +55,9 @@ function SubditosPage() {
           <h1 className="font-display text-4xl uppercase mt-2">La banda</h1>
           <p className="text-xs text-kp-ink/60">{data?.length ?? 0} registrados</p>
         </div>
-        <BrutalButton onClick={exportCsv} variant="dark">Export CSV</BrutalButton>
+        <BrutalButton onClick={exportCsv} variant="dark">
+          Export CSV
+        </BrutalButton>
       </header>
 
       <div className="flex gap-2">
@@ -82,10 +84,23 @@ function SubditosPage() {
           </thead>
           <tbody>
             {(data ?? []).map((r) => {
-              const row = r as { id: string; created_at: string; email: string | null; whatsapp: string | null; arquetipo: string | null; ciudad: string | null; source: string };
+              const row = r as {
+                id: string;
+                created_at: string;
+                email: string | null;
+                whatsapp: string | null;
+                arquetipo: string | null;
+                ciudad: string | null;
+                source: string;
+              };
               return (
                 <tr key={row.id} className="border-b border-kp-ink/10">
-                  <td className="py-2">{new Date(row.created_at).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}</td>
+                  <td className="py-2">
+                    {new Date(row.created_at).toLocaleString("es-CO", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                  </td>
                   <td className="py-2">{row.email ?? "—"}</td>
                   <td className="py-2">{row.whatsapp ?? "—"}</td>
                   <td className="py-2 uppercase font-display text-xs">{row.arquetipo ?? "—"}</td>
@@ -95,7 +110,11 @@ function SubditosPage() {
               );
             })}
             {(data ?? []).length === 0 && (
-              <tr><td colSpan={6} className="py-4 text-center text-kp-ink/60">Todavía nadie se ha unido a la banda.</td></tr>
+              <tr>
+                <td colSpan={6} className="py-4 text-center text-kp-ink/60">
+                  Todavía nadie se ha unido a la banda.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

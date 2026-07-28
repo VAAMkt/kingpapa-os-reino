@@ -15,9 +15,17 @@ export function sanitizeLegacyHtml(input: string): string {
 
   // 4) Decodificar entidades comunes mal escapadas (&#8243; = ", &#8217; = ')
   const entities: Record<string, string> = {
-    "&#8243;": '"', "&#8242;": "'", "&#8217;": "'", "&#8216;": "'",
-    "&#8220;": '"', "&#8221;": '"', "&#8211;": "–", "&#8212;": "—",
-    "&#8230;": "…", "&nbsp;": " ", "&amp;": "&",
+    "&#8243;": '"',
+    "&#8242;": "'",
+    "&#8217;": "'",
+    "&#8216;": "'",
+    "&#8220;": '"',
+    "&#8221;": '"',
+    "&#8211;": "–",
+    "&#8212;": "—",
+    "&#8230;": "…",
+    "&nbsp;": " ",
+    "&amp;": "&",
   };
   for (const [k, v] of Object.entries(entities)) {
     html = html.replaceAll(k, v);
