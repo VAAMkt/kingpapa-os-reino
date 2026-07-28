@@ -198,7 +198,7 @@ function HomePage() {
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-10">
         <SectionHeading
           eyebrow="Cultura del Reino"
-          title="Retos, festivales y locuras"
+          title="RETOS Y DESCONTROL"
           description="Lo que pasa en el Reino, queda coronado. Pillate lo último de la banda."
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
