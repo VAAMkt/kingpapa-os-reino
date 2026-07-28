@@ -173,14 +173,11 @@ type MatchResult =
 
 async function resolveByIntegrationCode(integrationCode: string): Promise<OrderLite | null> {
   if (!UUID_RE.test(integrationCode)) return null;
-  const sinceIso = new Date(Date.now() - INTEGRATION_WINDOW_MS).toISOString();
   const r = await supabaseAdmin
     .from("orders")
     .select("id, status, cancel_reason, rp_response, rp_pedido_id, created_at")
     .eq("id", integrationCode)
     .in("status", ["enviado", "recibido", "en_preparacion", "en_camino"])
-    .gte("created_at", sinceIso)
-    .not("rp_response", "is", null)
     .maybeSingle();
   if (r.error || !r.data) return null;
   return r.data as OrderLite;
