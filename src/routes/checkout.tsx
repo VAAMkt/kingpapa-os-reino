@@ -7,7 +7,6 @@ import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { useCart, clearCart, setOrderType, incItem, decItem, removeItem, type OrderType } from "@/lib/cart";
 import { useActiveSede, setActiveSede, recomputeCoverage } from "@/lib/active-sede";
 import { listPublicSedes } from "@/lib/sedes";
-import { openOrderIntent } from "@/components/kp/OrderIntentDialog";
 import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
 import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { toast } from "sonner";
@@ -149,10 +148,6 @@ function CheckoutPage() {
     const { active: updated, changed } = recomputeCoverage(sede, sedesQ.data);
     if (changed && updated) {
       setActiveSede(updated);
-      if (updated.enCobertura && tipo === "pickup") {
-        setOrderType("delivery");
-        toast.success("¡Buenas noticias! Tu dirección sí tiene cobertura 🛵");
-      }
     }
   }, [sede, sedesQ.data, tipo]);
 
@@ -372,18 +367,70 @@ function CheckoutPage() {
         Confirmá tu corona
       </h1>
 
-      {/* Pill discreto de tipo de entrega */}
-      <button
-        type="button"
-        onClick={openOrderIntent}
-        className="w-full md:w-auto inline-flex items-center gap-2 border-2 border-kp-ink bg-kp-cheese px-3 py-2 font-display uppercase text-xs hover:bg-kp-yellow transition"
-      >
-        <span className="text-base">{esRecoger ? "🏃" : "🛵"}</span>
-        <span className="truncate max-w-[60vw] md:max-w-none">
-          {esRecoger ? "Recoger en" : "Domicilio a"}: {direccionResumen}
-        </span>
-        <span className="opacity-60 underline ml-1">cambiar</span>
-      </button>
+      {/* Elección principal, visible y mobile-first */}
+      <fieldset className="space-y-2">
+        <legend className="font-display uppercase text-sm">
+          ¿Cómo quieres recibir tu pedido?
+        </legend>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Tipo de entrega">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={!esRecoger}
+            onClick={() => {
+              setOrderType("delivery");
+              track("delivery_method_selected", { tipo: "delivery" });
+            }}
+            className={`min-h-[72px] border-2 border-kp-ink px-3 py-3 text-left transition active:translate-y-[1px] ${
+              !esRecoger
+                ? "bg-kp-red text-kp-cheese shadow-brutal-sm"
+                : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
+            }`}
+          >
+            <span className="block text-2xl" aria-hidden>🛵</span>
+            <span className="block font-display uppercase text-sm">Domicilio</span>
+            <span className="block text-[11px] opacity-80">Te lo llevamos</span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={esRecoger}
+            onClick={() => {
+              setOrderType("pickup");
+              track("delivery_method_selected", { tipo: "pickup" });
+            }}
+            className={`min-h-[72px] border-2 border-kp-ink px-3 py-3 text-left transition active:translate-y-[1px] ${
+              esRecoger
+                ? "bg-kp-ink text-kp-yellow shadow-brutal-sm"
+                : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
+            }`}
+          >
+            <span className="block text-2xl" aria-hidden>🛍️</span>
+            <span className="block font-display uppercase text-sm">Recoger</span>
+            <span className="block text-[11px] opacity-80">Elige sede y hora</span>
+          </button>
+        </div>
+      </fieldset>
+
+      <div className="flex items-center justify-between gap-3 border-2 border-kp-ink bg-kp-cheese px-3 py-3">
+        <div className="min-w-0">
+          <p className="font-display uppercase text-[10px] opacity-60">
+            {esRecoger ? "Punto de recogida" : "Dirección de entrega"}
+          </p>
+          <p className="font-display uppercase text-xs truncate">
+            {esRecoger
+              ? selectedSede?.nombre ?? sede?.slug ?? "Selecciona una sede"
+              : direccionResumen}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("kp:open-order-intent"))}
+          className="shrink-0 min-h-11 px-3 border-2 border-kp-ink bg-kp-yellow font-display uppercase text-xs hover:bg-kp-ink hover:text-kp-yellow"
+        >
+          Cambiar
+        </button>
+      </div>
 
       {/* Aviso amigable si está fuera de cobertura y quedó en pickup */}
       {esRecoger && sede && !sede.enCobertura && sede.lat != null && (
