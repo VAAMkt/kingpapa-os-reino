@@ -99,8 +99,30 @@ function nowInTz(tz: string): { dia: keyof HorariosMap; hhmm: string } {
   return { dia, hhmm: `${hour}:${minute}` };
 }
 
-function dentroDeVentana(hhmm: string, v: Ventana): boolean {
-  return hhmm >= v.abre && hhmm <= v.cierra;
+function hhmmAMinutos(hhmm: string): number {
+  const [hour = "0", minute = "0"] = hhmm.split(":");
+  return Number(hour) * 60 + Number(minute);
+}
+
+/**
+ * Evalúa la parte de una ventana que comienza en el día actual.
+ * Si el cierre es menor o igual que la apertura, la ventana cruza medianoche.
+ */
+function dentroDeVentanaQueEmpiezaHoy(hhmm: string, v: Ventana): boolean {
+  const ahora = hhmmAMinutos(hhmm);
+  const abre = hhmmAMinutos(v.abre);
+  const cierra = hhmmAMinutos(v.cierra);
+  if (abre === cierra) return true; // Convención habitual: abierto 24 horas.
+  if (cierra > abre) return ahora >= abre && ahora <= cierra;
+  return ahora >= abre;
+}
+
+/** Evalúa la parte posterior a medianoche de una ventana iniciada ayer. */
+function dentroDeVentanaDeAyer(hhmm: string, v: Ventana): boolean {
+  const ahora = hhmmAMinutos(hhmm);
+  const abre = hhmmAMinutos(v.abre);
+  const cierra = hhmmAMinutos(v.cierra);
+  return cierra < abre && ahora <= cierra;
 }
 
 function describeVentanas(vs: Ventana[]): string {
@@ -153,7 +175,13 @@ function assertSedeOperativa(
   const horarios = (sede.horarios ?? {}) as HorariosMap;
   const { dia, hhmm } = nowInTz(sede.tz ?? "America/Bogota");
   const ventanas = horarios[dia] ?? [];
-  if (ventanas.length === 0 || !ventanas.some((v) => dentroDeVentana(hhmm, v))) {
+  const diaIndex = DIAS.indexOf(dia);
+  const diaAnterior = DIAS[(diaIndex + DIAS.length - 1) % DIAS.length];
+  const ventanasDeAyer = horarios[diaAnterior] ?? [];
+  const abierta =
+    ventanas.some((v) => dentroDeVentanaQueEmpiezaHoy(hhmm, v)) ||
+    ventanasDeAyer.some((v) => dentroDeVentanaDeAyer(hhmm, v));
+  if (!abierta) {
     throw new Error(
       `Estamos fuera de horario en "${sede.nombre}" (hoy: ${describeVentanas(ventanas)}). Vuelve más tarde o escríbenos por WhatsApp.`,
     );
