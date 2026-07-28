@@ -17,11 +17,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
+import { rpGetDeliveryById } from "@/lib/restaurantpe.server";
+import {
+  extractMotorizadoInfo,
+  mapDeliveryEstado,
+  mapRpEstadoToLocal,
+} from "@/lib/restaurantpe-normalize";
 
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
 const ABANDON_AFTER_MS = 45 * 60_000;
 
-type ReconcileSource = "webhook" | "reconcile" | "noop" | "error" | "no_pedido_id";
+type ReconcileSource = "webhook" | "poll" | "reconcile" | "noop" | "error" | "no_pedido_id";
 
 export type ReconcileResult = {
   changed: boolean;
@@ -33,7 +39,7 @@ export type ReconcileResult = {
 async function reconcileOne(orderId: string): Promise<ReconcileResult> {
   const { data: row, error: selErr } = await supabaseAdmin
     .from("orders")
-    .select("id, status, rp_pedido_id, cancel_reason, created_at")
+    .select("id, status, rp_pedido_id, cancel_reason, created_at, rp_response")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -76,8 +82,91 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
     return { changed: true, status: "cancelado", source: "reconcile", message: "auto_abandon" };
   }
 
-  // No hay endpoint público de lectura disponible: esperamos al webhook.
-  return { changed: false, status: row.status, source: "noop", message: "reconcile_unavailable" };
+  if (!row.rp_pedido_id) {
+    return { changed: false, status: row.status, source: "no_pedido_id" };
+  }
+
+  // Segunda vía de sincronización: consulta el snapshot del delivery cuando
+  // el webhook no llegó. Requiere RESTAURANT_PE_TENANT_TOKEN en el runtime.
+  try {
+    const snapshot = await rpGetDeliveryById(row.rp_pedido_id);
+    if (!snapshot) {
+      return { changed: false, status: row.status, source: "noop", message: "empty_snapshot" };
+    }
+    const inner =
+      snapshot.data && typeof snapshot.data === "object" && !Array.isArray(snapshot.data)
+        ? (snapshot.data as Record<string, unknown>)
+        : snapshot;
+    const rawEstado = inner.delivery_estado;
+    const mapped =
+      typeof rawEstado === "string" && !/^\\d+$/.test(rawEstado.trim())
+        ? mapRpEstadoToLocal(rawEstado)
+        : mapDeliveryEstado(rawEstado);
+    const motorizado = extractMotorizadoInfo(snapshot);
+    const nowIso = new Date().toISOString();
+    const prev =
+      row.rp_response && typeof row.rp_response === "object" && !Array.isArray(row.rp_response)
+        ? (row.rp_response as Record<string, unknown>)
+        : {};
+    const rank: Record<string, number> = {
+      enviado: 0,
+      recibido: 1,
+      en_preparacion: 2,
+      en_camino: 3,
+      entregado: 4,
+      cancelado: 99,
+      error: 99,
+    };
+    const canAdvance =
+      mapped != null &&
+      mapped !== row.status &&
+      (mapped === "cancelado" || (rank[mapped] ?? 0) >= (rank[row.status] ?? 0));
+    const updates: Record<string, unknown> = {
+      rp_response: {
+        ...prev,
+        live_motorizado: motorizado,
+        poll_snapshot_at: nowIso,
+        poll_raw_estado: rawEstado ?? null,
+      },
+    };
+    if (canAdvance) updates.status = mapped;
+    const { error: updateError } = await supabaseAdmin
+      .from("orders")
+      .update(updates as never)
+      .eq("id", row.id);
+    if (updateError) throw new Error(updateError.message);
+
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "reconcile",
+      ok: true,
+      mensaje: canAdvance
+        ? `POS pull: ${row.status} → ${mapped}`
+        : `POS pull sin cambio (status=${row.status}, raw=${String(rawEstado ?? "n/d")})`,
+      payload: {
+        order_id: row.id,
+        rp_pedido_id: row.rp_pedido_id,
+        previous_status: row.status,
+        mapped_status: mapped,
+        raw_estado: rawEstado ?? null,
+      } as unknown as Json,
+    });
+    return {
+      changed: canAdvance,
+      status: canAdvance && mapped ? mapped : row.status,
+      source: "poll",
+      message: mapped ? "snapshot_ok" : "unmapped_status",
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "reconcile",
+      ok: false,
+      mensaje: `POS pull no disponible: ${message}`,
+      payload: { order_id: row.id, rp_pedido_id: row.rp_pedido_id } as unknown as Json,
+    });
+    // Fallo suave: el webhook y Realtime siguen operando.
+    return { changed: false, status: row.status, source: "noop", message };
+  }
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
