@@ -406,6 +406,7 @@ function CheckoutPage() {
             aria-checked={!esRecoger}
             onClick={() => {
               setOrderType("delivery");
+              setSelectorSedesAbierto(false);
               track("delivery_method_selected", { tipo: "delivery" });
             }}
             className={`min-h-[72px] border-2 border-kp-ink px-3 py-3 text-left transition active:translate-y-[1px] ${
@@ -519,7 +520,7 @@ function CheckoutPage() {
       )}
 
       {/* Aviso amigable si está fuera de cobertura y quedó en pickup */}
-      {esRecoger && sede && !sede.enCobertura && sede.lat != null && (
+      {esRecoger && sede && sede.source !== "manual" && !sede.enCobertura && sede.lat != null && (
         <div className="border-2 border-kp-ink bg-kp-yellow/60 px-3 py-2 text-xs">
           Pillate, hoy no llegamos hasta tu zona con domicilio propio
           {sede.distanciaKm ? ` (${sede.distanciaKm.toFixed(1)} km de ${sede.label.replace(/^Recoger en\s+/i, "")})` : ""}.
