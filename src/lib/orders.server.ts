@@ -30,6 +30,7 @@ export type CheckoutInput = {
     detalles?: string | null;
   };
   notas?: string | null;
+  pickupScheduledFor?: string | null;
   items: CheckoutInputItem[];
   userId?: string | null;
   destino?: { lat: number; lng: number } | null;
@@ -350,6 +351,28 @@ async function resolveOrder(input: CheckoutInput): Promise<{
  * Devuelve el id de pedido devuelto por el POS (o el id local si Restaurant.pe
  * responde sin id pero el envío fue exitoso).
  */
+function formatPickupForRestaurantPe(iso: string): { date: string; time: string } {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) throw new Error("Fecha de recogida inválida");
+  const delta = when.getTime() - Date.now();
+  if (delta < 20 * 60_000) {
+    throw new Error("Elige una hora de recogida con al menos 20 minutos de anticipación");
+  }
+  if (delta > 7 * 24 * 60 * 60_000) {
+    throw new Error("Solo puedes programar la recogida hasta 7 días adelante");
+  }
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(when);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return {
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+    time: `${get("hour")}:${get("minute")}`,
+  };
+}
+
 export async function submitOrder(input: CheckoutInput): Promise<{
   orderId: string;
   localId: string;
@@ -424,6 +447,15 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       delivery_tipopago: tipoPago,
       tarjeta_id: input.pago === "datafono" ? 1 : null,
       delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
+      ...(pickupSchedule
+        ? {
+            delivery_programado: "1",
+            delivery_fechaentrega: pickupSchedule.date,
+            delivery_horarecojo: pickupSchedule.time,
+            delivery_sesolicitorecojo: "1",
+            delivery_personarecoje: input.cliente.nombre,
+          }
+        : { delivery_programado: "0", delivery_sesolicitorecojo: "0" }),
       delivery_direccionenvio: input.cliente.direccion ?? "",
       delivery_referencia: input.cliente.detalles ?? "",
       delivery_observacion: observacionFinal,
