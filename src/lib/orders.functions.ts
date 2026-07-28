@@ -23,6 +23,16 @@ const checkoutSchema = z.object({
   }),
   notas: z.string().max(500).nullable().optional(),
   pickupScheduledFor: z.string().datetime().nullable().optional(),
+  // Debe declararse explícitamente: Zod elimina propiedades desconocidas.
+  // Sin este campo, las coordenadas enviadas por el checkout se perdían
+  // antes de llegar a submitOrder y todos los domicilios fallaban al confirmar.
+  destino: z
+    .object({
+      lat: z.number().finite().min(-90).max(90),
+      lng: z.number().finite().min(-180).max(180),
+    })
+    .nullable()
+    .optional(),
   items: z
     .array(
       z.object({
