@@ -22,6 +22,8 @@ export type QuoteResult =
       base: number;
       extraKmFee: number;
       baseDistanceKm: number;
+      distanceSource: DistanceSource;
+      estimated: boolean;
     }
   | {
       ok: false;
@@ -47,27 +49,66 @@ export function computeDeliveryFee(distanceKm: number, s: SedeFeeConfig): number
   return computeFee(distanceKm, s);
 }
 
-async function routeDistanceKm(
+type DistanceSource = "google" | "osrm" | "estimated";
+
+type RouteDistance = {
+  distanceKm: number;
+  source: DistanceSource;
+  estimated: boolean;
+};
+
+function haversineKm(
+  origin: { lat: number; lng: number },
+  dest: { lat: number; lng: number },
+): number {
+  const radiusKm = 6371;
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const dLat = toRad(dest.lat - origin.lat);
+  const dLng = toRad(dest.lng - origin.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(origin.lat)) *
+      Math.cos(toRad(dest.lat)) *
+      Math.sin(dLng / 2) ** 2;
+  return 2 * radiusKm * Math.asin(Math.sqrt(a));
+}
+
+async function googleRouteDistanceKm(
   origin: { lat: number; lng: number },
   dest: { lat: number; lng: number },
 ): Promise<number | null> {
   const lovable = process.env.LOVABLE_API_KEY;
-  const conn = process.env.GOOGLE_MAPS_API_KEY_1 || process.env.GOOGLE_MAPS_API_KEY;
-  if (!lovable || !conn) return null;
+  const connectionKey =
+    process.env.GOOGLE_MAPS_API_KEY_1 || process.env.GOOGLE_MAPS_API_KEY;
+
+  // En conexiones "Managed by Lovable" no se inyecta una clave Google propia:
+  // el gateway resuelve las credenciales. Solo enviamos X-Connection-Api-Key
+  // cuando el proyecto usa credenciales propias.
+  if (!lovable) {
+    console.warn("[delivery-quote] LOVABLE_API_KEY no disponible; se usará fallback.");
+    return null;
+  }
+
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 4_000);
+  const timer = setTimeout(() => controller.abort(), 8_000);
   try {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${lovable}`,
+      "Content-Type": "application/json",
+      "X-Goog-FieldMask": "routes.distanceMeters",
+    };
+    if (connectionKey) headers["X-Connection-Api-Key"] = connectionKey;
+
     const res = await fetch(`${GATEWAY_URL}/routes/directions/v2:computeRoutes`, {
       method: "POST",
       signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${lovable}`,
-        "X-Connection-Api-Key": conn,
-        "Content-Type": "application/json",
-        "X-Goog-FieldMask": "routes.distanceMeters",
-      },
+      headers,
       body: JSON.stringify({
-        origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
+        origin: {
+          location: {
+            latLng: { latitude: origin.lat, longitude: origin.lng },
+          },
+        },
         destination: {
           location: { latLng: { latitude: dest.lat, longitude: dest.lng } },
         },
@@ -76,8 +117,9 @@ async function routeDistanceKm(
       }),
     });
     if (!res.ok) {
+      const detail = await res.text().catch(() => "");
       console.error(
-        `[delivery-quote] Routes API ${res.status}: ${await res.text().catch(() => "")}`,
+        `[delivery-quote] Google Routes ${res.status}: ${detail.slice(0, 500)}`,
       );
       return null;
     }
@@ -85,14 +127,74 @@ async function routeDistanceKm(
       routes?: Array<{ distanceMeters?: number }>;
     };
     const meters = json.routes?.[0]?.distanceMeters;
-    if (typeof meters !== "number" || meters <= 0) return null;
-    return meters / 1000;
+    return typeof meters === "number" && meters > 0 ? meters / 1000 : null;
   } catch (err) {
-    console.error("[delivery-quote] Routes API error:", err);
+    console.error("[delivery-quote] Google Routes error:", err);
     return null;
   } finally {
-    clearTimeout(t);
+    clearTimeout(timer);
   }
+}
+
+async function osrmRouteDistanceKm(
+  origin: { lat: number; lng: number },
+  dest: { lat: number; lng: number },
+): Promise<number | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const coordinates = `${origin.lng},${origin.lat};${dest.lng},${dest.lat}`;
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/${coordinates}` +
+      "?overview=false&alternatives=false&steps=false";
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "KINGPAPA-delivery-quote/1.0" },
+    });
+    if (!res.ok) {
+      console.error(`[delivery-quote] OSRM ${res.status}`);
+      return null;
+    }
+    const json = (await res.json()) as {
+      code?: string;
+      routes?: Array<{ distance?: number }>;
+    };
+    const meters = json.code === "Ok" ? json.routes?.[0]?.distance : null;
+    return typeof meters === "number" && meters > 0 ? meters / 1000 : null;
+  } catch (err) {
+    console.error("[delivery-quote] OSRM error:", err);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function routeDistanceKm(
+  origin: { lat: number; lng: number },
+  dest: { lat: number; lng: number },
+): Promise<RouteDistance> {
+  const googleKm = await googleRouteDistanceKm(origin, dest);
+  if (googleKm != null) {
+    return { distanceKm: googleKm, source: "google", estimated: false };
+  }
+
+  const osrmKm = await osrmRouteDistanceKm(origin, dest);
+  if (osrmKm != null) {
+    return { distanceKm: osrmKm, source: "osrm", estimated: false };
+  }
+
+  // Último recurso: aproximación conservadora de vía urbana. El factor 1.25
+  // evita cobrar como si la ruta fuera una línea recta y mantiene operativo el
+  // checkout ante caídas breves de ambos proveedores.
+  const estimatedKm = haversineKm(origin, dest) * 1.25;
+  console.warn(
+    `[delivery-quote] Usando distancia estimada: ${estimatedKm.toFixed(3)} km`,
+  );
+  return {
+    distanceKm: Math.max(0.01, estimatedKm),
+    source: "estimated",
+    estimated: true,
+  };
 }
 
 export type QuoteInput = {
@@ -141,6 +243,8 @@ export async function quoteDeliveryInternal(input: QuoteInput): Promise<QuoteRes
       base: 0,
       extraKmFee: 0,
       baseDistanceKm: 0,
+      distanceSource: "estimated",
+      estimated: false,
     };
   }
 
@@ -179,17 +283,11 @@ export async function quoteDeliveryInternal(input: QuoteInput): Promise<QuoteRes
     delivery_extra_km_fee: Number(sede.delivery_extra_km_fee ?? 1200),
   };
 
-  const distanceKm = await routeDistanceKm(
+  const route = await routeDistanceKm(
     { lat: Number(sede.lat), lng: Number(sede.lng) },
     input.destino,
   );
-  if (distanceKm == null) {
-    return {
-      ok: false,
-      code: "ROUTES_UNAVAILABLE",
-      message: "No pudimos calcular el domicilio. Intenta nuevamente.",
-    };
-  }
+  const distanceKm = route.distanceKm;
 
   const maxKm =
     sede.delivery_max_distance_km != null
@@ -216,5 +314,7 @@ export async function quoteDeliveryInternal(input: QuoteInput): Promise<QuoteRes
     base: config.delivery_base_fee,
     extraKmFee: config.delivery_extra_km_fee,
     baseDistanceKm: config.delivery_base_distance_km,
+    distanceSource: route.source,
+    estimated: route.estimated,
   };
 }
