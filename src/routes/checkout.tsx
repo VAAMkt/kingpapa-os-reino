@@ -325,6 +325,9 @@ function CheckoutPage() {
         pago,
         cliente: { nombre, telefono, direccion: esRecoger ? null : direccion, detalles },
         notas,
+        pickupScheduledFor: esRecoger
+          ? new Date(`${pickupDate}T${pickupTime}:00-05:00`).toISOString()
+          : null,
         sede: sede
           ? { id: sede.sedeId, slug: sede.slug, label: sede.label }
           : null,
