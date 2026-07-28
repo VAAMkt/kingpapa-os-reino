@@ -318,12 +318,20 @@ async function rpTenantFetch<T = unknown>(
       tipo?: string | number;
       mensajes?: string[];
       data?: T;
+      [key: string]: unknown;
     };
-    if (String(json.tipo) !== "1") {
+    // Algunos endpoints tenant alternan entre:
+    // 1) envelope { tipo: 1, data: ... }
+    // 2) registro/array directo sin la propiedad tipo.
+    // Solo tratamos como error un tipo explícito distinto de 1.
+    if (json.tipo != null && String(json.tipo) !== "1") {
       const msg = json.mensajes?.join("; ") || `Error tipo=${json.tipo}`;
       throw new Error(`Restaurant.pe tenant: ${msg}`);
     }
-    return (json.data ?? (null as unknown)) as T;
+    if (Object.prototype.hasOwnProperty.call(json, "data")) {
+      return (json.data ?? (null as unknown)) as T;
+    }
+    return json as T;
   } finally {
     clearTimeout(timeout);
   }
