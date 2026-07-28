@@ -289,6 +289,12 @@ function CheckoutPage() {
       toast.error("Selecciona una sede antes de continuar");
       return;
     }
+    if (tipo === "delivery" && (sede?.lat == null || sede?.lng == null)) {
+      toast.error(
+        "Falta tu ubicación en el mapa. Abre el selector de ubicación y elige tu dirección.",
+      );
+      return;
+    }
     if (tipo === "delivery" && !quoteReady) {
       toast.error(
         outOfCoverage
@@ -297,6 +303,7 @@ function CheckoutPage() {
       );
       return;
     }
+
     setEnviando(true);
     track("order_submitted", {
       items_count: count,
