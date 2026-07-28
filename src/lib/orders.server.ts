@@ -487,9 +487,9 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   // Rollback sin cambio de código: RP_EMIT_SOCKET=false (puede requerir reinicio del runtime).
   const emitSocket = process.env.RP_EMIT_SOCKET === "true";
   // Prefijo con costo de domicilio para que el POS lo vea en observación.
-  // Nota: Swagger V2 no expone un campo oficial de "costo de envío" en
-  // `registrarDelivery`; para no inventar nombres, lo enviamos como texto en
-  // observación. Supabase queda como fuente de verdad del total cobrado.
+  // El modelo Delivery documenta `delivery_costoenvio`; al registrar el
+  // delivery, el valor facturable se envía en ese campo oficial; la observación
+  // se conserva como referencia operativa.
   const domicilioTag =
     input.tipo === "delivery" && deliveryFee > 0
       ? `[Domicilio $${deliveryFee.toLocaleString("es-CO")}${
@@ -503,6 +503,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       canaldelivery_id: 1,
       delivery_pagocon: input.pago === "efectivo" ? total : 0,
       delivery_montodescuento: 0,
+      delivery_costoenvio: input.tipo === "delivery" ? deliveryFee : 0,
       delivery_tipopago: tipoPago,
       tarjeta_id: input.pago === "datafono" ? 1 : null,
       delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
