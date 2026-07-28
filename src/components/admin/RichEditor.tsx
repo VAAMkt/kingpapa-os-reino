@@ -24,8 +24,13 @@ export function RichEditor({ value, onChange, placeholder }: Props) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] } }),
-      Link.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" } }),
-      Image.configure({ HTMLAttributes: { class: "max-w-full h-auto border-2 border-kp-ink my-3" } }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+      }),
+      Image.configure({
+        HTMLAttributes: { class: "max-w-full h-auto border-2 border-kp-ink my-3" },
+      }),
       Placeholder.configure({ placeholder: placeholder ?? "Escribe la historia…" }),
     ],
     content: sanitizeLegacyHtml(value || ""),
@@ -63,7 +68,10 @@ export function RichEditor({ value, onChange, placeholder }: Props) {
     const prev = editor?.getAttributes("link").href as string | undefined;
     const url = window.prompt("URL del enlace", prev ?? "https://");
     if (url === null) return;
-    if (url === "") { editor?.chain().focus().unsetLink().run(); return; }
+    if (url === "") {
+      editor?.chain().focus().unsetLink().run();
+      return;
+    }
     editor?.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }
 
@@ -86,31 +94,110 @@ export function RichEditor({ value, onChange, placeholder }: Props) {
   );
 }
 
-function Toolbar({ editor, onPickImage, onLink }: { editor: Editor; onPickImage: () => void; onLink: () => void }) {
-  const Btn = ({ on, active, children, title }: { on: () => void; active?: boolean; children: React.ReactNode; title: string }) => (
+function Toolbar({
+  editor,
+  onPickImage,
+  onLink,
+}: {
+  editor: Editor;
+  onPickImage: () => void;
+  onLink: () => void;
+}) {
+  const Btn = ({
+    on,
+    active,
+    children,
+    title,
+  }: {
+    on: () => void;
+    active?: boolean;
+    children: React.ReactNode;
+    title: string;
+  }) => (
     <button type="button" onClick={on} title={title} className={cn(btnCls, active && activeCls)}>
       {children}
     </button>
   );
   return (
     <div className="flex flex-wrap gap-1.5 p-2 border-2 border-kp-ink bg-kp-cheese/50">
-      <Btn title="Negrita" on={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")}>B</Btn>
-      <Btn title="Cursiva" on={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")}><i>I</i></Btn>
-      <Btn title="Tachado" on={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")}><s>S</s></Btn>
+      <Btn
+        title="Negrita"
+        on={() => editor.chain().focus().toggleBold().run()}
+        active={editor.isActive("bold")}
+      >
+        B
+      </Btn>
+      <Btn
+        title="Cursiva"
+        on={() => editor.chain().focus().toggleItalic().run()}
+        active={editor.isActive("italic")}
+      >
+        <i>I</i>
+      </Btn>
+      <Btn
+        title="Tachado"
+        on={() => editor.chain().focus().toggleStrike().run()}
+        active={editor.isActive("strike")}
+      >
+        <s>S</s>
+      </Btn>
       <span className="w-px bg-kp-ink/30 mx-1" />
-      <Btn title="Título H2" on={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })}>H2</Btn>
-      <Btn title="Subtítulo H3" on={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive("heading", { level: 3 })}>H3</Btn>
+      <Btn
+        title="Título H2"
+        on={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        active={editor.isActive("heading", { level: 2 })}
+      >
+        H2
+      </Btn>
+      <Btn
+        title="Subtítulo H3"
+        on={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        active={editor.isActive("heading", { level: 3 })}
+      >
+        H3
+      </Btn>
       <span className="w-px bg-kp-ink/30 mx-1" />
-      <Btn title="Lista" on={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")}>•</Btn>
-      <Btn title="Lista numerada" on={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")}>1.</Btn>
-      <Btn title="Cita" on={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")}>“”</Btn>
+      <Btn
+        title="Lista"
+        on={() => editor.chain().focus().toggleBulletList().run()}
+        active={editor.isActive("bulletList")}
+      >
+        •
+      </Btn>
+      <Btn
+        title="Lista numerada"
+        on={() => editor.chain().focus().toggleOrderedList().run()}
+        active={editor.isActive("orderedList")}
+      >
+        1.
+      </Btn>
+      <Btn
+        title="Cita"
+        on={() => editor.chain().focus().toggleBlockquote().run()}
+        active={editor.isActive("blockquote")}
+      >
+        “”
+      </Btn>
       <span className="w-px bg-kp-ink/30 mx-1" />
-      <Btn title="Enlace" on={onLink} active={editor.isActive("link")}>🔗</Btn>
-      <Btn title="Insertar imagen" on={onPickImage}>🖼️</Btn>
+      <Btn title="Enlace" on={onLink} active={editor.isActive("link")}>
+        🔗
+      </Btn>
+      <Btn title="Insertar imagen" on={onPickImage}>
+        🖼️
+      </Btn>
       <span className="w-px bg-kp-ink/30 mx-1" />
-      <Btn title="Limpiar formato" on={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>✕</Btn>
-      <Btn title="Deshacer" on={() => editor.chain().focus().undo().run()}>↶</Btn>
-      <Btn title="Rehacer" on={() => editor.chain().focus().redo().run()}>↷</Btn>
+      <Btn
+        title="Limpiar formato"
+        on={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
+      >
+        ✕
+      </Btn>
+      <Btn title="Deshacer" on={() => editor.chain().focus().undo().run()}>
+        ↶
+      </Btn>
+      <Btn title="Rehacer" on={() => editor.chain().focus().redo().run()}>
+        ↷
+      </Btn>
     </div>
   );
 }

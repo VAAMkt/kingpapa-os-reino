@@ -68,14 +68,13 @@ export const getMyLoyalty = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(30);
     return {
-      account:
-        (acc as LoyaltyAccount) ?? {
-          user_id: userId,
-          puntos_balance: 0,
-          puntos_lifetime: 0,
-          tier: "parcero",
-          referral_code: "",
-        },
+      account: (acc as LoyaltyAccount) ?? {
+        user_id: userId,
+        puntos_balance: 0,
+        puntos_lifetime: 0,
+        tier: "parcero",
+        referral_code: "",
+      },
       ledger: (ledger ?? []) as LedgerRow[],
     };
   });

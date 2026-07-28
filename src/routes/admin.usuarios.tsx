@@ -33,19 +33,29 @@ function UsuariosPage() {
   const remove = useServerFn(removeUserRole);
   const qc = useQueryClient();
 
-  const { data: users, isLoading, error } = useQuery({
+  const {
+    data: users,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["admin", "usuarios"],
     queryFn: () => list({}),
   });
 
   const addMut = useMutation({
     mutationFn: (v: { user_id: string; role: AppRole }) => add({ data: v }),
-    onSuccess: () => { toast.success("Rol asignado"); qc.invalidateQueries({ queryKey: ["admin", "usuarios"] }); },
+    onSuccess: () => {
+      toast.success("Rol asignado");
+      qc.invalidateQueries({ queryKey: ["admin", "usuarios"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   const removeMut = useMutation({
     mutationFn: (v: { user_id: string; role: AppRole }) => remove({ data: v }),
-    onSuccess: () => { toast.success("Rol eliminado"); qc.invalidateQueries({ queryKey: ["admin", "usuarios"] }); },
+    onSuccess: () => {
+      toast.success("Rol eliminado");
+      qc.invalidateQueries({ queryKey: ["admin", "usuarios"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -82,7 +92,10 @@ function UsuariosPage() {
 }
 
 function UserRowCard({
-  user, onAdd, onRemove, busy,
+  user,
+  onAdd,
+  onRemove,
+  busy,
 }: {
   user: UserRow;
   onAdd: (r: AppRole) => void;
@@ -99,7 +112,8 @@ function UserRowCard({
           </p>
           <p className="text-xs text-kp-ink/70 truncate">{user.email}</p>
           <p className="text-[10px] text-kp-ink/50 font-mono mt-1">
-            Último ingreso: {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : "nunca"}
+            Último ingreso:{" "}
+            {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : "nunca"}
           </p>
         </div>
 
@@ -138,7 +152,9 @@ function UserRowCard({
           >
             <option value="">+ Asignar rol…</option>
             {available.map((r) => (
-              <option key={r} value={r}>{r}</option>
+              <option key={r} value={r}>
+                {r}
+              </option>
             ))}
           </select>
         )}

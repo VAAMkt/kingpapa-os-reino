@@ -82,7 +82,6 @@ export const checkQuipuBacklog = createServerFn({ method: "POST" }).handler(
     const bySede: QuipuBacklogResult["bySede"] = [];
     const allStuck: Array<{ sede: SedeLite; row: RpSinQuipuRow }> = [];
 
-
     for (const s of sedes ?? []) {
       const localId = Number(s.rp_local_id);
       if (!Number.isFinite(localId) || localId <= 0) continue;
@@ -150,7 +149,6 @@ export const checkQuipuBacklog = createServerFn({ method: "POST" }).handler(
     }
     const byIntegrationMap = new Map<string, OrderLite>();
     for (const o of (byIntegration ?? []) as OrderLite[]) byIntegrationMap.set(o.id, o);
-
 
     const now = Date.now();
     const matched: QuipuStuckRow[] = [];
@@ -282,10 +280,12 @@ export const pollActiveOrders = createServerFn({ method: "POST" }).handler(
         if (comanda && !row.rp_numero_comanda) patch.rp_numero_comanda = comanda;
         if (mapped === "cancelado") {
           patch.cancelled_at = new Date().toISOString();
-          patch.cancel_reason =
-            "poll_reconcile: delivery_estado=4 (anulado en Restaurant.pe)";
+          patch.cancel_reason = "poll_reconcile: delivery_estado=4 (anulado en Restaurant.pe)";
         }
-        await supabaseAdmin.from("orders").update(patch as never).eq("id", row.id);
+        await supabaseAdmin
+          .from("orders")
+          .update(patch as never)
+          .eq("id", row.id);
 
         await supabaseAdmin.from("rp_sync_log").insert({
           tipo: "poll_reconcile",
@@ -324,10 +324,7 @@ export const pollActiveOrders = createServerFn({ method: "POST" }).handler(
   },
 );
 
-function mergeRpResponse(
-  prev: unknown,
-  patch: Record<string, unknown>,
-): Record<string, unknown> {
+function mergeRpResponse(prev: unknown, patch: Record<string, unknown>): Record<string, unknown> {
   const base =
     prev && typeof prev === "object" && !Array.isArray(prev)
       ? { ...(prev as Record<string, unknown>) }
@@ -335,36 +332,34 @@ function mergeRpResponse(
   return { ...base, ...patch };
 }
 
-export const runReconcile = createServerFn({ method: "POST" }).handler(
-  async () => {
-    const [poll, backlog] = await Promise.all([
-      // Poll primero — más importante para el usuario final.
-      (async () => {
-        try {
-          return await pollActiveOrders({} as never);
-        } catch (err) {
-          return {
-            scanned: 0,
-            updated: 0,
-            errors: 1,
-            changes: [],
-            error: err instanceof Error ? err.message : "poll fatal",
-          };
-        }
-      })(),
-      (async () => {
-        try {
-          return await checkQuipuBacklog({} as never);
-        } catch (err) {
-          return {
-            ok: false,
-            bySede: [],
-            matchedOurs: [],
-            error: err instanceof Error ? err.message : "backlog fatal",
-          };
-        }
-      })(),
-    ]);
-    return { poll, backlog };
-  },
-);
+export const runReconcile = createServerFn({ method: "POST" }).handler(async () => {
+  const [poll, backlog] = await Promise.all([
+    // Poll primero — más importante para el usuario final.
+    (async () => {
+      try {
+        return await pollActiveOrders({} as never);
+      } catch (err) {
+        return {
+          scanned: 0,
+          updated: 0,
+          errors: 1,
+          changes: [],
+          error: err instanceof Error ? err.message : "poll fatal",
+        };
+      }
+    })(),
+    (async () => {
+      try {
+        return await checkQuipuBacklog({} as never);
+      } catch (err) {
+        return {
+          ok: false,
+          bySede: [],
+          matchedOurs: [],
+          error: err instanceof Error ? err.message : "backlog fatal",
+        };
+      }
+    })(),
+  ]);
+  return { poll, backlog };
+});

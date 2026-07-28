@@ -9,7 +9,12 @@ import { ProductCard } from "@/components/kp/ProductCard";
 import { OrderIntentDialog } from "@/components/kp/OrderIntentDialog";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { listPublicSedes } from "@/lib/sedes";
-import { rpProductoToProducto, buildCategorias, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
+import {
+  rpProductoToProducto,
+  buildCategorias,
+  type RpCategoriaRow,
+  type RpProductoRow,
+} from "@/lib/menu";
 import { useActiveSede, setExploringSede } from "@/lib/active-sede";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
@@ -22,9 +27,17 @@ export const Route = createFileRoute("/menu")({
   head: () => ({
     meta: [
       { title: "Menú del Reino — KINGPAPA" },
-      { name: "description", content: "Escogé tu corona: personal pa’ uno, X2 pa’ dos, Legendaria pa’ tres o Kingpapa pa’ toda la banda (hasta 7). Sin diplomacia." },
+      {
+        name: "description",
+        content:
+          "Escogé tu corona: personal pa’ uno, X2 pa’ dos, Legendaria pa’ tres o Kingpapa pa’ toda la banda (hasta 7). Sin diplomacia.",
+      },
       { property: "og:title", content: "Menú del Reino — KINGPAPA" },
-      { property: "og:description", content: "Salchipapas monstruosas, bowls coronados, combos solo web y retos brutales pa’ toda la banda." },
+      {
+        property: "og:description",
+        content:
+          "Salchipapas monstruosas, bowls coronados, combos solo web y retos brutales pa’ toda la banda.",
+      },
       { property: "og:url", content: "/menu" },
     ],
     links: [{ rel: "canonical", href: "/menu" }],
@@ -44,7 +57,11 @@ function MenuPage() {
   const [filtro, setFiltro] = useState<string>("all");
   const [activeCat, setActiveCat] = useState<string | null>(null);
 
-  const sedesQ = useQuery({ queryKey: ["sedes", "public"], queryFn: listPublicSedes, staleTime: 60_000 });
+  const sedesQ = useQuery({
+    queryKey: ["sedes", "public"],
+    queryFn: listPublicSedes,
+    staleTime: 60_000,
+  });
   const sedes = sedesQ.data ?? [];
   const activeSede = useActiveSede();
 
@@ -109,7 +126,11 @@ function MenuPage() {
       ...(masPedidos.length
         ? [
             {
-              categoria: { id: "mas-pedidos", nombre: "Más pedidos", filtro: "Más pedidos" } as Categoria,
+              categoria: {
+                id: "mas-pedidos",
+                nombre: "Más pedidos",
+                filtro: "Más pedidos",
+              } as Categoria,
               productos: masPedidos,
             },
           ]
@@ -168,7 +189,7 @@ function MenuPage() {
     const nombre =
       id === "all"
         ? "Todas"
-        : secciones.find((s) => s.categoria.id === id)?.categoria.nombre ?? id;
+        : (secciones.find((s) => s.categoria.id === id)?.categoria.nombre ?? id);
     track("category_clicked", { categoria_id: id, categoria_nombre: nombre });
     requestAnimationFrame(() => {
       document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -181,7 +202,6 @@ function MenuPage() {
     track("menu_view", { sede_id: activeSede.sedeId, sede_nombre: activeSede.label });
   }, [activeSede?.sedeId, activeSede?.label]);
 
-
   return (
     <>
       <OrderIntentDialog />
@@ -193,10 +213,13 @@ function MenuPage() {
             El Menú del Reino
           </h1>
           <p className="mt-3 max-w-2xl">
-            Escogé tu corona: <strong>personal</strong> pa’ uno con buen diente, <strong>X2</strong> pa’ dos, <strong>Legendaria</strong> pa’ tres, o <strong>Kingpapa</strong> pa’ toda la banda (hasta 7). Sin diplomacia. 👑🍟
+            Escogé tu corona: <strong>personal</strong> pa’ uno con buen diente, <strong>X2</strong>{" "}
+            pa’ dos, <strong>Legendaria</strong> pa’ tres, o <strong>Kingpapa</strong> pa’ toda la
+            banda (hasta 7). Sin diplomacia. 👑🍟
           </p>
           <p className="mt-2 text-sm text-kp-cheese/80 max-w-2xl">
-            ¿Vegetariano? Siza — pedila sin proteína animal y metele queso, maíz, cebolla crispy o aguacate. 🥑
+            ¿Vegetariano? Siza — pedila sin proteína animal y metele queso, maíz, cebolla crispy o
+            aguacate. 🥑
           </p>
           <div className="mt-5">
             <BrutalLink href="#pedir" variant="primary" size="lg">
@@ -236,7 +259,8 @@ function MenuPage() {
           <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="flex gap-2 overflow-x-auto py-3 scrollbar-none">
               {secciones.map((s) => {
-                const isActive = filtro === "all" ? activeCat === s.categoria.id : filtro === s.categoria.id;
+                const isActive =
+                  filtro === "all" ? activeCat === s.categoria.id : filtro === s.categoria.id;
                 return (
                   <button
                     key={s.categoria.id}
@@ -335,15 +359,18 @@ function MenuPage() {
 
       {/* COMBO IMÁN */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-12">
-        <BrutalCard tone="purple" className="p-6 md:p-8 flex flex-col md:flex-row gap-6 items-center">
+        <BrutalCard
+          tone="purple"
+          className="p-6 md:p-8 flex flex-col md:flex-row gap-6 items-center"
+        >
           <div className="flex-1">
             <BrutalBadge tone="yellow">Solo web · Lun a Mié</BrutalBadge>
             <h2 className="font-display text-4xl md:text-5xl uppercase mt-3 leading-none">
               Combo Imán del Reino
             </h2>
             <p className="mt-3 text-sm">
-              Salchipapa mediana + bebida + brownie por menos de lo que cuesta un domicilio.
-              Sólo si pedís desde la web, parcero. No se lo cuentes a Rappi 🤫
+              Salchipapa mediana + bebida + brownie por menos de lo que cuesta un domicilio. Sólo si
+              pedís desde la web, parcero. No se lo cuentes a Rappi 🤫
             </p>
             <p className="font-display text-5xl mt-3">$19.900</p>
           </div>

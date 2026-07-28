@@ -1,12 +1,7 @@
 // Helpers puros para normalizar respuestas crudas de Restaurant.pe.
 // Sin secretos: pueden importarse desde cliente y server.
 
-import type {
-  RpLocal,
-  RpCategoria,
-  RpProducto,
-  RpModificadorGrupo,
-} from "@/types/restaurantpe";
+import type { RpLocal, RpCategoria, RpProducto, RpModificadorGrupo } from "@/types/restaurantpe";
 
 // CDN real de Restaurant.pe (confirmada en su panel oficial: RESTPE_IMG.URL_BASE).
 // `restaurant.pe/archivos/...` y `api.restaurant.pe/archivos/...` devuelven HTML/404,
@@ -150,7 +145,9 @@ export function mapWebhookStatusCode(code: unknown): RpOrderStatus | null {
  */
 export function mapRpEstadoToLocal(estado: unknown): RpOrderStatus | null {
   if (estado == null || estado === "") return null;
-  const s = stripAccents(String(estado).toUpperCase()).trim().replace(/^DELIVERY_/, "");
+  const s = stripAccents(String(estado).toUpperCase())
+    .trim()
+    .replace(/^DELIVERY_/, "");
   switch (s) {
     case "ACTIVO":
     case "CONFIRMADO":
@@ -226,9 +223,7 @@ export type MotorizadoInfo = {
 };
 
 /** Info consolidada del motorizado desde el snapshot completo del delivery. */
-export function extractMotorizadoInfo(
-  raw: Record<string, unknown> | null,
-): MotorizadoInfo {
+export function extractMotorizadoInfo(raw: Record<string, unknown> | null): MotorizadoInfo {
   const empty: MotorizadoInfo = {
     nombre: null,
     celular: null,
@@ -247,11 +242,7 @@ export function extractMotorizadoInfo(
     return null;
   };
   return {
-    nombre: pick(
-      "delivery_transportistanombres",
-      "motorizado",
-      "motorizado_nombres",
-    ),
+    nombre: pick("delivery_transportistanombres", "motorizado", "motorizado_nombres"),
     celular: pick(
       "delivery_transportistacelular",
       "motorizado_celular",
@@ -259,14 +250,8 @@ export function extractMotorizadoInfo(
     ),
     transportista: pick("delivery_integraciontransportista"),
     en_tienda_at: pick("delivery_fechamotorizadoentienda"),
-    en_curso_at: pick(
-      "delivery_fechamotorizadoencurso",
-      "delivery_fechaencamino",
-    ),
-    entregado_at: pick(
-      "delivery_fechaentrega",
-      "delivery_fechamotorizadoencasa",
-    ),
+    en_curso_at: pick("delivery_fechamotorizadoencurso", "delivery_fechaencamino"),
+    entregado_at: pick("delivery_fechaentrega", "delivery_fechamotorizadoencasa"),
   };
 }
 
@@ -330,25 +315,19 @@ export type NormalizedCategoria = {
   activo: boolean;
 };
 
-export function normalizeCategoria(
-  raw: RpCategoria,
-  index = 0,
-): NormalizedCategoria {
+export function normalizeCategoria(raw: RpCategoria, index = 0): NormalizedCategoria {
   const r = raw as Record<string, unknown>;
   const delivery = String(r["categoria_delivery"] ?? "").trim();
-  const estado = String(r["categoria_estado"] ?? "").trim().toLowerCase();
+  const estado = String(r["categoria_estado"] ?? "")
+    .trim()
+    .toLowerCase();
   // Si la sede manda los flags, exigimos ambos. Si NO los manda (vienen vacíos),
   // dejamos la categoría activa por defecto — algunas sedes no emiten los flags
   // y bloquear todo dejaba el menú vacío.
   const tieneFlags = delivery !== "" || estado !== "";
-  const activo = tieneFlags
-    ? delivery === "1" && (estado === "1" || estado === "activo")
-    : true;
+  const activo = tieneFlags ? delivery === "1" && (estado === "1" || estado === "activo") : true;
   const ordenRaw = raw.categoria_orden;
-  const orden =
-    ordenRaw != null && String(ordenRaw).trim() !== ""
-      ? toInt(ordenRaw)
-      : index;
+  const orden = ordenRaw != null && String(ordenRaw).trim() !== "" ? toInt(ordenRaw) : index;
   return {
     rp_id: toInt(raw.categoria_id),
     nombre: String(raw.categoria_descripcion ?? ""),
@@ -402,10 +381,7 @@ export type NormalizedProducto = {
   orden: number;
 };
 
-export function normalizeProduct(
-  raw: RpProducto,
-  index = 0,
-): NormalizedProducto | null {
+export function normalizeProduct(raw: RpProducto, index = 0): NormalizedProducto | null {
   const r = raw as Record<string, unknown>;
   const rpId = raw.productogeneral_id ?? raw.producto_id;
   const nombre =
@@ -435,9 +411,7 @@ export function normalizeProduct(
   //   combo). Fallback final a `lista_productoCambio[0]` o legacy.
   // - Normales: SIEMPRE la de la presentación primero (es la real). Solo si la
   //   presentación no trae imagen caemos al padre/legacy.
-  const imgPresentacion = presentaciones[0]?.["producto_urlimagen"] as
-    | string
-    | undefined;
+  const imgPresentacion = presentaciones[0]?.["producto_urlimagen"] as string | undefined;
   const imgGeneral = r["productogeneral_urlimagen"] as string | undefined;
   const imgLegacy = raw.producto_imagen as string | undefined;
 
@@ -461,9 +435,7 @@ export function normalizeProduct(
     ? true
     : presentaciones.length === 0
       ? true
-      : presentaciones.some(
-          (p) => String(p["producto_delivery"] ?? "0") === "1",
-        );
+      : presentaciones.some((p) => String(p["producto_delivery"] ?? "0") === "1");
   if (!activoDelivery) return null;
 
   const descripcionLarga =
@@ -483,9 +455,7 @@ export function normalizeProduct(
     return null;
   })();
   const disponible =
-    raw.producto_agotado != null
-      ? !toBool01(raw.producto_agotado)
-      : estadoActivo ?? true;
+    raw.producto_agotado != null ? !toBool01(raw.producto_agotado) : (estadoActivo ?? true);
 
   // Guardamos el raw completo de modificadores + base + adicionales para upselling
   const modificadoresRaw: Record<string, unknown> = {

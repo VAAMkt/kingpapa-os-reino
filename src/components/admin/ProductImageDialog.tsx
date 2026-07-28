@@ -134,9 +134,7 @@ export function ProductImageDialog({ open, onOpenChange, producto }: Props) {
           return {
             ...old,
             productos: (old.productos as Array<{ id: string }>).map((p) =>
-              p.id === producto.id
-                ? { ...p, imagen_override_url: null, imagen_source: "rp" }
-                : p,
+              p.id === producto.id ? { ...p, imagen_override_url: null, imagen_source: "rp" } : p,
             ),
           };
         },
@@ -180,8 +178,8 @@ export function ProductImageDialog({ open, onOpenChange, producto }: Props) {
             Foto: {producto?.nombre}
           </DialogTitle>
           <DialogDescription>
-            La foto custom reemplaza la del POS en el menú público.
-            La sincronización con Restaurant.pe nunca la pisa.
+            La foto custom reemplaza la del POS en el menú público. La sincronización con
+            Restaurant.pe nunca la pisa.
           </DialogDescription>
         </DialogHeader>
 
@@ -253,11 +251,7 @@ export function ProductImageDialog({ open, onOpenChange, producto }: Props) {
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={!file || busy}
-            onClick={() => uploadMut.mutate()}
-          >
+          <Button type="button" disabled={!file || busy} onClick={() => uploadMut.mutate()}>
             <Upload className="size-4 mr-2" />
             {uploadMut.isPending ? "Subiendo…" : "Guardar foto"}
           </Button>

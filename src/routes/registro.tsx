@@ -7,7 +7,10 @@ export const Route = createFileRoute("/registro")({
   head: () => ({
     meta: [
       { title: "Coronarme — KINGPAPA OS" },
-      { name: "description", content: "Hazte súbdito del Reino: combos secretos, retos y premios por frecuencia." },
+      {
+        name: "description",
+        content: "Hazte súbdito del Reino: combos secretos, retos y premios por frecuencia.",
+      },
     ],
   }),
   component: RegistroPage,

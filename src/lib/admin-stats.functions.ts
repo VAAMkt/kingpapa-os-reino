@@ -11,11 +11,19 @@ function rangeMs(r: Range) {
   return r === "24h" ? 24 * 3600 * 1000 : r === "7d" ? 7 * 86400 * 1000 : 30 * 86400 * 1000;
 }
 
-async function assertAdmin(supabase: {
-  from: (t: string) => {
-    select: (c: string) => { eq: (a: string, v: string) => { in: (b: string, arr: string[]) => Promise<{ data: { role: string }[] | null }> } };
-  };
-}, userId: string) {
+async function assertAdmin(
+  supabase: {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (
+          a: string,
+          v: string,
+        ) => { in: (b: string, arr: string[]) => Promise<{ data: { role: string }[] | null }> };
+      };
+    };
+  },
+  userId: string,
+) {
   const { data } = await supabase
     .from("user_roles")
     .select("role")
@@ -38,7 +46,14 @@ export type AdminDashboardData = {
   porSede: { sede_id: string; sede_nombre: string; pedidos: number; ingresos: number }[];
   productosTop: { nombre: string; cantidad: number }[];
   porEstado: { status: string; count: number }[];
-  ultimos: { id: string; status: string; total: number; created_at: string; cliente_nombre: string; rp_numero_comanda: string | null }[];
+  ultimos: {
+    id: string;
+    status: string;
+    total: number;
+    created_at: string;
+    cliente_nombre: string;
+    rp_numero_comanda: string | null;
+  }[];
 };
 
 export const getAdminDashboard = createServerFn({ method: "POST" })
@@ -49,20 +64,30 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const since = new Date(Date.now() - rangeMs(data.range)).toISOString();
 
-    const [{ data: orders }, { data: sedes }, { data: subCount }, { data: subNuevos }] = await Promise.all([
-      supabaseAdmin
-        .from("orders")
-        .select("id, status, tipo, total, sede_id, created_at, cliente, items, rp_numero_comanda")
-        .gt("created_at", since)
-        .order("created_at", { ascending: false }),
-      supabaseAdmin.from("sedes").select("id, nombre"),
-      supabaseAdmin.from("subditos").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("subditos").select("id", { count: "exact", head: true }).gt("created_at", since),
-    ]);
+    const [{ data: orders }, { data: sedes }, { data: subCount }, { data: subNuevos }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("orders")
+          .select("id, status, tipo, total, sede_id, created_at, cliente, items, rp_numero_comanda")
+          .gt("created_at", since)
+          .order("created_at", { ascending: false }),
+        supabaseAdmin.from("sedes").select("id, nombre"),
+        supabaseAdmin.from("subditos").select("id", { count: "exact", head: true }),
+        supabaseAdmin
+          .from("subditos")
+          .select("id", { count: "exact", head: true })
+          .gt("created_at", since),
+      ]);
 
     const rows = (orders ?? []) as Array<{
-      id: string; status: string; tipo: string; total: number; sede_id: string;
-      created_at: string; cliente: { nombre?: string } | null; items: MyItem[] | null;
+      id: string;
+      status: string;
+      tipo: string;
+      total: number;
+      sede_id: string;
+      created_at: string;
+      cliente: { nombre?: string } | null;
+      items: MyItem[] | null;
       rp_numero_comanda: string | null;
     }>;
 
@@ -70,7 +95,9 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
 
     const total = rows.length;
     const canceladas = rows.filter((r) => r.status === "cancelado").length;
-    const ingresos = rows.filter((r) => r.status !== "cancelado").reduce((a, r) => a + Number(r.total || 0), 0);
+    const ingresos = rows
+      .filter((r) => r.status !== "cancelado")
+      .reduce((a, r) => a + Number(r.total || 0), 0);
     const activos = rows.filter((r) => r.status !== "cancelado").length;
 
     const canalMap = new Map<string, { pedidos: number; ingresos: number }>();
@@ -141,9 +168,7 @@ type MyItem = { nombre: string; cantidad: number };
 // ---------- Súbditos ----------
 export const listSubditos = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ search: z.string().max(120).optional() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ search: z.string().max(120).optional() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase as never, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -154,7 +179,9 @@ export const listSubditos = createServerFn({ method: "POST" })
       .limit(200);
     if (data.search) {
       const q = data.search.trim();
-      query = query.or(`email.ilike.%${q}%,whatsapp.ilike.%${q}%,ciudad.ilike.%${q}%,arquetipo.ilike.%${q}%`);
+      query = query.or(
+        `email.ilike.%${q}%,whatsapp.ilike.%${q}%,ciudad.ilike.%${q}%,arquetipo.ilike.%${q}%`,
+      );
     }
     const { data: rows } = await query;
     return rows ?? [];
@@ -163,9 +190,7 @@ export const listSubditos = createServerFn({ method: "POST" })
 // ---------- Loyalty admin ----------
 export const listLoyaltyAccounts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ search: z.string().max(120).optional() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ search: z.string().max(120).optional() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase as never, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -180,7 +205,10 @@ export const listLoyaltyAccounts = createServerFn({ method: "POST" })
       : { data: [] as { id: string; display_name: string | null; whatsapp: string | null }[] };
     const emails: Record<string, string | null> = {};
     if (ids.length) {
-      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 200,
+      });
       for (const u of usersData?.users ?? []) emails[u.id] = u.email ?? null;
     }
     const pMap = new Map((profiles ?? []).map((p) => [p.id, p]));
@@ -223,7 +251,11 @@ export const adjustPoints = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase as never, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("loyalty_accounts").insert({ user_id: data.user_id }).select().maybeSingle();
+    await supabaseAdmin
+      .from("loyalty_accounts")
+      .insert({ user_id: data.user_id })
+      .select()
+      .maybeSingle();
     const { data: acc } = await supabaseAdmin
       .from("loyalty_accounts")
       .select("puntos_balance, puntos_lifetime")

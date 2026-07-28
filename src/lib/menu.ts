@@ -106,5 +106,3 @@ export function buildCategorias(cats: RpCategoriaRow[]): Categoria[] {
   }
   return base;
 }
-
-

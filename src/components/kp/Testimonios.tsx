@@ -1,10 +1,26 @@
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 
 const testimonios = [
-  { name: "Andrea P.", city: "Cali", text: "Me tatué la corona y me dieron papas de por vida. Brutal, 10/10." },
-  { name: "Camilo R.", city: "Bogotá", text: "El KINGCHARRÓN es una vuelta. Brutal nivel de queso, mi so." },
-  { name: "Vale M.", city: "Medellín", text: "Llegué al after rumba y salí coronada. Cero drama, pura chimba." },
-  { name: "Sebas L.", city: "Jamundí", text: "Pedimos la gigante pa’ toda la banda, sobró hasta pa’ el pana. Locura." },
+  {
+    name: "Andrea P.",
+    city: "Cali",
+    text: "Me tatué la corona y me dieron papas de por vida. Brutal, 10/10.",
+  },
+  {
+    name: "Camilo R.",
+    city: "Bogotá",
+    text: "El KINGCHARRÓN es una vuelta. Brutal nivel de queso, mi so.",
+  },
+  {
+    name: "Vale M.",
+    city: "Medellín",
+    text: "Llegué al after rumba y salí coronada. Cero drama, pura chimba.",
+  },
+  {
+    name: "Sebas L.",
+    city: "Jamundí",
+    text: "Pedimos la gigante pa’ toda la banda, sobró hasta pa’ el pana. Locura.",
+  },
 ];
 
 export function Testimonios() {
@@ -13,9 +29,7 @@ export function Testimonios() {
       <div className="flex items-end justify-between mb-5">
         <div>
           <BrutalBadge tone="lime">La banda habla por sí sola</BrutalBadge>
-          <h2 className="font-display text-4xl md:text-5xl uppercase mt-2">
-            La banda habla
-          </h2>
+          <h2 className="font-display text-4xl md:text-5xl uppercase mt-2">La banda habla</h2>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

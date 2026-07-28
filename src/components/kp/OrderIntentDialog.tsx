@@ -82,29 +82,17 @@ export function OrderIntentDialog() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <BrutalButton
-              variant="fire"
-              size="lg"
-              block
-              onClick={() => pick("delivery")}
-            >
+            <BrutalButton variant="fire" size="lg" block onClick={() => pick("delivery")}>
               <span className="text-2xl">🛵</span>
               <span>Domicilio</span>
             </BrutalButton>
-            <BrutalButton
-              variant="dark"
-              size="lg"
-              block
-              onClick={() => pick("pickup")}
-            >
+            <BrutalButton variant="dark" size="lg" block onClick={() => pick("pickup")}>
               <span className="text-2xl">🏃</span>
               <span>Recoger en sede</span>
             </BrutalButton>
           </div>
 
-          <p className="text-xs opacity-70">
-            Puedes cambiar esto luego desde el carrito.
-          </p>
+          <p className="text-xs opacity-70">Puedes cambiar esto luego desde el carrito.</p>
         </div>
       </DialogContent>
     </Dialog>

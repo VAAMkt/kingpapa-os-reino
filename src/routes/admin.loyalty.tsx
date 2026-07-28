@@ -59,8 +59,7 @@ function Clientes() {
   const [motivo, setMotivo] = useState("");
 
   const adj = useMutation({
-    mutationFn: () =>
-      adjFn({ data: { user_id: adjUser!, puntos: pts, motivo } }),
+    mutationFn: () => adjFn({ data: { user_id: adjUser!, puntos: pts, motivo } }),
     onSuccess: () => {
       toast.success("Puntos ajustados");
       qc.invalidateQueries({ queryKey: ["admin-loyalty-accounts"] });
@@ -98,7 +97,10 @@ function Clientes() {
             {(data ?? []).map((r) => (
               <tr key={r.user_id} className="border-b border-kp-ink/10 align-top">
                 <td className="py-2">{r.display_name ?? "—"}</td>
-                <td className="py-2 text-xs">{r.email ?? "—"}{r.whatsapp ? ` · ${r.whatsapp}` : ""}</td>
+                <td className="py-2 text-xs">
+                  {r.email ?? "—"}
+                  {r.whatsapp ? ` · ${r.whatsapp}` : ""}
+                </td>
                 <td className="py-2 uppercase font-display text-xs">{r.tier}</td>
                 <td className="py-2 text-right font-mono">{r.puntos_balance}</td>
                 <td className="py-2 text-right font-mono">{r.puntos_lifetime}</td>
@@ -113,14 +115,21 @@ function Clientes() {
               </tr>
             ))}
             {(data ?? []).length === 0 && (
-              <tr><td colSpan={6} className="py-4 text-center text-kp-ink/60">Sin resultados.</td></tr>
+              <tr>
+                <td colSpan={6} className="py-4 text-center text-kp-ink/60">
+                  Sin resultados.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </BrutalCard>
 
       {adjUser && (
-        <div className="fixed inset-0 z-50 bg-kp-ink/70 flex items-center justify-center p-4" onClick={() => setAdjUser(null)}>
+        <div
+          className="fixed inset-0 z-50 bg-kp-ink/70 flex items-center justify-center p-4"
+          onClick={() => setAdjUser(null)}
+        >
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
             <BrutalCard tone="yellow" className="p-5 space-y-3">
               <BrutalBadge tone="black">Ajuste manual</BrutalBadge>
@@ -139,10 +148,16 @@ function Clientes() {
                 maxLength={200}
               />
               <div className="flex gap-2">
-                <BrutalButton block onClick={() => adj.mutate()} disabled={!motivo || pts === 0 || adj.isPending}>
+                <BrutalButton
+                  block
+                  onClick={() => adj.mutate()}
+                  disabled={!motivo || pts === 0 || adj.isPending}
+                >
                   Aplicar
                 </BrutalButton>
-                <BrutalButton block variant="ghost" onClick={() => setAdjUser(null)}>Cancelar</BrutalButton>
+                <BrutalButton block variant="ghost" onClick={() => setAdjUser(null)}>
+                  Cancelar
+                </BrutalButton>
               </div>
             </BrutalCard>
           </div>
@@ -226,10 +241,14 @@ function Recompensas() {
           <BrutalCard key={r.id as string} tone="cheese" className="p-4">
             <div className="flex justify-between gap-2 items-start">
               <div>
-                <h3 className="font-display text-lg uppercase leading-tight">{r.nombre as string}</h3>
+                <h3 className="font-display text-lg uppercase leading-tight">
+                  {r.nombre as string}
+                </h3>
                 <p className="text-xs text-kp-ink/70">{r.descripcion as string | null}</p>
               </div>
-              <BrutalBadge tone={r.activo ? "lime" : "red"}>{r.activo ? "activa" : "inactiva"}</BrutalBadge>
+              <BrutalBadge tone={r.activo ? "lime" : "red"}>
+                {r.activo ? "activa" : "inactiva"}
+              </BrutalBadge>
             </div>
             <p className="text-xs mt-2">
               {r.costo_puntos as number} pts · {r.tipo as string} · valor {r.valor as number}
@@ -263,24 +282,53 @@ function Recompensas() {
       </div>
 
       {form && (
-        <div className="fixed inset-0 z-50 bg-kp-ink/70 flex items-center justify-center p-4" onClick={() => setForm(null)}>
+        <div
+          className="fixed inset-0 z-50 bg-kp-ink/70 flex items-center justify-center p-4"
+          onClick={() => setForm(null)}
+        >
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
             <BrutalCard tone="yellow" className="p-5 space-y-3">
               <BrutalBadge tone="black">{form.id ? "Editar" : "Nueva"} recompensa</BrutalBadge>
-              <input className="w-full border-2 border-kp-ink px-3 py-2 bg-white" placeholder="Nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-              <textarea className="w-full border-2 border-kp-ink px-3 py-2 bg-white" placeholder="Descripción" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
+              <input
+                className="w-full border-2 border-kp-ink px-3 py-2 bg-white"
+                placeholder="Nombre"
+                value={form.nombre}
+                onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+              />
+              <textarea
+                className="w-full border-2 border-kp-ink px-3 py-2 bg-white"
+                placeholder="Descripción"
+                value={form.descripcion}
+                onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+              />
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-xs font-display uppercase">
                   Costo pts
-                  <input type="number" className="mt-1 w-full border-2 border-kp-ink px-3 py-2 bg-white" value={form.costo_puntos} onChange={(e) => setForm({ ...form, costo_puntos: parseInt(e.target.value || "0", 10) })} />
+                  <input
+                    type="number"
+                    className="mt-1 w-full border-2 border-kp-ink px-3 py-2 bg-white"
+                    value={form.costo_puntos}
+                    onChange={(e) =>
+                      setForm({ ...form, costo_puntos: parseInt(e.target.value || "0", 10) })
+                    }
+                  />
                 </label>
                 <label className="text-xs font-display uppercase">
                   Valor
-                  <input type="number" className="mt-1 w-full border-2 border-kp-ink px-3 py-2 bg-white" value={form.valor} onChange={(e) => setForm({ ...form, valor: parseFloat(e.target.value || "0") })} />
+                  <input
+                    type="number"
+                    className="mt-1 w-full border-2 border-kp-ink px-3 py-2 bg-white"
+                    value={form.valor}
+                    onChange={(e) => setForm({ ...form, valor: parseFloat(e.target.value || "0") })}
+                  />
                 </label>
                 <label className="text-xs font-display uppercase">
                   Tipo
-                  <select className="mt-1 w-full border-2 border-kp-ink px-3 py-2 bg-white" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value as typeof form.tipo })}>
+                  <select
+                    className="mt-1 w-full border-2 border-kp-ink px-3 py-2 bg-white"
+                    value={form.tipo}
+                    onChange={(e) => setForm({ ...form, tipo: e.target.value as typeof form.tipo })}
+                  >
                     <option value="descuento_fijo">descuento fijo</option>
                     <option value="envio_gratis">envío gratis</option>
                     <option value="producto">producto</option>
@@ -288,16 +336,35 @@ function Recompensas() {
                 </label>
                 <label className="text-xs font-display uppercase">
                   Orden
-                  <input type="number" className="mt-1 w-full border-2 border-kp-ink px-3 py-2 bg-white" value={form.orden} onChange={(e) => setForm({ ...form, orden: parseInt(e.target.value || "0", 10) })} />
+                  <input
+                    type="number"
+                    className="mt-1 w-full border-2 border-kp-ink px-3 py-2 bg-white"
+                    value={form.orden}
+                    onChange={(e) =>
+                      setForm({ ...form, orden: parseInt(e.target.value || "0", 10) })
+                    }
+                  />
                 </label>
               </div>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.activo} onChange={(e) => setForm({ ...form, activo: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={form.activo}
+                  onChange={(e) => setForm({ ...form, activo: e.target.checked })}
+                />
                 Activa
               </label>
               <div className="flex gap-2">
-                <BrutalButton block onClick={() => save.mutate()} disabled={!form.nombre || save.isPending}>Guardar</BrutalButton>
-                <BrutalButton block variant="ghost" onClick={() => setForm(null)}>Cancelar</BrutalButton>
+                <BrutalButton
+                  block
+                  onClick={() => save.mutate()}
+                  disabled={!form.nombre || save.isPending}
+                >
+                  Guardar
+                </BrutalButton>
+                <BrutalButton block variant="ghost" onClick={() => setForm(null)}>
+                  Cancelar
+                </BrutalButton>
               </div>
             </BrutalCard>
           </div>

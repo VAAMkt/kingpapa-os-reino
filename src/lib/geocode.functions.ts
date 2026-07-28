@@ -26,9 +26,7 @@ async function gatewayError(prefix: string, res: Response) {
 }
 
 export const geocodeAddress = createServerFn({ method: "POST" })
-  .inputValidator((input) =>
-    z.object({ address: z.string().min(3).max(255) }).parse(input),
-  )
+  .inputValidator((input) => z.object({ address: z.string().min(3).max(255) }).parse(input))
   .handler(async ({ data }) => {
     const c = getCreds();
     if (!c) return { ok: false as const, error: "Google Maps no configurado" };

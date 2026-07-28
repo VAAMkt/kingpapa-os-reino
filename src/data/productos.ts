@@ -24,7 +24,8 @@ export const productos: Producto[] = [
   {
     id: "kingcallejera",
     nombre: "KINGCALLEJERA",
-    descripcion: "Salchipapa callejera con chorizo coronado, salsa rosada, mostaza y queso derretido. Como en la esquina del barrio, pero del Reino.",
+    descripcion:
+      "Salchipapa callejera con chorizo coronado, salsa rosada, mostaza y queso derretido. Como en la esquina del barrio, pero del Reino.",
     imagen: kingcallejera,
     pesoAprox: "650g",
     precioDesde: 22900,
@@ -38,7 +39,8 @@ export const productos: Producto[] = [
   {
     id: "kingcharron",
     nombre: "KINGCHARRÓN",
-    descripcion: "Montaña de chicharrón crocante, papas doradas y río de queso amarillo. Brutal. No apta para flojos.",
+    descripcion:
+      "Montaña de chicharrón crocante, papas doradas y río de queso amarillo. Brutal. No apta para flojos.",
     imagen: kingcharron,
     pesoAprox: "850g",
     precioDesde: 32900,
@@ -52,7 +54,8 @@ export const productos: Producto[] = [
   {
     id: "samba-bowl",
     nombre: "SAMBA Bowl",
-    descripcion: "Bowl coronado con arroz, papas, chorizo, queso fundido y cebollín. Balance entre obrero y rumba.",
+    descripcion:
+      "Bowl coronado con arroz, papas, chorizo, queso fundido y cebollín. Balance entre obrero y rumba.",
     imagen: bowlSamba,
     pesoAprox: "550g",
     precioDesde: 24900,
@@ -69,7 +72,8 @@ export const productos: Producto[] = [
   {
     id: "salchipapa-gigante",
     nombre: "Salchipapa Gigante del Reino",
-    descripcion: "1,8kg de papa, salchicha, chorizo, chicharrón y triple queso. Para 4–6 súbditos con hambre brava.",
+    descripcion:
+      "1,8kg de papa, salchicha, chorizo, chicharrón y triple queso. Para 4–6 súbditos con hambre brava.",
     imagen: sharePlatter,
     pesoAprox: "1.8kg",
     precioDesde: 79900,
@@ -83,7 +87,8 @@ export const productos: Producto[] = [
   {
     id: "reto-kingpapa",
     nombre: "Reto KINGPAPA",
-    descripcion: "3,5kg. Si te lo comes solo en 30 min: gratis + corona digital + foto en el muro del Reino.",
+    descripcion:
+      "3,5kg. Si te lo comes solo en 30 min: gratis + corona digital + foto en el muro del Reino.",
     imagen: heroSalchipapa,
     pesoAprox: "3.5kg",
     precioDesde: 119900,

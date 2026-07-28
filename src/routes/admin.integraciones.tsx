@@ -8,10 +8,7 @@ import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { toast } from "sonner";
 import { getIntegrationsStatus } from "@/lib/integrations.functions";
 import { listOrphanOrders } from "@/lib/orders.reconcile.functions";
-import {
-  checkQuipuBacklog,
-  pollActiveOrders,
-} from "@/lib/rp-reconcile.functions";
+import { checkQuipuBacklog, pollActiveOrders } from "@/lib/rp-reconcile.functions";
 
 export const Route = createFileRoute("/admin/integraciones")({
   head: () => ({ meta: [{ title: "Integraciones — Admin" }] }),
@@ -109,10 +106,6 @@ function AdminIntegracionesPage() {
     }
   }
 
-
-
-
-
   const [rows, setRows] = useState<LogRow[]>([]);
   const [filterTipo, setFilterTipo] = useState<(typeof TIPOS)[number]>("todos");
   const [onlyErrors, setOnlyErrors] = useState(false);
@@ -187,9 +180,7 @@ function AdminIntegracionesPage() {
     <section className="space-y-5">
       <header className="flex items-baseline justify-between">
         <h1 className="font-display uppercase text-3xl md:text-4xl">Integraciones</h1>
-        <span className="text-xs text-kp-ink/60">
-          {rows.length} eventos · realtime activo
-        </span>
+        <span className="text-xs text-kp-ink/60">{rows.length} eventos · realtime activo</span>
       </header>
 
       {/* Bloque 1 — Estado */}
@@ -245,7 +236,10 @@ function AdminIntegracionesPage() {
       </div>
 
       {/* Bloque 1b — Pedidos huérfanos (solo lectura: auto-abandono a 45 min) */}
-      <BrutalCard tone={(orphansQuery.data?.orphans.length ?? 0) > 0 ? "yellow" : "cheese"} className="p-4">
+      <BrutalCard
+        tone={(orphansQuery.data?.orphans.length ?? 0) > 0 ? "yellow" : "cheese"}
+        className="p-4"
+      >
         <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="font-display uppercase text-sm">Pedidos huérfanos</span>
@@ -255,7 +249,8 @@ function AdminIntegracionesPage() {
           </div>
         </div>
         <p className="text-xs text-kp-ink/70 mb-2">
-          Pedidos con &gt;15 min sin webhook que los toque. El sistema reconcilia solo en segundo plano y auto-cancela a los 45 min (zero-touch).
+          Pedidos con &gt;15 min sin webhook que los toque. El sistema reconcilia solo en segundo
+          plano y auto-cancela a los 45 min (zero-touch).
         </p>
         {(orphansQuery.data?.orphans.length ?? 0) === 0 ? (
           <p className="text-xs text-kp-ink/60">Sin huérfanos. Webhook al día.</p>
@@ -280,37 +275,30 @@ function AdminIntegracionesPage() {
         <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="font-display uppercase text-sm">Backlog Quipu</span>
-            <BrutalBadge
-              tone={(backlogQuery.data?.matchedOurs.length ?? 0) > 0 ? "red" : "lime"}
-            >
+            <BrutalBadge tone={(backlogQuery.data?.matchedOurs.length ?? 0) > 0 ? "red" : "lime"}>
               {backlogQuery.data?.matchedOurs.length ?? 0} KP
             </BrutalBadge>
             <span className="text-[11px] text-kp-ink/60">
               (total RP: {backlogQuery.data?.bySede.reduce((a, b) => a + b.total_stuck, 0) ?? 0})
             </span>
           </div>
-          <BrutalButton
-            variant="ghost"
-            onClick={handleReconcileNow}
-            disabled={isReconciling}
-          >
+          <BrutalButton variant="ghost" onClick={handleReconcileNow} disabled={isReconciling}>
             {isReconciling ? "Reconciliando…" : "Reconciliar ahora"}
           </BrutalButton>
         </div>
         <p className="text-xs text-kp-ink/70 mb-2">
-          Pedidos que llegaron a Restaurant.pe pero <strong>no</strong> al POS Quipu del local.
-          "KP" = pedidos nuestros afectados. Si &gt;0, hay que revisar el Quipu del PC de la sede.
+          Pedidos que llegaron a Restaurant.pe pero <strong>no</strong> al POS Quipu del local. "KP"
+          = pedidos nuestros afectados. Si &gt;0, hay que revisar el Quipu del PC de la sede.
         </p>
         {(backlogQuery.data?.matchedOurs.length ?? 0) === 0 ? (
-          <p className="text-xs text-kp-ink/60">
-            Sin pedidos KingPapa atascados antes de Quipu.
-          </p>
+          <p className="text-xs text-kp-ink/60">Sin pedidos KingPapa atascados antes de Quipu.</p>
         ) : (
           <ul className="divide-y-2 divide-kp-ink/10 text-xs font-mono">
             {backlogQuery.data!.matchedOurs.slice(0, 10).map((s) => (
               <li key={s.delivery_id} className="py-2 flex items-center gap-2 flex-wrap">
                 <span className="truncate flex-1 min-w-0">
-                  {s.sede_slug} · #{s.delivery_id} · {s.matched_order_id?.slice(0, 8)} · {s.ageMinutes}m · match={s.matched_by}
+                  {s.sede_slug} · #{s.delivery_id} · {s.matched_order_id?.slice(0, 8)} ·{" "}
+                  {s.ageMinutes}m · match={s.matched_by}
                 </span>
               </li>
             ))}
@@ -330,9 +318,6 @@ function AdminIntegracionesPage() {
           </details>
         )}
       </BrutalCard>
-
-
-
 
       {/* Bloque 2 — Buscar */}
       <BrutalCard tone="cheese" className="p-4">

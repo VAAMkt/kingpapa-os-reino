@@ -52,32 +52,19 @@ export async function listAllPosts(): Promise<PostRow[]> {
 }
 
 export async function getPostById(id: string): Promise<PostRow | null> {
-  const { data, error } = await supabase
-    .from("posts")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const { data, error } = await supabase.from("posts").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   return data;
 }
 
 export async function createPost(input: PostInsert): Promise<PostRow> {
-  const { data, error } = await supabase
-    .from("posts")
-    .insert(input)
-    .select()
-    .single();
+  const { data, error } = await supabase.from("posts").insert(input).select().single();
   if (error) throw error;
   return data;
 }
 
 export async function updatePost(id: string, input: PostUpdate): Promise<PostRow> {
-  const { data, error } = await supabase
-    .from("posts")
-    .update(input)
-    .eq("id", id)
-    .select()
-    .single();
+  const { data, error } = await supabase.from("posts").update(input).eq("id", id).select().single();
   if (error) throw error;
   return data;
 }
