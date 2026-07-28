@@ -91,6 +91,7 @@ function SedesPage() {
 
       {/* STATS DEL REINO */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-8">
+        <h2 className="sr-only">Stats del Reino</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <BrutalCard tone="yellow" className="p-5">
             <div className="font-display text-5xl md:text-6xl leading-none">{totalSedes}</div>
@@ -115,7 +116,12 @@ function SedesPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          <label htmlFor="sedes-ciudad-select" className="sr-only">
+            Filtrar por ciudad
+          </label>
           <select
+            id="sedes-ciudad-select"
+            aria-label="Filtrar por ciudad"
             value={ciudad}
             onChange={(e) => setCiudad(e.target.value)}
             className="px-4 py-3 bg-kp-cheese border-2 border-kp-ink shadow-brutal-sm font-body"
