@@ -4,5 +4,8 @@ Disallow: /admin
 Disallow: /mi-reino
 Disallow: /no-autorizado
 Disallow: /reset-password
+Disallow: /checkout
+Disallow: /gracias
+Disallow: /dashboard
 
-Sitemap: https://kingpapacali.com/sitemap.xml
+Sitemap: https://kingpapa.co/sitemap.xml

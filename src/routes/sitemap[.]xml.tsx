@@ -4,7 +4,7 @@ import { listAllPosts } from "@/lib/posts";
 
 const SITE_URL =
   (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_SITE_URL) ||
-  "https://kingpapacali.com";
+  "https://kingpapa.co";
 
 const STATIC_PATHS: { path: string; changefreq: string; priority: string }[] = [
   { path: "/", changefreq: "weekly", priority: "1.0" },

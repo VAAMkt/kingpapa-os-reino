@@ -81,6 +81,7 @@ export function LeadFormFranquicia() {
           onChange={(e) => update("email", e.target.value)}
         />
         <select
+          aria-label="Rango de inversión"
           value={form.rangoInversion}
           onChange={(e) =>
             update("rangoInversion", e.target.value as LeadFranquicia["rangoInversion"])
@@ -92,6 +93,7 @@ export function LeadFormFranquicia() {
           <option value="200M+">Inversión $200M+</option>
         </select>
         <textarea
+          aria-label="Experiencia en alimentos, bebidas o retail"
           placeholder="Experiencia en F&B o retail"
           required
           rows={3}
@@ -100,6 +102,7 @@ export function LeadFormFranquicia() {
           className="px-4 py-3 bg-kp-cheese border-2 border-kp-ink shadow-brutal-sm font-body md:col-span-2"
         />
         <textarea
+          aria-label="Comentarios adicionales"
           placeholder="Comentarios (opcional)"
           rows={2}
           value={form.comentarios}
