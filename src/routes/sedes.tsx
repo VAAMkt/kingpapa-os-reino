@@ -12,9 +12,17 @@ import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { LocationCard } from "@/components/kp/Cards";
 import { FaqKing } from "@/components/kp/FaqKing";
 import { listPublicSedes } from "@/lib/sedes";
+import { faqPageJsonLd, sedesLocalBusinessJsonLd, SITE_URL } from "@/lib/seo-schema";
 
 export const Route = createFileRoute("/sedes")({
-  head: () => ({
+  loader: async ({ context }) => {
+    const sedes = await context.queryClient.ensureQueryData({
+      queryKey: ["sedes", "public"],
+      queryFn: listPublicSedes,
+    });
+    return { sedes };
+  },
+  head: ({ loaderData }) => ({
     meta: [
       { title: "Sedes del Reino — KINGPAPA" },
       {
@@ -27,9 +35,19 @@ export const Route = createFileRoute("/sedes")({
         property: "og:description",
         content: "15 sedes en Cali, Jamundí y Bogotá. Encuentra tu castillo más cercano.",
       },
-      { property: "og:url", content: "/sedes" },
+      { property: "og:url", content: `${SITE_URL}/sedes` },
     ],
-    links: [{ rel: "canonical", href: "/sedes" }],
+    links: [{ rel: "canonical", href: `${SITE_URL}/sedes` }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(sedesLocalBusinessJsonLd(loaderData?.sedes ?? [])),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(faqPageJsonLd()),
+      },
+    ],
   }),
   component: SedesPage,
 });
