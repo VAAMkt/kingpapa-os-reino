@@ -1,27 +1,22 @@
-// Reconciliación: MODO PASIVO (post-Fase A discovery, jun-2026).
-//
-// Restaurant.pe no expone ningún GET de lectura por delivery/pedido que
-// acepte `RESTAURANT_PE_TOKEN`:
-//   - Host por tenant (`https://{sub}.{host}/restaurant/api/rest`): 401
-//     "Token inválido" (requiere token de sesión tenant distinto).
-//   - Host público (`api.restaurant.pe/{readonly|public/v2}/rest`): 404 en
-//     todas las variantes (get / obtenerSyncFull / obtenerDelivery /
-//     obtenerPedido / obtenerEstadoDelivery, con o sin dominio_id).
-//
-// Dependemos 100% del webhook entrante (`/api/public/rp-webhook`) +
-// Auto-Kill TTL 45 min. `reconcileOne` ya no llama a RP: sólo cierra la
-// orden si pasaron los 45 min sin estado terminal. Cualquier otra
-// invocación responde `noop / reconcile_unavailable` (barato, sin red).
+// Reconciliación híbrida:
+// 1) Restaurant.pe empuja estados al webhook público.
+// 2) Si el webhook no llega, consultamos el snapshot por el endpoint tenant.
+// La falta de sincronización nunca cancela automáticamente un pedido.
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
+import { rpGetDeliveryById } from "@/lib/restaurantpe.server";
+import {
+  extractMotorizadoInfo,
+  mapDeliveryEstado,
+  mapRpEstadoToLocal,
+} from "@/lib/restaurantpe-normalize";
 
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
-const ABANDON_AFTER_MS = 45 * 60_000;
 
-type ReconcileSource = "webhook" | "reconcile" | "noop" | "error" | "no_pedido_id";
+type ReconcileSource = "webhook" | "poll" | "reconcile" | "noop" | "error" | "no_pedido_id";
 
 export type ReconcileResult = {
   changed: boolean;
@@ -33,7 +28,7 @@ export type ReconcileResult = {
 async function reconcileOne(orderId: string): Promise<ReconcileResult> {
   const { data: row, error: selErr } = await supabaseAdmin
     .from("orders")
-    .select("id, status, rp_pedido_id, cancel_reason, created_at")
+    .select("id, status, rp_pedido_id, cancel_reason, created_at, rp_response")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -49,35 +44,93 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
     return { changed: false, status: row.status, source: "noop", message: "terminal" };
   }
 
-  // Única regla activa — Auto-Kill (TTL 45 min). Sin llamadas a RP.
-  const ageMs = Date.now() - new Date(row.created_at).getTime();
-  if (ageMs > ABANDON_AFTER_MS && (row.status === "enviado" || row.status === "recibido")) {
+  // Nunca cancelamos por falta de sincronización: el POS puede seguir
+  // procesando el pedido aunque el webhook o la consulta estén caídos.
+  if (!row.rp_pedido_id) {
+    return { changed: false, status: row.status, source: "no_pedido_id" };
+  }
+
+  // Segunda vía de sincronización: consulta el snapshot del delivery cuando
+  // el webhook no llegó. Requiere RESTAURANT_PE_TENANT_TOKEN en el runtime.
+  try {
+    const snapshot = await rpGetDeliveryById(row.rp_pedido_id);
+    if (!snapshot) {
+      return { changed: false, status: row.status, source: "noop", message: "empty_snapshot" };
+    }
+    const inner =
+      snapshot.data && typeof snapshot.data === "object" && !Array.isArray(snapshot.data)
+        ? (snapshot.data as Record<string, unknown>)
+        : snapshot;
+    const rawEstado = inner.delivery_estado;
+    const mapped =
+      typeof rawEstado === "string" && !/^\d+$/.test(rawEstado.trim())
+        ? mapRpEstadoToLocal(rawEstado)
+        : mapDeliveryEstado(rawEstado);
+    const motorizado = extractMotorizadoInfo(snapshot);
     const nowIso = new Date().toISOString();
-    const reason = "timeout_sistema: Abandonado por falta de respuesta en POS tras 45 min";
-    await supabaseAdmin
+    const prev =
+      row.rp_response && typeof row.rp_response === "object" && !Array.isArray(row.rp_response)
+        ? (row.rp_response as Record<string, unknown>)
+        : {};
+    const rank: Record<string, number> = {
+      enviado: 0,
+      recibido: 1,
+      en_preparacion: 2,
+      en_camino: 3,
+      entregado: 4,
+      cancelado: 99,
+      error: 99,
+    };
+    const canAdvance =
+      mapped != null &&
+      mapped !== row.status &&
+      (mapped === "cancelado" || (rank[mapped] ?? 0) >= (rank[row.status] ?? 0));
+    const updates: Record<string, unknown> = {
+      rp_response: {
+        ...prev,
+        live_motorizado: motorizado,
+        poll_snapshot_at: nowIso,
+        poll_raw_estado: rawEstado ?? null,
+      },
+    };
+    if (canAdvance) updates.status = mapped;
+    const { error: updateError } = await supabaseAdmin
       .from("orders")
-      .update({
-        status: "cancelado",
-        cancel_reason: reason,
-        cancelled_at: nowIso,
-      } as never)
+      .update(updates as never)
       .eq("id", row.id);
+    if (updateError) throw new Error(updateError.message);
+
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "reconcile",
       ok: true,
-      mensaje: `auto-abandon: ${row.status} → cancelado (>${Math.floor(ABANDON_AFTER_MS / 60_000)} min)`,
+      mensaje: canAdvance
+        ? `POS pull: ${row.status} → ${mapped}`
+        : `POS pull sin cambio (status=${row.status}, raw=${String(rawEstado ?? "n/d")})`,
       payload: {
         order_id: row.id,
         rp_pedido_id: row.rp_pedido_id,
-        age_min: Math.floor(ageMs / 60_000),
-        reason,
+        previous_status: row.status,
+        mapped_status: mapped,
+        raw_estado: rawEstado ?? null,
       } as unknown as Json,
     });
-    return { changed: true, status: "cancelado", source: "reconcile", message: "auto_abandon" };
+    return {
+      changed: canAdvance,
+      status: canAdvance && mapped ? mapped : row.status,
+      source: "poll",
+      message: mapped ? "snapshot_ok" : "unmapped_status",
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await supabaseAdmin.from("rp_sync_log").insert({
+      tipo: "reconcile",
+      ok: false,
+      mensaje: `POS pull no disponible: ${message}`,
+      payload: { order_id: row.id, rp_pedido_id: row.rp_pedido_id } as unknown as Json,
+    });
+    // Fallo suave: el webhook y Realtime siguen operando.
+    return { changed: false, status: row.status, source: "noop", message };
   }
-
-  // No hay endpoint público de lectura disponible: esperamos al webhook.
-  return { changed: false, status: row.status, source: "noop", message: "reconcile_unavailable" };
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

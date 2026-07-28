@@ -38,6 +38,8 @@ type LastOrder = {
   cliente: { nombre: string; telefono: string; direccion: string | null; detalles: string };
   sede: { id: string; slug: string; label: string } | null;
   items: { key: string; nombre: string; cantidad: number; precio: number }[];
+  subtotal?: number;
+  deliveryFee?: number;
   total: number;
 };
 
@@ -211,9 +213,33 @@ function GraciasPage() {
               </li>
             ))}
           </ul>
-          <div className="flex justify-between mt-3 pt-3 border-t-2 border-kp-ink">
-            <span className="font-display uppercase">Total</span>
-            <span className="font-display text-2xl">{cop(order.total)}</span>
+          <div className="mt-3 pt-3 border-t-2 border-kp-ink space-y-1">
+            <div className="flex justify-between">
+              <span className="font-display uppercase">Subtotal</span>
+              <span className="font-display">
+                {cop(order.subtotal ?? order.items.reduce((sum, i) => sum + i.precio * i.cantidad, 0))}
+              </span>
+            </div>
+            {!esRecoger ? (
+              <div className="flex justify-between">
+                <span className="font-display uppercase">Domicilio</span>
+                <span className="font-display">
+                  {cop(
+                    order.deliveryFee ??
+                      Math.max(
+                        0,
+                        order.total -
+                          (order.subtotal ??
+                            order.items.reduce((sum, i) => sum + i.precio * i.cantidad, 0)),
+                      ),
+                  )}
+                </span>
+              </div>
+            ) : null}
+            <div className="flex justify-between pt-2 mt-2 border-t-2 border-kp-ink">
+              <span className="font-display uppercase">Total</span>
+              <span className="font-display text-2xl">{cop(order.total)}</span>
+            </div>
           </div>
         </BrutalCard>
       )}

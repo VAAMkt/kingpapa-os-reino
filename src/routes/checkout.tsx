@@ -379,6 +379,8 @@ function CheckoutPage() {
         sede: sede ? { id: sede.sedeId, slug: sede.slug, label: sede.label } : null,
         items,
         subtotal,
+        // Derivado del total autoritativo que devolvió el servidor.
+        deliveryFee: tipo === "delivery" ? Math.max(0, result.total - subtotal) : 0,
         total: result.total,
       };
       try {
