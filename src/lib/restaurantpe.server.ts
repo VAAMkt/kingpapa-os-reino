@@ -278,12 +278,22 @@ function tenantAuthHeader(): string {
 }
 
 function tenantBase(): string {
-  const explicit = process.env.RESTAURANT_PE_DOMINIO_HOST;
-  if (explicit && explicit.trim() !== "") {
-    return explicit.replace(/\/+$/, "");
-  }
   const sub = getSubdominio();
-  return `https://${sub}.restaurant.pe/restaurant/api/rest`;
+  const raw = (process.env.RESTAURANT_PE_DOMINIO_HOST || "restaurant.pe").trim();
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  const parsed = new URL(withProtocol);
+  // Lovable puede guardar solo "restaurant.pe". En ese caso hay que añadir
+  // el subdominio del tenant; no es una URL invocable por sí sola.
+  const hostname =
+    parsed.hostname === "restaurant.pe" || parsed.hostname === "quipupos.com"
+      ? `${sub}.${parsed.hostname}`
+      : parsed.hostname;
+  const existingPath = parsed.pathname.replace(/\/+$/, "");
+  const basePath =
+    existingPath && existingPath !== "/"
+      ? existingPath
+      : "/restaurant/api/rest";
+  return `${parsed.protocol}//${hostname}${basePath}`;
 }
 
 async function rpTenantFetch<T = unknown>(
@@ -325,7 +335,61 @@ export async function rpGetDeliveryById(
 ): Promise<Record<string, unknown> | null> {
   const id = String(deliveryId).trim();
   if (!id) throw new Error("rpGetDeliveryById requiere deliveryId");
-  return rpTenantFetch<Record<string, unknown>>(`/delivery/obtenerDelivery/${id}`);
+  // Endpoint confirmado en el Swagger tenant OAS 3.
+  return rpTenantFetch<Record<string, unknown>>(`/delivery/get/${id}`);
+}
+
+function extractRows(raw: unknown): Record<string, unknown>[] {
+  if (Array.isArray(raw)) {
+    return raw.filter(
+      (item): item is Record<string, unknown> =>
+        !!item && typeof item === "object" && !Array.isArray(item),
+    );
+  }
+  if (!raw || typeof raw !== "object") return [];
+  const obj = raw as Record<string, unknown>;
+  for (const key of ["deliverys", "deliveries", "lista", "rows", "registros", "data"]) {
+    if (Array.isArray(obj[key])) return extractRows(obj[key]);
+  }
+  return [];
+}
+
+/**
+ * Resuelve el delivery_id real usando la llave canónica que enviamos al POS.
+ * Evita correlacionar por hora, teléfono o "pedido más reciente".
+ */
+export async function rpFindDeliveryByIntegrationCode(input: {
+  localId: string | number;
+  integrationCode: string;
+}): Promise<Record<string, unknown> | null> {
+  const localId = String(input.localId).trim();
+  const code = input.integrationCode.trim();
+  if (!localId || !code) return null;
+  const raw = await rpTenantFetch<unknown>(
+    `/delivery/obtenerDeliverysPorLocalSimple/${localId}/1/100/0`,
+  );
+  return (
+    extractRows(raw).find((row) => {
+      const value =
+        row.delivery_codigointegracion ??
+        row.delivery_codigo_integracion ??
+        row.codigointegracion ??
+        row.integration_code;
+      return value != null && String(value).trim() === code;
+    }) ?? null
+  );
+}
+
+export function extractRpDeliveryId(row: Record<string, unknown> | null): string | null {
+  if (!row) return null;
+  const inner =
+    row.data && typeof row.data === "object" && !Array.isArray(row.data)
+      ? (row.data as Record<string, unknown>)
+      : row;
+  for (const value of [inner.delivery_id, inner.deliveryId, inner.id]) {
+    if (value != null && String(value).trim() !== "") return String(value).trim();
+  }
+  return null;
 }
 
 export type RpSinQuipuRow = {
