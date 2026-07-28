@@ -569,11 +569,12 @@ function SortableProdRow({
       {/* Ingeniería de menú: badges + clasificación */}
       <div className="flex flex-wrap gap-1 items-center pl-[60px]">
         <Pill
-          label="★ Destacado"
+          label="★ Corona del Rey"
           active={prod.destacado}
           onClick={() => onPatch({ destacado: !prod.destacado })}
-          title="Sale grande en el menú (col-span-2)"
+          title='Aparece en "Los más bravos del menú" del home (máx 4)'
         />
+
         <Pill
           label="🆕 Nuevo"
           active={prod.es_nuevo}
