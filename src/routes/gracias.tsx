@@ -49,6 +49,7 @@ function GraciasPage() {
   const [sedeWa, setSedeWa] = useState<string | null>(null);
   const [resolvedId, setResolvedId] = useState<string | null>(null);
   const [rpPedidoId, setRpPedidoId] = useState<string | null>(null);
+  const [rpNumeroComanda, setRpNumeroComanda] = useState<string | null>(null);
   const [orderStatus, setOrderStatus] = useState<string | null>(null);
   const [orderCreatedAt, setOrderCreatedAt] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -75,18 +76,20 @@ function GraciasPage() {
     let cancelled = false;
     type OrderLite = {
       rp_pedido_id: string | null;
+      rp_numero_comanda: string | null;
       status: string;
       created_at: string;
     };
     const apply = (row: OrderLite | null) => {
       if (!row || cancelled) return;
       setRpPedidoId(row.rp_pedido_id ?? null);
+      setRpNumeroComanda(row.rp_numero_comanda ?? null);
       setOrderStatus(row.status ?? null);
       setOrderCreatedAt(row.created_at ?? null);
     };
     supabase
       .from("orders")
-      .select("rp_pedido_id, status, created_at")
+      .select("rp_pedido_id, rp_numero_comanda, status, created_at")
       .eq("id", resolvedId)
       .maybeSingle()
       .then(({ data }) => apply(data as never));
@@ -142,7 +145,8 @@ function GraciasPage() {
 
   const esRecoger = order?.tipo === "pickup";
   const waNumber = (sedeWa ?? "573172455336").replace(/\D/g, "");
-  const refVisible = rpPedidoId ?? order_id;
+  // Prioriza la referencia visible en Call Center para facilitar soporte.
+  const refVisible = rpNumeroComanda ?? rpPedidoId ?? order_id;
 
   // Mensaje WhatsApp estructurado para optimizar el tiempo del call center.
   const waText = encodeURIComponent(

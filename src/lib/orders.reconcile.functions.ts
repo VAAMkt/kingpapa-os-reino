@@ -7,8 +7,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
-import { rpGetDeliveryById } from "@/lib/restaurantpe.server";
 import {
+  extractRpDeliveryId,
+  rpFindDeliveryByIntegrationCode,
+  rpGetDeliveryById,
+} from "@/lib/restaurantpe.server";
+import {
+  extractComandaNumber,
   extractMotorizadoInfo,
   mapDeliveryEstado,
   mapRpEstadoToLocal,
@@ -28,7 +33,7 @@ export type ReconcileResult = {
 async function reconcileOne(orderId: string): Promise<ReconcileResult> {
   const { data: row, error: selErr } = await supabaseAdmin
     .from("orders")
-    .select("id, status, rp_pedido_id, cancel_reason, created_at, rp_response")
+    .select("id, sede_id, status, rp_pedido_id, cancel_reason, created_at, rp_response")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -53,9 +58,55 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
   // Segunda vía de sincronización: consulta el snapshot del delivery cuando
   // el webhook no llegó. Requiere RESTAURANT_PE_TENANT_TOKEN en el runtime.
   try {
-    const snapshot = await rpGetDeliveryById(row.rp_pedido_id);
+    const prev =
+      row.rp_response && typeof row.rp_response === "object" && !Array.isArray(row.rp_response)
+        ? (row.rp_response as Record<string, unknown>)
+        : {};
+    const storedDeliveryId =
+      typeof prev.rp_delivery_id === "string" && prev.rp_delivery_id.trim()
+        ? prev.rp_delivery_id.trim()
+        : row.rp_pedido_id;
+    let resolvedDeliveryId = storedDeliveryId;
+    let snapshot: Record<string, unknown> | null = null;
+    let directError: string | null = null;
+
+    try {
+      snapshot = await rpGetDeliveryById(storedDeliveryId);
+    } catch (error) {
+      directError = error instanceof Error ? error.message : String(error);
+    }
+
+    // registrarDelivery puede devolver pedido_id/comanda, mientras el webhook
+    // usa delivery_id. Si no son iguales, resolvemos por el UUID canónico.
     if (!snapshot) {
-      return { changed: false, status: row.status, source: "noop", message: "empty_snapshot" };
+      const { data: sede } = await supabaseAdmin
+        .from("sedes")
+        .select("rp_local_id")
+        .eq("id", row.sede_id)
+        .maybeSingle();
+      if (sede?.rp_local_id) {
+        const discovered = await rpFindDeliveryByIntegrationCode({
+          localId: sede.rp_local_id,
+          integrationCode: row.id,
+        });
+        const actualId = extractRpDeliveryId(discovered);
+        if (discovered && actualId) {
+          resolvedDeliveryId = actualId;
+          try {
+            snapshot = (await rpGetDeliveryById(actualId)) ?? discovered;
+          } catch {
+            snapshot = discovered;
+          }
+        }
+      }
+    }
+
+    if (!snapshot) {
+      throw new Error(
+        directError
+          ? `No se pudo resolver el delivery real: ${directError}`
+          : "No se encontró el delivery por ID ni por código de integración",
+      );
     }
     const inner =
       snapshot.data && typeof snapshot.data === "object" && !Array.isArray(snapshot.data)
@@ -67,11 +118,8 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
         ? mapRpEstadoToLocal(rawEstado)
         : mapDeliveryEstado(rawEstado);
     const motorizado = extractMotorizadoInfo(snapshot);
+    const numeroComanda = extractComandaNumber(snapshot);
     const nowIso = new Date().toISOString();
-    const prev =
-      row.rp_response && typeof row.rp_response === "object" && !Array.isArray(row.rp_response)
-        ? (row.rp_response as Record<string, unknown>)
-        : {};
     const rank: Record<string, number> = {
       enviado: 0,
       recibido: 1,
@@ -88,12 +136,22 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
     const updates: Record<string, unknown> = {
       rp_response: {
         ...prev,
+        rp_delivery_id: resolvedDeliveryId,
+        webhook_delivery_ids: Array.from(
+          new Set([
+            ...(Array.isArray(prev.webhook_delivery_ids)
+              ? prev.webhook_delivery_ids.map(String)
+              : []),
+            resolvedDeliveryId,
+          ]),
+        ),
         live_motorizado: motorizado,
         poll_snapshot_at: nowIso,
         poll_raw_estado: rawEstado ?? null,
       },
     };
     if (canAdvance) updates.status = mapped;
+    if (numeroComanda) updates.rp_numero_comanda = numeroComanda;
     const { error: updateError } = await supabaseAdmin
       .from("orders")
       .update(updates as never)
@@ -112,6 +170,7 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
         previous_status: row.status,
         mapped_status: mapped,
         raw_estado: rawEstado ?? null,
+        resolved_delivery_id: resolvedDeliveryId,
       } as unknown as Json,
     });
     return {

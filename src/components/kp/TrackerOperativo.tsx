@@ -275,7 +275,9 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
   const isError = status === "cancelado" || status === "error";
   const step = isError ? 0 : stepIndex(status, pasos);
   const progreso = Math.min((step / pasos.length) * 100, 100);
-  const idLargo = order?.rp_pedido_id ?? null;
+  // La comanda es la referencia que ve el equipo en Call Center.
+  // El delivery_id queda reservado para correlación técnica y webhooks.
+  const idLargo = tracking?.rp_numero_comanda ?? order?.rp_pedido_id ?? null;
   const motorizado = tracking?.motorizado ?? null;
 
   // Timestamps por paso (usando lo que tengamos: created_at, updated_at, motorizado).
