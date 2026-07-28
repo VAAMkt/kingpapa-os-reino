@@ -62,6 +62,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "google-site-verification", content: "iw-wuGnkQx69KexbV4B7sznauCkTPYkG_A2zGy5kAvM" },
       { title: "KINGPAPA — Los REYES de esta pendeja’" },
       {
         name: "description",
