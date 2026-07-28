@@ -71,11 +71,27 @@ function HomePage() {
     const cats = (menuQ.data?.categorias ?? []) as RpCategoriaRow[];
     const prods = (menuQ.data?.productos ?? []) as RpProductoRow[];
     const catsById = new Map(cats.map((c) => [c.id, c]));
-    return prods
-      .filter((p) => p.disponible)
-      .slice(0, 4)
-      .map((p) => rpProductoToProducto(p, catsById));
+    const disponibles = prods.filter((p) => p.disponible);
+    const byName = (a: RpProductoRow, b: RpProductoRow) => a.nombre.localeCompare(b.nombre, "es");
+    const seen = new Set<string>();
+    const picked: RpProductoRow[] = [];
+    const take = (list: RpProductoRow[]) => {
+      for (const p of list) {
+        if (picked.length >= 4) break;
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
+        picked.push(p);
+      }
+    };
+    // 1. Curados desde /admin/menu (toggle "★ Destacado")
+    take(disponibles.filter((p) => p.destacado).sort(byName));
+    // 2. Fallback: más vendidos, recomendados, resto — para no quedar corto
+    if (picked.length < 4) take(disponibles.filter((p) => p.es_mas_vendido).sort(byName));
+    if (picked.length < 4) take(disponibles.filter((p) => p.es_recomendado).sort(byName));
+    if (picked.length < 4) take(disponibles);
+    return picked.map((p) => rpProductoToProducto(p, catsById));
   }, [menuQ.data]);
+
 
   const { data: posts = [] } = useQuery({
     queryKey: ["posts", "public"],
