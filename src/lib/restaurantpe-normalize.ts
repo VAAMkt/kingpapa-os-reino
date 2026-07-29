@@ -76,7 +76,7 @@ export function mapRpEstadoToStatus(estado: unknown): RpOrderStatus | null {
  * Mapea el delivery_estado numérico que devuelve el endpoint público V2 de
  * Restaurant.pe (confirmado por soporte + inspección del DOM del POS):
  *   0 = pendiente, 1 = realizado/recibido, 2 = en preparación,
- *   3 = en camino, 4 = anulado/cancelado.
+ *   3 = en camino, 4 = entregado.
  * Devuelve null si el valor no se reconoce (no toca el status actual).
  */
 export function mapDeliveryEstado(estado: unknown): RpOrderStatus | null {
@@ -92,7 +92,7 @@ export function mapDeliveryEstado(estado: unknown): RpOrderStatus | null {
     case 3:
       return "en_camino";
     case 4:
-      return "cancelado";
+      return "entregado";
     default:
       return null;
   }
