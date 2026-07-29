@@ -77,6 +77,42 @@ export const submitCheckoutOrder = createServerFn({ method: "POST" })
     return result;
   });
 
+export const setOrderAnalyticsExclusion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        orderId: z.string().uuid(),
+        excluded: z.boolean(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: roles, error: roleError } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .in("role", ["super_admin", "editor", "marketing"]);
+    if (roleError) throw new Error(roleError.message);
+    if (!roles?.length) throw new Error("No tienes permiso para modificar las métricas.");
+
+    const { data: order, error } = await supabaseAdmin
+      .from("orders")
+      .update({
+        is_test: data.excluded,
+        analytics_excluded_at: data.excluded ? new Date().toISOString() : null,
+        analytics_exclusion_reason: data.excluded
+          ? "Marcado como prueba desde administración"
+          : null,
+      })
+      .eq("id", data.orderId)
+      .select("id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!order) throw new Error("Pedido no encontrado.");
+    return { ok: true as const, excluded: data.excluded };
+  });
+
 /**
  * Busca el pedido más reciente del cliente (últimas 24h) por:
  *   - id (UUID)

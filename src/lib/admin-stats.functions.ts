@@ -39,6 +39,13 @@ export type AdminDashboardData = {
     ingresos: number;
     ticketPromedio: number;
     cancelacionPct: number;
+    finalizacionPct: number;
+    activos: number;
+    errores: number;
+    pruebasExcluidas: number;
+    ingresosDomicilio: number;
+    tarifaDomicilioPromedio: number;
+    distanciaPromedioKm: number;
     subditosNuevos: number;
     subditosTotal: number;
   };
@@ -68,7 +75,9 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
       await Promise.all([
         supabaseAdmin
           .from("orders")
-          .select("id, status, tipo, total, sede_id, created_at, cliente, items, rp_numero_comanda")
+          .select(
+            "id, status, tipo, subtotal, total, delivery_fee, delivery_distance_km, is_test, analytics_excluded_at, sede_id, created_at, cliente, items, rp_numero_comanda",
+          )
           .gt("created_at", since)
           .order("created_at", { ascending: false }),
         supabaseAdmin.from("sedes").select("id, nombre"),
@@ -83,7 +92,12 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
       id: string;
       status: string;
       tipo: string;
+      subtotal: number;
       total: number;
+      delivery_fee: number;
+      delivery_distance_km: number | null;
+      is_test: boolean;
+      analytics_excluded_at: string | null;
       sede_id: string;
       created_at: string;
       cliente: { nombre?: string } | null;
@@ -93,30 +107,45 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
 
     const sedeName = new Map((sedes ?? []).map((s) => [s.id as string, s.nombre as string]));
 
-    const total = rows.length;
-    const canceladas = rows.filter((r) => r.status === "cancelado").length;
-    const ingresos = rows
-      .filter((r) => r.status !== "cancelado")
-      .reduce((a, r) => a + Number(r.total || 0), 0);
-    const activos = rows.filter((r) => r.status !== "cancelado").length;
+    const pruebasExcluidas = rows.filter((r) => r.is_test || r.analytics_excluded_at).length;
+    const noExcluidas = rows.filter((r) => !r.is_test && !r.analytics_excluded_at);
+    const errores = noExcluidas.filter((r) => r.status === "error").length;
+    const validas = noExcluidas.filter((r) => r.status !== "error");
+    const entregadas = validas.filter((r) => r.status === "entregado");
+    const canceladas = validas.filter((r) => r.status === "cancelado").length;
+    const activas = validas.filter((r) =>
+      ["enviado", "recibido", "en_preparacion", "en_camino"].includes(r.status),
+    ).length;
+    const terminales = entregadas.length + canceladas;
+    const ingresos = entregadas.reduce((a, r) => a + Number(r.total || 0), 0);
+    const entregasDomicilio = entregadas.filter((r) => r.tipo === "delivery");
+    const ingresosDomicilio = entregasDomicilio.reduce(
+      (a, r) => a + Number(r.delivery_fee || 0),
+      0,
+    );
+    const conDistancia = entregasDomicilio.filter(
+      (r) => r.delivery_distance_km != null && Number(r.delivery_distance_km) > 0,
+    );
 
     const canalMap = new Map<string, { pedidos: number; ingresos: number }>();
     const sedeMap = new Map<string, { pedidos: number; ingresos: number }>();
     const prodMap = new Map<string, number>();
     const estadoMap = new Map<string, number>();
 
-    for (const r of rows) {
+    for (const r of noExcluidas) {
+      estadoMap.set(r.status, (estadoMap.get(r.status) ?? 0) + 1);
+    }
+
+    for (const r of entregadas) {
       const c = canalMap.get(r.tipo) ?? { pedidos: 0, ingresos: 0 };
       c.pedidos += 1;
-      if (r.status !== "cancelado") c.ingresos += Number(r.total || 0);
+      c.ingresos += Number(r.total || 0);
       canalMap.set(r.tipo, c);
 
       const s = sedeMap.get(r.sede_id) ?? { pedidos: 0, ingresos: 0 };
       s.pedidos += 1;
-      if (r.status !== "cancelado") s.ingresos += Number(r.total || 0);
+      s.ingresos += Number(r.total || 0);
       sedeMap.set(r.sede_id, s);
-
-      estadoMap.set(r.status, (estadoMap.get(r.status) ?? 0) + 1);
 
       for (const it of r.items ?? []) {
         prodMap.set(it.nombre, (prodMap.get(it.nombre) ?? 0) + Number(it.cantidad || 0));
@@ -131,10 +160,28 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
     return {
       range: data.range,
       kpis: {
-        pedidos: total,
+        pedidos: entregadas.length,
         ingresos,
-        ticketPromedio: activos > 0 ? Math.round(ingresos / activos) : 0,
-        cancelacionPct: total > 0 ? Math.round((canceladas / total) * 100) : 0,
+        ticketPromedio: entregadas.length > 0 ? Math.round(ingresos / entregadas.length) : 0,
+        cancelacionPct: terminales > 0 ? Math.round((canceladas / terminales) * 1000) / 10 : 0,
+        finalizacionPct:
+          terminales > 0 ? Math.round((entregadas.length / terminales) * 1000) / 10 : 0,
+        activos: activas,
+        errores,
+        pruebasExcluidas,
+        ingresosDomicilio,
+        tarifaDomicilioPromedio:
+          entregasDomicilio.length > 0
+            ? Math.round(ingresosDomicilio / entregasDomicilio.length)
+            : 0,
+        distanciaPromedioKm:
+          conDistancia.length > 0
+            ? Math.round(
+                (conDistancia.reduce((a, r) => a + Number(r.delivery_distance_km), 0) /
+                  conDistancia.length) *
+                  10,
+              ) / 10
+            : 0,
         subditosNuevos: (subNuevos as unknown as { count?: number } | null)?.count ?? 0,
         subditosTotal: (subCount as unknown as { count?: number } | null)?.count ?? 0,
       },

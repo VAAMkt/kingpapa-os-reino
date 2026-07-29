@@ -52,10 +52,24 @@ function AdminDashboard() {
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Kpi tone="yellow" label="Pedidos" value={data.kpis.pedidos.toString()} />
-            <Kpi tone="cheese" label="Ingresos" value={fmt(data.kpis.ingresos)} />
+            <Kpi tone="yellow" label="Pedidos entregados" value={data.kpis.pedidos.toString()} />
+            <Kpi tone="cheese" label="Ventas entregadas" value={fmt(data.kpis.ingresos)} />
             <Kpi tone="purple" label="Ticket prom." value={fmt(data.kpis.ticketPromedio)} />
+            <Kpi tone="yellow" label="Finalización" value={`${data.kpis.finalizacionPct}%`} />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Kpi tone="red" label="Cancelación" value={`${data.kpis.cancelacionPct}%`} />
+            <Kpi tone="cheese" label="Pedidos activos" value={data.kpis.activos.toString()} />
+            <Kpi tone="red" label="Errores / descartados" value={data.kpis.errores.toString()} />
+            <Kpi tone="cheese" label="Pruebas excluidas" value={data.kpis.pruebasExcluidas.toString()} />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Kpi tone="yellow" label="Ingresos domicilio" value={fmt(data.kpis.ingresosDomicilio)} />
+            <Kpi tone="cheese" label="Tarifa domicilio prom." value={fmt(data.kpis.tarifaDomicilioPromedio)} />
+            <Kpi tone="purple" label="Distancia prom." value={`${data.kpis.distanciaPromedioKm.toLocaleString("es-CO")} km`} />
+            <Kpi tone="cheese" label="Sedes con venta" value={data.porSede.length.toString()} />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -69,16 +83,13 @@ function AdminDashboard() {
               label="Súbditos totales"
               value={data.kpis.subditosTotal.toString()}
             />
-            <Kpi
-              tone="cheese"
-              label="Estados activos"
-              value={data.porEstado
-                .filter((e) => !["entregado", "cancelado", "error"].includes(e.status))
-                .reduce((a, b) => a + b.count, 0)
-                .toString()}
-            />
-            <Kpi tone="cheese" label="Sedes con venta" value={data.porSede.length.toString()} />
+
           </div>
+
+          <p className="text-xs text-kp-ink/65">
+            Ventas, ticket, canales, sedes y productos incluyen únicamente pedidos entregados.
+            Errores, pruebas y exclusiones analíticas no suman ingresos.
+          </p>
 
           <div className="grid md:grid-cols-2 gap-4">
             <BrutalCard tone="cheese" className="p-5">

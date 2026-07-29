@@ -267,6 +267,14 @@ export type Database = {
           delivery_distance_km: number | null
           delivery_fee: number
           id: string
+          is_test: boolean
+          analytics_excluded_at: string | null
+          analytics_exclusion_reason: string | null
+          source: string
+          received_at: string | null
+          preparing_at: string | null
+          dispatched_at: string | null
+          delivered_at: string | null
           items: Json
           notas: string | null
           pago: string
@@ -290,6 +298,14 @@ export type Database = {
           delivery_distance_km?: number | null
           delivery_fee?: number
           id?: string
+          is_test?: boolean
+          analytics_excluded_at?: string | null
+          analytics_exclusion_reason?: string | null
+          source?: string
+          received_at?: string | null
+          preparing_at?: string | null
+          dispatched_at?: string | null
+          delivered_at?: string | null
           items: Json
           notas?: string | null
           pago: string
@@ -313,6 +329,14 @@ export type Database = {
           delivery_distance_km?: number | null
           delivery_fee?: number
           id?: string
+          is_test?: boolean
+          analytics_excluded_at?: string | null
+          analytics_exclusion_reason?: string | null
+          source?: string
+          received_at?: string | null
+          preparing_at?: string | null
+          dispatched_at?: string | null
+          delivered_at?: string | null
           items?: Json
           notas?: string | null
           pago?: string
