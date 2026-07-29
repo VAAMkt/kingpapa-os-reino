@@ -35,9 +35,9 @@ ALTER TABLE public.order_status_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Order status events: admins read"
 ON public.order_status_events FOR SELECT TO authenticated
 USING (
-  public.has_role(auth.uid(), 'super_admin'::app_role)
-  OR public.has_role(auth.uid(), 'editor'::app_role)
-  OR public.has_role(auth.uid(), 'marketing'::app_role)
+  app_private.has_role(auth.uid(), 'super_admin'::app_role)
+  OR app_private.has_role(auth.uid(), 'editor'::app_role)
+  OR app_private.has_role(auth.uid(), 'marketing'::app_role)
 );
 
 CREATE OR REPLACE FUNCTION public.capture_order_status_event()
