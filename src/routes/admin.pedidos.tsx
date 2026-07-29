@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { cancelOrderFromAdmin } from "@/lib/orders.functions";
+import { cancelOrderFromAdmin, setOrderAnalyticsExclusion } from "@/lib/orders.functions";
 
 export const Route = createFileRoute("/admin/pedidos")({
   head: () => ({ meta: [{ title: "Pedidos — Admin" }] }),
@@ -76,6 +76,7 @@ const fmtTime = (iso: string) =>
 function AdminPedidosPage() {
   const queryClient = useQueryClient();
   const cancelFn = useServerFn(cancelOrderFromAdmin);
+  const analyticsFn = useServerFn(setOrderAnalyticsExclusion);
   const [cancelTarget, setCancelTarget] = useState<OrderRow | null>(null);
   const [cancelPreset, setCancelPreset] = useState<string>(CANCEL_PRESETS[0]);
   const [cancelDetail, setCancelDetail] = useState<string>("");
@@ -140,15 +141,7 @@ function AdminPedidosPage() {
 
   const analyticsMutation = useMutation({
     mutationFn: async ({ id, excluded }: { id: string; excluded: boolean }) => {
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          is_test: excluded,
-          analytics_excluded_at: excluded ? new Date().toISOString() : null,
-          analytics_exclusion_reason: excluded ? "Marcado como prueba desde administración" : null,
-        })
-        .eq("id", id);
-      if (error) throw error;
+      return analyticsFn({ data: { orderId: id, excluded } });
     },
     onSuccess: (_data, variables) => {
       toast.success(
