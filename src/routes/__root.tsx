@@ -63,27 +63,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "google-site-verification", content: "iw-wuGnkQx69KexbV4B7sznauCkTPYkG_A2zGy5kAvM" },
-      { title: "KINGPAPA — Los REYES de esta pendeja’" },
+      { title: "KINGPAPA — El Reino" },
       {
         name: "description",
         content:
-          "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa.",
+          "Los REYES de esta pendeja’. Salchipapas estrambóticas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones.",
       },
       { name: "author", content: "KINGPAPA" },
-      { property: "og:title", content: "KINGPAPA — Los REYES de esta pendeja’" },
+      { property: "og:title", content: "KINGPAPA — El Reino" },
       {
         property: "og:description",
         content:
-          "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa.",
+          "Los REYES de esta pendeja’. Salchipapas estrambóticas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones.",
       },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "KINGPAPA" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "KINGPAPA — Los REYES de esta pendeja’" },
+      { name: "twitter:title", content: "KINGPAPA — El Reino" },
       {
         name: "twitter:description",
         content:
-          "KINGPAPA es la salchipapería de la casa: salchipapas gigantes, combos callejeros y puro saoco para pedir online o vivir el show del Reino en mesa.",
+          "Los REYES de esta pendeja’. Salchipapas estrambóticas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones.",
       },
       {
         property: "og:image",
@@ -104,6 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700;800&display=swap",
       },
+      { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
     ],
   }),
   shellComponent: RootShell,

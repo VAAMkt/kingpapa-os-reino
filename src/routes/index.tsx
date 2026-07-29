@@ -30,13 +30,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Los REYES de esta pendeja’. Salchipapas monstruosas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones.",
+          "Los REYES de esta pendeja’. Salchipapas estrambóticas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones.",
       },
       { property: "og:title", content: "KINGPAPA — El Reino" },
       {
         property: "og:description",
         content:
-          "Salchipapas monstruosas, bowls coronados y retos pa’ toda la banda. Cero dieta, cero drama.",
+          "Los REYES de esta pendeja’. Salchipapas estrambóticas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones.",
       },
       { property: "og:url", content: `${SITE_URL}/` },
     ],
