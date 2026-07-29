@@ -230,6 +230,7 @@ async function resolveOrder(input: CheckoutInput): Promise<{
   total: number;
   deliveryFee: number;
   deliveryDistanceKm: number | null;
+  isTest: boolean;
   deliveryQuote: {
     distanceKm: number;
     deliveryFee: number;
@@ -396,6 +397,7 @@ async function resolveOrder(input: CheckoutInput): Promise<{
     total: subtotal + deliveryFee,
     deliveryFee,
     deliveryDistanceKm,
+    isTest: staffBypass,
     deliveryQuote,
   };
 }
@@ -439,8 +441,16 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   subtotal: number;
   total: number;
 }> {
-  const { sede, detalle, subtotal, total, deliveryFee, deliveryDistanceKm, deliveryQuote } =
-    await resolveOrder(input);
+  const {
+    sede,
+    detalle,
+    subtotal,
+    total,
+    deliveryFee,
+    deliveryDistanceKm,
+    isTest,
+    deliveryQuote,
+  } = await resolveOrder(input);
 
   // 1) Insertar registro local PRIMERO para tener UUID que sirva como
   //    delivery_codigointegracion (antiduplica en el POS, Swagger V2).
@@ -458,6 +468,8 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       sede_id: sede.id,
       rp_payload: {} as unknown as Json,
       status: "enviado",
+      is_test: isTest,
+      source: isTest ? "admin_test" : "web",
       tipo: input.tipo,
       pago: input.pago,
       cliente: input.cliente as unknown as Json,
