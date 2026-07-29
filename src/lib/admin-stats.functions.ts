@@ -76,7 +76,7 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
         supabaseAdmin
           .from("orders")
           .select(
-            "id, status, tipo, subtotal, total, delivery_fee, delivery_distance_km, is_test, analytics_excluded_at, sede_id, created_at, cliente, items, rp_numero_comanda",
+            "id, status, tipo, subtotal, total, delivery_fee, delivery_distance_km, sede_id, created_at, cliente, items, rp_numero_comanda",
           )
           .gt("created_at", since)
           .order("created_at", { ascending: false }),
@@ -96,8 +96,6 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
       total: number;
       delivery_fee: number;
       delivery_distance_km: number | null;
-      is_test: boolean;
-      analytics_excluded_at: string | null;
       sede_id: string;
       created_at: string;
       cliente: { nombre?: string } | null;
@@ -107,8 +105,10 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
 
     const sedeName = new Map((sedes ?? []).map((s) => [s.id as string, s.nombre as string]));
 
-    const pruebasExcluidas = rows.filter((r) => r.is_test || r.analytics_excluded_at).length;
-    const noExcluidas = rows.filter((r) => !r.is_test && !r.analytics_excluded_at);
+    // Compatibilidad: la migración analítica puede no haberse aplicado todavía.
+    // Los errores se excluyen siempre; las pruebas explícitas se habilitarán al confirmar el esquema.
+    const pruebasExcluidas = 0;
+    const noExcluidas = rows;
     const errores = noExcluidas.filter((r) => r.status === "error").length;
     const validas = noExcluidas.filter((r) => r.status !== "error");
     const entregadas = validas.filter((r) => r.status === "entregado");
