@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { cancelOrderFromAdmin, setOrderAnalyticsExclusion } from "@/lib/orders.functions";
+import { cancelOrderFromAdmin } from "@/lib/orders.functions";
 
 export const Route = createFileRoute("/admin/pedidos")({
   head: () => ({ meta: [{ title: "Pedidos — Admin" }] }),
@@ -43,8 +43,6 @@ type OrderRow = {
   cliente: { nombre?: string; telefono?: string; direccion?: string | null } | null;
   created_at: string;
   sede_id: string;
-  is_test: boolean;
-  analytics_excluded_at: string | null;
 };
 
 const STATUS_OPTIONS: {
@@ -76,7 +74,6 @@ const fmtTime = (iso: string) =>
 function AdminPedidosPage() {
   const queryClient = useQueryClient();
   const cancelFn = useServerFn(cancelOrderFromAdmin);
-  const analyticsFn = useServerFn(setOrderAnalyticsExclusion);
   const [cancelTarget, setCancelTarget] = useState<OrderRow | null>(null);
   const [cancelPreset, setCancelPreset] = useState<string>(CANCEL_PRESETS[0]);
   const [cancelDetail, setCancelDetail] = useState<string>("");
@@ -87,7 +84,7 @@ function AdminPedidosPage() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, status, rp_pedido_id, rp_numero_comanda, cancel_reason, tipo, pago, total, cliente, created_at, sede_id, is_test, analytics_excluded_at",
+          "id, status, rp_pedido_id, rp_numero_comanda, cancel_reason, tipo, pago, total, cliente, created_at, sede_id",
         )
         .order("created_at", { ascending: false })
         .limit(100);
@@ -135,22 +132,6 @@ function AdminPedidosPage() {
       }
       queryClient.invalidateQueries({ queryKey: ["admin", "pedidos"] });
       setCancelTarget(null);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const analyticsMutation = useMutation({
-    mutationFn: async ({ id, excluded }: { id: string; excluded: boolean }) => {
-      return analyticsFn({ data: { orderId: id, excluded } });
-    },
-    onSuccess: (_data, variables) => {
-      toast.success(
-        variables.excluded
-          ? "Pedido excluido de todas las métricas"
-          : "Pedido incluido nuevamente en las métricas",
-      );
-      queryClient.invalidateQueries({ queryKey: ["admin", "pedidos"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -221,9 +202,6 @@ function AdminPedidosPage() {
                         <BrutalBadge tone="black">UUID</BrutalBadge>
                       )}
                       <BrutalBadge tone="yellow">{o.tipo}</BrutalBadge>
-                      {o.is_test || o.analytics_excluded_at ? (
-                        <BrutalBadge tone="red">Prueba · no cuenta</BrutalBadge>
-                      ) : null}
                       <span className="text-xs text-kp-ink/60">{fmtTime(o.created_at)}</span>
                     </div>
                     <p className="font-display uppercase mt-2">
@@ -260,22 +238,6 @@ function AdminPedidosPage() {
                         </option>
                       ))}
                     </select>
-                    <BrutalButton
-                      type="button"
-                      size="sm"
-                      variant={o.is_test || o.analytics_excluded_at ? "ghost" : "dark"}
-                      disabled={analyticsMutation.isPending}
-                      onClick={() =>
-                        analyticsMutation.mutate({
-                          id: o.id,
-                          excluded: !(o.is_test || o.analytics_excluded_at),
-                        })
-                      }
-                    >
-                      {o.is_test || o.analytics_excluded_at
-                        ? "Incluir en métricas"
-                        : "Marcar como prueba"}
-                    </BrutalButton>
                     {/* Polling manual eliminado: el webhook empuja estados desde Restaurant.pe en tiempo real. */}
                   </div>
                 </div>
