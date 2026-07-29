@@ -285,7 +285,8 @@ export const pollActiveOrders = createServerFn({ method: "POST" }).handler(
         if (comanda && !row.rp_numero_comanda) patch.rp_numero_comanda = comanda;
         if (mapped === "cancelado") {
           patch.cancelled_at = new Date().toISOString();
-          patch.cancel_reason = "poll_reconcile: delivery_estado=4 (anulado en Restaurant.pe)";
+          patch.cancel_reason =
+            "poll_reconcile: delivery_estado=0 tras haber avanzado (anulado en Restaurant.pe)";
         }
         await supabaseAdmin
           .from("orders")
