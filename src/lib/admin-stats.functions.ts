@@ -71,24 +71,44 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const since = new Date(Date.now() - rangeMs(data.range)).toISOString();
 
-    const [{ data: orders }, { data: sedes }, { data: subCount }, { data: subNuevos }] =
-      await Promise.all([
-        supabaseAdmin
-          .from("orders")
-          .select(
-            "id, status, tipo, subtotal, total, delivery_fee, delivery_distance_km, is_test, analytics_excluded_at, sede_id, created_at, cliente, items, rp_numero_comanda",
-          )
-          .gt("created_at", since)
-          .order("created_at", { ascending: false }),
-        supabaseAdmin.from("sedes").select("id, nombre"),
-        supabaseAdmin.from("subditos").select("id", { count: "exact", head: true }),
-        supabaseAdmin
-          .from("subditos")
-          .select("id", { count: "exact", head: true })
-          .gt("created_at", since),
-      ]);
+    const baseOrderColumns =
+      "id, status, tipo, subtotal, total, delivery_fee, delivery_distance_km, sede_id, created_at, cliente, items, rp_numero_comanda";
+    const analyticsOrderColumns = `${baseOrderColumns}, is_test, analytics_excluded_at`;
+    const analyticsResult = await supabaseAdmin
+      .from("orders")
+      .select(analyticsOrderColumns)
+      .gt("created_at", since)
+      .order("created_at", { ascending: false });
+    let analyticsAvailable = true;
+    let orderData: unknown = analyticsResult.data;
 
-    const rows = (orders ?? []) as Array<{
+    if (analyticsResult.error) {
+      const missingAnalyticsColumn =
+        analyticsResult.error.code === "42703" ||
+        /orders\.(is_test|analytics_excluded_at)|column .* (is_test|analytics_excluded_at)/i.test(
+          analyticsResult.error.message,
+        );
+      if (!missingAnalyticsColumn) throw new Error(analyticsResult.error.message);
+      analyticsAvailable = false;
+      const fallbackResult = await supabaseAdmin
+        .from("orders")
+        .select(baseOrderColumns)
+        .gt("created_at", since)
+        .order("created_at", { ascending: false });
+      if (fallbackResult.error) throw new Error(fallbackResult.error.message);
+      orderData = fallbackResult.data;
+    }
+
+    const [{ data: sedes }, { data: subCount }, { data: subNuevos }] = await Promise.all([
+      supabaseAdmin.from("sedes").select("id, nombre"),
+      supabaseAdmin.from("subditos").select("id", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("subditos")
+        .select("id", { count: "exact", head: true })
+        .gt("created_at", since),
+    ]);
+
+    const rows = (orderData ?? []) as Array<{
       id: string;
       status: string;
       tipo: string;
@@ -96,8 +116,8 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
       total: number;
       delivery_fee: number;
       delivery_distance_km: number | null;
-      is_test: boolean;
-      analytics_excluded_at: string | null;
+      is_test?: boolean;
+      analytics_excluded_at?: string | null;
       sede_id: string;
       created_at: string;
       cliente: { nombre?: string } | null;
@@ -107,8 +127,12 @@ export const getAdminDashboard = createServerFn({ method: "POST" })
 
     const sedeName = new Map((sedes ?? []).map((s) => [s.id as string, s.nombre as string]));
 
-    const pruebasExcluidas = rows.filter((r) => r.is_test || r.analytics_excluded_at).length;
-    const noExcluidas = rows.filter((r) => !r.is_test && !r.analytics_excluded_at);
+    const pruebasExcluidas = analyticsAvailable
+      ? rows.filter((r) => r.is_test || r.analytics_excluded_at).length
+      : 0;
+    const noExcluidas = analyticsAvailable
+      ? rows.filter((r) => !r.is_test && !r.analytics_excluded_at)
+      : rows;
     const errores = noExcluidas.filter((r) => r.status === "error").length;
     const validas = noExcluidas.filter((r) => r.status !== "error");
     const entregadas = validas.filter((r) => r.status === "entregado");
