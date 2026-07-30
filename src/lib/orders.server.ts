@@ -440,6 +440,13 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   subtotal: number;
   total: number;
 }> {
+  // Wompi todavía no está integrado. Aunque el cliente o una petición manual
+  // intente enviar "online", nunca registramos un pedido como pago online sin
+  // verificar primero una transacción firmada por la pasarela.
+  if (input.pago === "online") {
+    throw new Error("El pago online con Wompi todavía no está disponible. Elige efectivo o datáfono.");
+  }
+
   const {
     sede,
     detalle,
