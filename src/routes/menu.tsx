@@ -229,6 +229,21 @@ function MenuPage() {
   const sedeActual = sedes.find((s) => s.slug === sedeSlug);
   const direccionCorta = activeSede?.direccionTexto?.split(",")[0];
   const sedeNombre = sedeActual?.nombre ?? activeSede?.label ?? "Elegí tu sede";
+  const loadingMenu = sedesQ.isLoading || menuQ.isLoading;
+  const menuError = sedesQ.error ?? menuQ.error;
+
+  const confirmarSedePickup = (slug: string | undefined) => {
+    const s = sedes.find((item) => item.slug === slug) ?? sedes[0];
+    if (!s) return;
+    setActiveSede({
+      sedeId: s.id,
+      slug: s.slug,
+      label: `Recoger en ${s.nombre}`,
+      source: "manual",
+      enCobertura: false,
+      ts: Date.now(),
+    });
+  };
 
   // Índice global para priorizar sólo las 2 primeras imágenes (above the fold).
   let imgIndex = 0;
@@ -280,7 +295,15 @@ function MenuPage() {
                   key={t}
                   type="button"
                   aria-pressed={modo === t}
-                  onClick={() => setOrderType(t)}
+                  onClick={() => {
+                    setOrderType(t);
+                    if (
+                      t === "pickup" &&
+                      (!activeSede || activeSede.source === "exploring")
+                    ) {
+                      confirmarSedePickup(sedeSlug);
+                    }
+                  }}
                   className={cn(
                     "min-h-11 px-3 font-display uppercase text-xs",
                     modo === t ? "bg-kp-ink text-kp-yellow" : "bg-kp-cheese text-kp-ink",
@@ -300,16 +323,7 @@ function MenuPage() {
                   id="sede-pickup"
                   value={sedeSlug ?? ""}
                   onChange={(e) => {
-                    const s = sedes.find((x) => x.slug === e.target.value);
-                    if (!s) return;
-                    setActiveSede({
-                      sedeId: s.id,
-                      slug: s.slug,
-                      label: `Recoger en ${s.nombre}`,
-                      source: "manual",
-                      enCobertura: false,
-                      ts: Date.now(),
-                    });
+                    confirmarSedePickup(e.target.value);
                   }}
                   className="min-h-11 border-2 border-kp-ink bg-kp-cheese text-kp-ink px-3 font-display uppercase text-xs"
                 >
@@ -407,15 +421,15 @@ function MenuPage() {
 
       {/* CONTENIDO */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-5 pb-28">
-        {menuQ.isLoading && <MenuSkeleton />}
+        {loadingMenu && <MenuSkeleton />}
 
-        {menuQ.error && (
+        {menuError && (
           <p className="text-center py-10 font-display uppercase text-xl text-kp-red">
-            No se pudo cargar el menú: {(menuQ.error as Error).message}
+            No se pudo cargar el menú: {(menuError as Error).message}
           </p>
         )}
 
-        {!menuQ.isLoading && !menuQ.error && productos.length === 0 && (
+        {!loadingMenu && !menuError && productos.length === 0 && (
           <div className="text-center py-10 space-y-3">
             <p className="font-display uppercase text-2xl">
               Esta sede aún no tiene menú sincronizado.
@@ -430,7 +444,7 @@ function MenuPage() {
         )}
 
         {/* Resultados de búsqueda */}
-        {!menuQ.isLoading && !menuQ.error && buscando && (
+        {!loadingMenu && !menuError && buscando && (
           <div>
             <p className="font-display uppercase text-sm mb-3">
               {resultados.length} resultado{resultados.length === 1 ? "" : "s"} para “{query}”
@@ -464,7 +478,7 @@ function MenuPage() {
         )}
 
         {/* Secciones */}
-        {!menuQ.isLoading && !menuQ.error && !buscando && secciones.length > 0 && (
+        {!loadingMenu && !menuError && !buscando && secciones.length > 0 && (
           <div>
             {secciones.map(({ categoria, productos: items }) => (
               <section
