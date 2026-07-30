@@ -1,12 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
-import { BrutalLink } from "@/components/ui-kp/BrutalButton";
-import { OrderRouter } from "@/components/kp/OrderRouter";
 import { ProductCard } from "@/components/kp/ProductCard";
 import { OrderIntentDialog } from "@/components/kp/OrderIntentDialog";
+import { openLocationGate } from "@/components/kp/LocationGate";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { listPublicSedes } from "@/lib/sedes";
 import {
@@ -15,8 +13,9 @@ import {
   type RpCategoriaRow,
   type RpProductoRow,
 } from "@/lib/menu";
-import { useActiveSede, setExploringSede } from "@/lib/active-sede";
-import { cn } from "@/lib/utils";
+import { useActiveSede, setActiveSede, setExploringSede } from "@/lib/active-sede";
+import { useCart, setOrderType } from "@/lib/cart";
+import { cn, prefersReducedMotion } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import type { Producto, Categoria } from "@/types/kp";
 
@@ -38,6 +37,8 @@ export const Route = createFileRoute("/menu")({
         content:
           "Salchipapas monstruosas, bowls coronados, combos solo web y retos brutales pa’ toda la banda.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { property: "og:url", content: "/menu" },
     ],
     links: [{ rel: "canonical", href: "/menu" }],
@@ -47,15 +48,22 @@ export const Route = createFileRoute("/menu")({
 
 type Seccion = { categoria: Categoria; productos: Producto[] };
 
-// El orden de secciones lo controla el admin desde /admin/menu (drag & drop
-// sobre categorias_master.orden). El servidor ya devuelve las categorías
-// ordenadas; aquí solo se respeta ese orden.
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+const STICKY_OFFSET = "calc(var(--kp-appbar-h, 64px))";
+const SCROLL_MARGIN = "calc(var(--kp-appbar-h, 64px) + 72px)";
 
 function MenuPage() {
   const { sede: sedeParam } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const [filtro, setFiltro] = useState<string>("all");
   const [activeCat, setActiveCat] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const sedesQ = useQuery({
     queryKey: ["sedes", "public"],
@@ -64,14 +72,28 @@ function MenuPage() {
   });
   const sedes = sedesQ.data ?? [];
   const activeSede = useActiveSede();
+  const { orderType } = useCart();
+  const modo = orderType === "pickup" ? "pickup" : "delivery";
 
+  // Sede canónica: SIEMPRE `activeSede`. El search param `?sede=` sólo siembra
+  // el estado cuando aún no hay sede real, y luego se limpia de la URL para que
+  // cabecera, menú y carrito nunca apunten a sedes distintas.
   useEffect(() => {
-    if (!activeSede && sedes.length > 0) {
-      setExploringSede(sedes[0]);
+    if (sedes.length === 0) return;
+    const fromParam = sedeParam ? sedes.find((s) => s.slug === sedeParam) : undefined;
+    const esReal = !!activeSede && activeSede.source !== "exploring";
+    if (fromParam && !esReal && activeSede?.slug !== fromParam.slug) {
+      setExploringSede(fromParam);
+      return;
     }
-  }, [activeSede, sedes]);
+    if (sedeParam) {
+      navigate({ search: { sede: undefined }, replace: true });
+      return;
+    }
+    if (!activeSede) setExploringSede(sedes[0]);
+  }, [sedeParam, sedes, activeSede, navigate]);
 
-  const sedeSlug = sedeParam ?? activeSede?.slug ?? sedes[0]?.slug;
+  const sedeSlug = activeSede?.slug ?? sedes[0]?.slug;
 
   const fetchMenu = useServerFn(getMenuForSede);
   const menuQ = useQuery({
@@ -97,7 +119,6 @@ function MenuPage() {
   );
 
   const secciones = useMemo<Seccion[]>(() => {
-    // Combos solo web: productos marcados editorialmente.
     const combosWeb = productos.filter(
       (p) =>
         p.etiqueta_custom === "combo-web" ||
@@ -105,12 +126,10 @@ function MenuPage() {
         p.clasificacion_me === "star",
     );
     const combosWebIds = new Set(combosWeb.map((p) => p.id));
-
-    // El resto de secciones excluye productos ya mostrados en "Combos solo web".
     const restantes = productos.filter((p) => !combosWebIds.has(p.id));
-
     const masPedidos = restantes.filter((p) => p.destacado || p.esMasVendido);
 
+    // El orden de categorías viene del admin (categorias_master.orden). No re-sortear.
     const reales = categoriasUI
       .filter((c) => c.id !== "all")
       .map<Seccion>((c) => ({
@@ -119,18 +138,11 @@ function MenuPage() {
       }))
       .filter((s) => s.productos.length > 0);
 
-    // Las categorías ya vienen ordenadas desde el servidor por
-    // categorias_master.orden (controlado por el admin). NO re-sortear aquí.
-
     return [
       ...(masPedidos.length
         ? [
             {
-              categoria: {
-                id: "mas-pedidos",
-                nombre: "Más pedidos",
-                filtro: "Más pedidos",
-              } as Categoria,
+              categoria: { id: "mas-pedidos", nombre: "Más pedidos", filtro: "Más pedidos" } as Categoria,
               productos: masPedidos,
             },
           ]
@@ -151,14 +163,19 @@ function MenuPage() {
     ];
   }, [productos, categoriasUI]);
 
-  const listaFiltrada = useMemo(() => {
-    if (filtro === "all") return productos;
-    return productos.filter((p) => p.categorias.includes(filtro));
-  }, [filtro, productos]);
+  // Búsqueda 100% en cliente sobre el menú ya cargado (sin llamadas al servidor).
+  const buscando = query.trim().length > 0;
+  const resultados = useMemo(() => {
+    if (!buscando) return [];
+    const q = norm(query.trim());
+    return productos.filter(
+      (p) => norm(p.nombre).includes(q) || norm(p.descripcion ?? "").includes(q),
+    );
+  }, [buscando, query, productos]);
 
   // Scrollspy
   useEffect(() => {
-    if (filtro !== "all") return;
+    if (buscando) return;
     const nodes = document.querySelectorAll<HTMLElement>("[data-cat-section]");
     if (!nodes.length) return;
     const obs = new IntersectionObserver(
@@ -171,133 +188,233 @@ function MenuPage() {
           if (id) setActiveCat(id);
         }
       },
-      { rootMargin: "-140px 0px -60% 0px", threshold: 0 },
+      { rootMargin: "-160px 0px -60% 0px", threshold: 0 },
     );
     nodes.forEach((n) => obs.observe(n));
     return () => obs.disconnect();
-  }, [filtro, secciones.length]);
+  }, [buscando, secciones.length]);
 
-  // Auto-scroll pill activa
+  // Auto-scroll de la pill activa
   useEffect(() => {
     if (!activeCat) return;
     const pill = document.querySelector<HTMLElement>(`[data-cat-nav="${activeCat}"]`);
-    pill?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    pill?.scrollIntoView({
+      inline: "center",
+      block: "nearest",
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
   }, [activeCat]);
 
   const handleNavClick = (id: string) => {
-    if (filtro !== "all") setFiltro("all");
-    const nombre =
-      id === "all"
-        ? "Todas"
-        : (secciones.find((s) => s.categoria.id === id)?.categoria.nombre ?? id);
+    const nombre = secciones.find((s) => s.categoria.id === id)?.categoria.nombre ?? id;
     track("category_clicked", { categoria_id: id, categoria_nombre: nombre });
+    if (buscando) setQuery("");
     requestAnimationFrame(() => {
-      document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById(`sec-${id}`)?.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "start",
+      });
     });
   };
 
-  // Evento menu_view cuando la sede activa está disponible
   useEffect(() => {
     if (!activeSede?.sedeId) return;
     track("menu_view", { sede_id: activeSede.sedeId, sede_nombre: activeSede.label });
   }, [activeSede?.sedeId, activeSede?.label]);
 
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  const sedeActual = sedes.find((s) => s.slug === sedeSlug);
+  const direccionCorta = activeSede?.direccionTexto?.split(",")[0];
+  const sedeNombre = sedeActual?.nombre ?? activeSede?.label ?? "Elegí tu sede";
+
+  // Índice global para priorizar sólo las 2 primeras imágenes (above the fold).
+  let imgIndex = 0;
+  const nextPriority = () => imgIndex++ < 2;
+
   return (
     <>
       <OrderIntentDialog />
-      {/* HERO */}
+
+      {/* CABECERA TRANSACCIONAL COMPACTA */}
       <section className="bg-kp-red text-kp-cheese border-b-4 border-kp-ink">
-        <div className="mx-auto max-w-7xl px-4 md:px-6 py-10 md:py-14">
-          <BrutalBadge tone="yellow">Menú</BrutalBadge>
-          <h1 className="font-display text-5xl md:text-7xl uppercase mt-3 leading-none">
-            El Menú del Reino
+        <div className="mx-auto max-w-7xl px-4 md:px-6 py-3 md:py-5">
+          <h1 className="font-display text-2xl md:text-4xl uppercase leading-none">
+            Menú del Reino
           </h1>
-          <p className="mt-3 max-w-2xl">
-            Escogé tu corona: <strong>personal</strong> pa’ uno con buen diente, <strong>X2</strong>{" "}
-            pa’ dos, <strong>Legendaria</strong> pa’ tres, o <strong>Kingpapa</strong> pa’ toda la
-            banda (hasta 7). Sin diplomacia. 👑🍟
-          </p>
-          <p className="mt-2 text-sm text-kp-cheese/80 max-w-2xl">
-            ¿Vegetariano? Siza — pedila sin proteína animal y metele queso, maíz, cebolla crispy o
-            aguacate. 🥑
-          </p>
-          <div className="mt-5">
-            <BrutalLink href="#pedir" variant="primary" size="lg">
-              ¡Hablalooo, quiero pedir!
-            </BrutalLink>
+
+          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+            <div className="min-w-0 text-sm leading-tight">
+              <p className="truncate">
+                <strong>{modo === "pickup" ? "Recoger" : "Domicilio"}</strong> · {sedeNombre}
+              </p>
+              <p className="truncate text-kp-cheese/80 text-[13px]">
+                {modo === "pickup"
+                  ? sedeActual?.direccion || "Sede seleccionada"
+                  : direccionCorta || "Sin dirección aún"}
+                {modo === "delivery" ? " · 40–60 min" : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (modo === "pickup") {
+                  document.getElementById("sede-pickup")?.focus();
+                } else {
+                  openLocationGate();
+                }
+              }}
+              className="shrink-0 min-h-11 px-4 bg-kp-yellow text-kp-ink border-2 border-kp-ink shadow-brutal-sm font-display uppercase text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kp-cheese"
+            >
+              Cambiar
+            </button>
+          </div>
+
+          {/* Modalidad + sede de recogida: único control, sin duplicados */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="inline-flex border-2 border-kp-ink" role="group" aria-label="Modalidad">
+              {(["delivery", "pickup"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={modo === t}
+                  onClick={() => setOrderType(t)}
+                  className={cn(
+                    "min-h-11 px-3 font-display uppercase text-xs",
+                    modo === t ? "bg-kp-ink text-kp-yellow" : "bg-kp-cheese text-kp-ink",
+                  )}
+                >
+                  {t === "delivery" ? "Domicilio" : "Recoger"}
+                </button>
+              ))}
+            </div>
+
+            {modo === "pickup" && sedes.length > 0 && (
+              <>
+                <label htmlFor="sede-pickup" className="sr-only">
+                  Sede donde vas a recoger
+                </label>
+                <select
+                  id="sede-pickup"
+                  value={sedeSlug ?? ""}
+                  onChange={(e) => {
+                    const s = sedes.find((x) => x.slug === e.target.value);
+                    if (!s) return;
+                    setActiveSede({
+                      sedeId: s.id,
+                      slug: s.slug,
+                      label: `Recoger en ${s.nombre}`,
+                      source: "manual",
+                      enCobertura: false,
+                      ts: Date.now(),
+                    });
+                  }}
+                  className="min-h-11 border-2 border-kp-ink bg-kp-cheese text-kp-ink px-3 font-display uppercase text-xs"
+                >
+                  {sedes.map((s) => (
+                    <option key={s.id} value={s.slug}>
+                      {s.nombre} · {s.ciudad}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
         </div>
       </section>
 
-      <section id="pedir" className="mx-auto max-w-7xl px-4 md:px-6 py-10">
-        <OrderRouter />
-      </section>
-
-      {/* SELECTOR DE SEDE */}
-      {sedes.length > 1 && (
-        <section className="mx-auto max-w-7xl px-4 md:px-6 flex items-center gap-3 flex-wrap">
-          <label htmlFor="menu-sede-select" className="sr-only">
-            Elegí la sede del Reino
-          </label>
-          <select
-            id="menu-sede-select"
-            aria-label="Elegí la sede del Reino"
-            value={sedeSlug ?? ""}
-            onChange={(e) => navigate({ search: { sede: e.target.value } })}
-            className="border-2 border-kp-ink bg-kp-cheese shadow-brutal-sm px-3 py-2 font-display uppercase text-xs"
-          >
-            {sedes.map((s) => (
-              <option key={s.id} value={s.slug}>
-                {s.nombre} · {s.ciudad}
-              </option>
-            ))}
-          </select>
-        </section>
-      )}
-
-      {/* STICKY CATEGORY NAV */}
-      {secciones.length > 0 && (
+      {/* BARRA STICKY: BÚSQUEDA + CATEGORÍAS */}
+      {(secciones.length > 0 || buscando) && (
         <nav
-          className="sticky top-0 z-30 bg-kp-cheese border-y-4 border-kp-ink mt-4"
-          aria-label="Categorías"
+          className="sticky z-30 bg-kp-cheese border-b-4 border-kp-ink"
+          style={{ top: STICKY_OFFSET }}
+          aria-label="Categorías del menú"
         >
           <div className="mx-auto max-w-7xl px-4 md:px-6">
-            <div className="flex gap-2 overflow-x-auto py-3 scrollbar-none">
-              {secciones.map((s) => {
-                const isActive =
-                  filtro === "all" ? activeCat === s.categoria.id : filtro === s.categoria.id;
-                return (
-                  <button
-                    key={s.categoria.id}
-                    type="button"
-                    onClick={() => handleNavClick(s.categoria.id)}
-                    data-cat-nav={s.categoria.id}
-                    className={cn(
-                      "shrink-0 px-4 py-2 font-display uppercase text-xs border-2 border-kp-ink whitespace-nowrap shadow-brutal-sm transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-none",
-                      isActive
-                        ? "bg-kp-ink text-kp-yellow"
-                        : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow",
-                    )}
-                  >
-                    {s.categoria.nombre}
-                  </button>
-                );
-              })}
+            <div className="flex items-center gap-2 py-2">
+              <button
+                type="button"
+                aria-label={searchOpen ? "Cerrar búsqueda" : "Buscar en el menú"}
+                aria-expanded={searchOpen}
+                onClick={() => {
+                  const next = !searchOpen;
+                  setSearchOpen(next);
+                  if (next) track("menu_search_started");
+                  else setQuery("");
+                }}
+                className="shrink-0 min-w-11 min-h-11 grid place-items-center border-2 border-kp-ink bg-kp-yellow shadow-brutal-sm text-lg"
+              >
+                🔎
+              </button>
+
+              {searchOpen ? (
+                <div className="flex-1 flex items-center gap-2 min-w-0">
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        if (query) setQuery("");
+                        else setSearchOpen(false);
+                      }
+                    }}
+                    placeholder="Buscar en el menú"
+                    aria-label="Buscar productos del menú"
+                    className="flex-1 min-w-0 min-h-11 px-3 border-2 border-kp-ink bg-kp-cheese text-sm"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      className="shrink-0 min-h-11 px-3 border-2 border-kp-ink bg-kp-cheese font-display uppercase text-xs"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex-1 flex gap-2 overflow-x-auto scrollbar-none pr-6">
+                  {secciones.map((s) => {
+                    const isActive = activeCat === s.categoria.id;
+                    return (
+                      <button
+                        key={s.categoria.id}
+                        type="button"
+                        onClick={() => handleNavClick(s.categoria.id)}
+                        data-cat-nav={s.categoria.id}
+                        aria-current={isActive ? "true" : undefined}
+                        className={cn(
+                          "shrink-0 min-h-11 px-4 font-display uppercase text-xs border-2 border-kp-ink whitespace-nowrap shadow-brutal-sm transition-transform motion-reduce:transition-none active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kp-ink",
+                          isActive
+                            ? "bg-kp-ink text-kp-yellow"
+                            : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow",
+                        )}
+                      >
+                        {s.categoria.nombre}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </nav>
       )}
 
       {/* CONTENIDO */}
-      <section className="mx-auto max-w-7xl px-4 md:px-6 py-8">
-        {menuQ.isLoading && (
-          <p className="text-center py-10 font-display uppercase text-xl">Cargando menú…</p>
-        )}
+      <section className="mx-auto max-w-7xl px-4 md:px-6 py-5 pb-28">
+        {menuQ.isLoading && <MenuSkeleton />}
+
         {menuQ.error && (
           <p className="text-center py-10 font-display uppercase text-xl text-kp-red">
             No se pudo cargar el menú: {(menuQ.error as Error).message}
           </p>
         )}
+
         {!menuQ.isLoading && !menuQ.error && productos.length === 0 && (
           <div className="text-center py-10 space-y-3">
             <p className="font-display uppercase text-2xl">
@@ -312,78 +429,94 @@ function MenuPage() {
           </div>
         )}
 
-        {/* Modo "Todas": por secciones */}
-        {!menuQ.isLoading && !menuQ.error && filtro === "all" && secciones.length > 0 && (
+        {/* Resultados de búsqueda */}
+        {!menuQ.isLoading && !menuQ.error && buscando && (
+          <div>
+            <p className="font-display uppercase text-sm mb-3">
+              {resultados.length} resultado{resultados.length === 1 ? "" : "s"} para “{query}”
+            </p>
+            {resultados.length === 0 ? (
+              <div className="border-2 border-dashed border-kp-ink p-6 text-center">
+                <p className="font-display uppercase text-2xl">No encontramos esa corona</p>
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="mt-3 min-h-11 px-4 border-2 border-kp-ink bg-kp-yellow font-display uppercase text-xs shadow-brutal-sm"
+                >
+                  Limpiar búsqueda
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {resultados.map((p) => (
+                  <div
+                    key={p.id}
+                    onClickCapture={() =>
+                      track("menu_search_result_selected", { producto_id: p.id })
+                    }
+                  >
+                    <ProductCard producto={p} priority={nextPriority()} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Secciones */}
+        {!menuQ.isLoading && !menuQ.error && !buscando && secciones.length > 0 && (
           <div>
             {secciones.map(({ categoria, productos: items }) => (
               <section
                 key={categoria.id}
                 id={`sec-${categoria.id}`}
                 data-cat-section={categoria.id}
-                className="scroll-mt-32 mb-10"
+                style={{ scrollMarginTop: SCROLL_MARGIN }}
+                className="mb-8"
               >
                 <div className="flex items-end justify-between mb-3 mt-2 border-b-4 border-kp-ink pb-2">
-                  <h2 className="font-display text-3xl md:text-4xl uppercase leading-none">
+                  <h2 className="font-display text-2xl md:text-4xl uppercase leading-none">
                     {categoria.nombre}
                   </h2>
                   <span className="text-xs font-display uppercase text-kp-ink/60">
                     {items.length} {items.length === 1 ? "opción" : "opciones"}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {items.map((p) => (
-                    <div key={p.id} className={p.destacado ? "sm:col-span-2" : ""}>
-                      <ProductCard producto={p} destacado={p.destacado} />
-                    </div>
+                    <ProductCard key={p.id} producto={p} priority={nextPriority()} />
                   ))}
                 </div>
               </section>
             ))}
           </div>
         )}
-
-        {/* Modo filtro específico: grid plano */}
-        {!menuQ.isLoading && !menuQ.error && filtro !== "all" && (
-          <>
-            {listaFiltrada.length === 0 ? (
-              <p className="text-center py-10 font-display uppercase text-2xl">
-                No hay productos en esta categoría… aún.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {listaFiltrada.map((p) => (
-                  <div key={p.id} className={p.destacado ? "sm:col-span-2" : ""}>
-                    <ProductCard producto={p} destacado={p.destacado} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* COMBO IMÁN */}
-      <section className="mx-auto max-w-7xl px-4 md:px-6 py-12">
-        <BrutalCard
-          tone="purple"
-          className="p-6 md:p-8 flex flex-col md:flex-row gap-6 items-center"
-        >
-          <div className="flex-1">
-            <BrutalBadge tone="yellow">Solo web · Lun a Mié</BrutalBadge>
-            <h2 className="font-display text-4xl md:text-5xl uppercase mt-3 leading-none">
-              Combo Imán del Reino
-            </h2>
-            <p className="mt-3 text-sm">
-              Salchipapa mediana + bebida + brownie por menos de lo que cuesta un domicilio. Sólo si
-              pedís desde la web, parcero. No se lo cuentes a Rappi 🤫
-            </p>
-            <p className="font-display text-5xl mt-3">$19.900</p>
-          </div>
-          <BrutalLink href="#pedir" variant="primary" size="lg">
-            Reclamar combo
-          </BrutalLink>
-        </BrutalCard>
       </section>
     </>
+  );
+}
+
+function MenuSkeleton() {
+  return (
+    <div aria-hidden className="space-y-6">
+      <div className="h-8 w-48 bg-kp-ink/10 border-2 border-kp-ink/20" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="border-2 border-kp-ink/20 bg-kp-cheese flex flex-row sm:flex-col h-full"
+          >
+            <div className="order-2 sm:order-none w-28 aspect-square m-3 sm:m-0 sm:w-full bg-kp-ink/10 shrink-0" />
+            <div className="order-1 sm:order-none p-3 sm:p-4 flex-1 space-y-2">
+              <div className="h-5 w-3/4 bg-kp-ink/10" />
+              <div className="h-4 w-full bg-kp-ink/10" />
+              <div className="h-4 w-2/3 bg-kp-ink/10" />
+              <div className="h-10 w-full bg-kp-ink/10 mt-4" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="sr-only">Cargando menú…</p>
+    </div>
   );
 }
