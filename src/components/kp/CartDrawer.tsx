@@ -8,8 +8,6 @@ import { UpsellSection } from "@/components/kp/UpsellSection";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
-// TODO: parametrizar por sede cuando exista config de envíos
-const FREE_SHIPPING_THRESHOLD = 40000;
 
 export function CartDrawer() {
   const [open, setOpen] = useState(false);
