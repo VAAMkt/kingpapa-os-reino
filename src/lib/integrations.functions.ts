@@ -6,7 +6,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { rpGetPaymentMethods } from "@/lib/restaurantpe.server";
+import { rpGetPaymentMethods, rpGetDeliveryById } from "@/lib/restaurantpe.server";
 
 export const getIntegrationsStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -78,6 +78,93 @@ export const getPaymentMethodsAudit = createServerFn({ method: "GET" })
             ok: false as const,
             methods: [],
             error: error instanceof Error ? error.message : "Error desconocido",
+          };
+        }
+      }),
+    );
+  });
+
+
+function paymentFields(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const output: Record<string, unknown> = {};
+  const allowed = /(pago|payment|tarjeta|card|monto|pagocon|costoenvio|total)/i;
+  const blocked = /(token|secret|telefono|celular|direccion|cliente|nombre|email|dni|ruc)/i;
+  for (const [key, fieldValue] of Object.entries(value as Record<string, unknown>)) {
+    if (blocked.test(key)) continue;
+    if (allowed.test(key) && (fieldValue == null || ["string", "number", "boolean"].includes(typeof fieldValue))) {
+      output[key] = fieldValue;
+    }
+    if (fieldValue && typeof fieldValue === "object" && !Array.isArray(fieldValue)) {
+      const nested = paymentFields(fieldValue);
+      for (const [nestedKey, nestedValue] of Object.entries(nested)) {
+        output[`${key}.${nestedKey}`] = nestedValue;
+      }
+    }
+  }
+  return output;
+}
+
+export const runPaymentEvidenceAudit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: roles, error: roleError } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .in("role", ["super_admin", "editor", "marketing"]);
+    if (roleError) throw new Error(roleError.message);
+    if (!roles?.length) throw new Error("No tienes permiso para ejecutar esta prueba.");
+
+    const { data: orders, error } = await supabaseAdmin
+      .from("orders")
+      .select("id, rp_pedido_id, sede_id, tipo, pago, total, created_at, rp_payload")
+      .not("rp_pedido_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw new Error(error.message);
+
+    const { data: sedes } = await supabaseAdmin.from("sedes").select("id, nombre");
+    const sedeMap = new Map((sedes ?? []).map((sede) => [sede.id, sede.nombre]));
+
+    return Promise.all(
+      (orders ?? []).map(async (order) => {
+        const payload =
+          order.rp_payload && typeof order.rp_payload === "object" && !Array.isArray(order.rp_payload)
+            ? (order.rp_payload as Record<string, unknown>)
+            : {};
+        const deliverySent =
+          payload.delivery && typeof payload.delivery === "object" && !Array.isArray(payload.delivery)
+            ? (payload.delivery as Record<string, unknown>)
+            : {};
+        try {
+          const snapshot = await rpGetDeliveryById(order.rp_pedido_id!);
+          return {
+            order_id: order.id,
+            rp_pedido_id: order.rp_pedido_id,
+            sede: sedeMap.get(order.sede_id) ?? order.sede_id,
+            tipo: order.tipo,
+            pago_web: order.pago,
+            total: order.total,
+            created_at: order.created_at,
+            enviado: paymentFields(deliverySent),
+            persistido_rp: paymentFields(snapshot),
+            ok: true as const,
+            error: null,
+          };
+        } catch (auditError) {
+          return {
+            order_id: order.id,
+            rp_pedido_id: order.rp_pedido_id,
+            sede: sedeMap.get(order.sede_id) ?? order.sede_id,
+            tipo: order.tipo,
+            pago_web: order.pago,
+            total: order.total,
+            created_at: order.created_at,
+            enviado: paymentFields(deliverySent),
+            persistido_rp: {},
+            ok: false as const,
+            error: auditError instanceof Error ? auditError.message : "Error desconocido",
           };
         }
       }),
