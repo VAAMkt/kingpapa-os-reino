@@ -6,10 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { toast } from "sonner";
-import {
-  getIntegrationsStatus,
-  runPaymentEvidenceAudit,
-} from "@/lib/integrations.functions";
+import { getIntegrationsStatus } from "@/lib/integrations.functions";
 import { listOrphanOrders } from "@/lib/orders.reconcile.functions";
 import { checkQuipuBacklog, pollActiveOrders } from "@/lib/rp-reconcile.functions";
 
@@ -65,7 +62,6 @@ function relativeAgo(iso: string | null): string {
 
 function AdminIntegracionesPage() {
   const fetchStatus = useServerFn(getIntegrationsStatus);
-  const runPaymentAudit = useServerFn(runPaymentEvidenceAudit);
   const fetchOrphans = useServerFn(listOrphanOrders);
   const fetchQuipuBacklog = useServerFn(checkQuipuBacklog);
   const runPoll = useServerFn(pollActiveOrders);
@@ -74,13 +70,6 @@ function AdminIntegracionesPage() {
     queryKey: ["integraciones", "status"],
     queryFn: () => fetchStatus({}),
     refetchInterval: 15_000,
-  });
-
-  const paymentAuditQuery = useQuery({
-    queryKey: ["integraciones", "payment-evidence"],
-    queryFn: () => runPaymentAudit({}),
-    enabled: false,
-    retry: false,
   });
 
   const orphansQuery = useQuery({
@@ -245,42 +234,6 @@ function AdminIntegracionesPage() {
           </ul>
         </BrutalCard>
       </div>
-
-      <BrutalCard tone="cheese" className="p-4">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div>
-            <h2 className="font-display uppercase text-lg">Prueba directa de pagos</h2>
-            <p className="text-xs text-kp-ink/65">
-              Solo al pulsar el botón: compara los 20 pedidos recientes con el snapshot persistido en Restaurant.pe.
-            </p>
-          </div>
-          <BrutalButton size="sm" variant="ghost" onClick={() => paymentAuditQuery.refetch()} disabled={paymentAuditQuery.isFetching}>
-            {paymentAuditQuery.isFetching ? "Probando…" : "Ejecutar prueba"}
-          </BrutalButton>
-        </div>
-        {paymentAuditQuery.isError ? (
-          <p className="text-xs text-kp-red">{paymentAuditQuery.error instanceof Error ? paymentAuditQuery.error.message : "No se pudo ejecutar la prueba"}</p>
-        ) : !paymentAuditQuery.data ? (
-          <p className="text-xs text-kp-ink/60">No realiza consultas automáticas. Ejecuta la prueba cuando necesites auditar el mapeo.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead><tr className="text-left font-display uppercase"><th className="pr-3">Pedido</th><th className="pr-3">Sede</th><th className="pr-3">Web</th><th className="pr-3">Enviado</th><th>Persistido RP</th></tr></thead>
-              <tbody>
-                {paymentAuditQuery.data.map((row) => (
-                  <tr key={row.order_id} className="border-t-2 border-kp-ink/15 align-top">
-                    <td className="py-2 pr-3 font-mono">#{row.rp_pedido_id}</td>
-                    <td className="py-2 pr-3">{row.sede}</td>
-                    <td className="py-2 pr-3"><strong>{row.pago_web}</strong><div className="font-mono">{row.tipo} · ${Number(row.total).toLocaleString("es-CO")}</div></td>
-                    <td className="py-2 pr-3"><pre className="text-[10px] whitespace-pre-wrap break-all">{JSON.stringify(row.enviado, null, 2)}</pre></td>
-                    <td className="py-2">{row.ok ? <pre className="text-[10px] whitespace-pre-wrap break-all">{JSON.stringify(row.persistido_rp, null, 2)}</pre> : <span className="text-kp-red break-all">{row.error}</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </BrutalCard>
 
       {/* Bloque 1b — Pedidos huérfanos (solo lectura: auto-abandono a 45 min) */}
       <BrutalCard

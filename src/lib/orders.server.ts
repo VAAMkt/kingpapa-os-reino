@@ -12,6 +12,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { rpGetCatalogo, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
 import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
 import { quoteDeliveryInternal } from "@/lib/delivery-quote.server";
+import { restaurantPePaymentFields } from "@/lib/payment-methods";
 
 export type CheckoutInputItem = {
   productoId: string; // productos_master.id (uuid)
@@ -487,7 +488,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   //    - `validacion_cliente: 4` = validar por teléfono (lo único que pedimos).
   //    - `delivery_comprobante: 1` = boleta por defecto.
   //    Pago: 1=efectivo, 2=tarjeta presencial, 5=online (Swagger V2).
-  const tipoPago = input.pago === "efectivo" ? 1 : input.pago === "datafono" ? 2 : 5;
+  const paymentFields = restaurantPePaymentFields(input.pago, total);
   const sedeLatLng = sede as unknown as { lat: number | null; lng: number | null };
   // Feature flag para habilitar el push socket de Restaurant.pe → QuipuPOS del local.
   // En producción debe configurarse: RP_EMIT_SOCKET=true
@@ -508,11 +509,9 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     delivery: {
       local_id: sede.rp_local_id,
       canaldelivery_id: 1,
-      delivery_pagocon: input.pago === "efectivo" ? total : 0,
+      ...paymentFields,
       delivery_montodescuento: 0,
       delivery_costoenvio: input.tipo === "delivery" ? deliveryFee : 0,
-      delivery_tipopago: tipoPago,
-      tarjeta_id: input.pago === "datafono" ? 1 : null,
       delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
       ...((() => {
         if (!input.pickupScheduledFor) {
