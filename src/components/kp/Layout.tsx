@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { BrutalLink, BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { UserMenu } from "@/components/auth/UserMenu";
