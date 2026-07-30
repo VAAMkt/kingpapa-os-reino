@@ -100,7 +100,8 @@ export function useCart() {
 export function addItem(
   input: Omit<CartItem, "key" | "cantidad"> & { cantidad?: number; silent?: boolean },
 ) {
-  const key = input.productoId + modKey(input.modificadores);
+  const parent = input.paraProducto ? `@@${input.paraProducto}` : "";
+  const key = input.productoId + modKey(input.modificadores) + parent;
   const state = read();
   const items = [...state.items];
   const idx = items.findIndex((i) => i.key === key);
@@ -115,8 +116,10 @@ export function addItem(
       imagen: input.imagen ?? null,
       modificadores: input.modificadores,
       cantidad: input.cantidad ?? 1,
+      paraProducto: input.paraProducto ?? null,
     });
   }
+
   write({ ...state, items });
   if (!input.silent) openCart();
 }
