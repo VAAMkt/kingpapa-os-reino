@@ -386,6 +386,61 @@ function extractRows(raw: unknown): Record<string, unknown>[] {
   return [];
 }
 
+export type RpPaymentMethodAuditRow = {
+  id: string | null;
+  nombre: string | null;
+  tipo: string | null;
+  activo: boolean | null;
+  tarjeta_id: string | null;
+};
+
+/**
+ * Consulta de solo lectura al catálogo de formas de pago configurado por local.
+ * No devuelve el objeto crudo para evitar exponer campos internos innecesarios.
+ */
+export async function rpGetPaymentMethods(
+  localId: string | number,
+): Promise<RpPaymentMethodAuditRow[]> {
+  const id = String(localId).trim();
+  if (!id) throw new Error("rpGetPaymentMethods requiere localId");
+  const raw = await rpTenantFetch<unknown>(`/formapago/getFormapagoListV2/${id}/1/100`);
+  return extractRows(raw).map((row) => {
+    const rawActivo = row.formapago_activo ?? row.activo ?? row.estado;
+    return {
+      id:
+        row.formapago_id != null
+          ? String(row.formapago_id)
+          : row.id != null
+            ? String(row.id)
+            : null,
+      nombre:
+        row.formapago_nombre != null
+          ? String(row.formapago_nombre)
+          : row.nombre != null
+            ? String(row.nombre)
+            : row.descripcion != null
+              ? String(row.descripcion)
+              : null,
+      tipo:
+        row.formapago_tipo != null
+          ? String(row.formapago_tipo)
+          : row.tipo != null
+            ? String(row.tipo)
+            : null,
+      activo:
+        rawActivo == null
+          ? null
+          : ["true", "1"].includes(String(rawActivo).trim().toLowerCase()),
+      tarjeta_id:
+        row.tarjeta_id != null
+          ? String(row.tarjeta_id)
+          : row.formapago_tarjetaid != null
+            ? String(row.formapago_tarjetaid)
+            : null,
+    };
+  });
+}
+
 /**
  * Resuelve el delivery_id real usando la llave canónica que enviamos al POS.
  * Evita correlacionar por hora, teléfono o "pedido más reciente".

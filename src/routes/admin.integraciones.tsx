@@ -6,7 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { toast } from "sonner";
-import { getIntegrationsStatus } from "@/lib/integrations.functions";
+import {
+  getIntegrationsStatus,
+  getPaymentMethodsAudit,
+} from "@/lib/integrations.functions";
 import { listOrphanOrders } from "@/lib/orders.reconcile.functions";
 import { checkQuipuBacklog, pollActiveOrders } from "@/lib/rp-reconcile.functions";
 
@@ -62,6 +65,7 @@ function relativeAgo(iso: string | null): string {
 
 function AdminIntegracionesPage() {
   const fetchStatus = useServerFn(getIntegrationsStatus);
+  const fetchPaymentMethods = useServerFn(getPaymentMethodsAudit);
   const fetchOrphans = useServerFn(listOrphanOrders);
   const fetchQuipuBacklog = useServerFn(checkQuipuBacklog);
   const runPoll = useServerFn(pollActiveOrders);
@@ -70,6 +74,13 @@ function AdminIntegracionesPage() {
     queryKey: ["integraciones", "status"],
     queryFn: () => fetchStatus({}),
     refetchInterval: 15_000,
+  });
+
+  const paymentMethodsQuery = useQuery({
+    queryKey: ["integraciones", "payment-methods"],
+    queryFn: () => fetchPaymentMethods({}),
+    staleTime: 5 * 60_000,
+    retry: false,
   });
 
   const orphansQuery = useQuery({
@@ -234,6 +245,78 @@ function AdminIntegracionesPage() {
           </ul>
         </BrutalCard>
       </div>
+
+      <BrutalCard tone="cheese" className="p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="font-display uppercase text-lg">Métodos de pago Restaurant.pe</h2>
+            <p className="text-xs text-kp-ink/65">
+              Catálogo de solo lectura por local. Estos IDs deben validarse antes de mapear el checkout.
+            </p>
+          </div>
+          <BrutalButton
+            size="sm"
+            variant="ghost"
+            onClick={() => paymentMethodsQuery.refetch()}
+            disabled={paymentMethodsQuery.isFetching}
+          >
+            {paymentMethodsQuery.isFetching ? "Consultando…" : "Actualizar"}
+          </BrutalButton>
+        </div>
+        {paymentMethodsQuery.isError ? (
+          <p className="text-xs text-kp-red">
+            {paymentMethodsQuery.error instanceof Error
+              ? paymentMethodsQuery.error.message
+              : "No se pudo consultar Restaurant.pe"}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {(paymentMethodsQuery.data ?? []).map((sede) => (
+              <div key={sede.sede_id} className="border-2 border-kp-ink/20 p-3">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <strong className="font-display uppercase text-sm">{sede.sede_nombre}</strong>
+                  <BrutalBadge tone={sede.ok ? "lime" : "red"}>
+                    {sede.ok ? `${sede.methods.length} métodos` : "error"}
+                  </BrutalBadge>
+                  <span className="font-mono text-[10px]">local_id={sede.local_id}</span>
+                </div>
+                {sede.ok ? (
+                  sede.methods.length ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-left font-display uppercase">
+                            <th className="pr-3">ID</th>
+                            <th className="pr-3">Nombre</th>
+                            <th className="pr-3">Tipo</th>
+                            <th className="pr-3">Tarjeta</th>
+                            <th>Activo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sede.methods.map((method, index) => (
+                            <tr key={`${method.id ?? "sin-id"}-${index}`} className="border-t border-kp-ink/15">
+                              <td className="py-1 pr-3 font-mono">{method.id ?? "—"}</td>
+                              <td className="py-1 pr-3">{method.nombre ?? "—"}</td>
+                              <td className="py-1 pr-3 font-mono">{method.tipo ?? "—"}</td>
+                              <td className="py-1 pr-3 font-mono">{method.tarjeta_id ?? "—"}</td>
+                              <td className="py-1">{method.activo == null ? "—" : method.activo ? "sí" : "no"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-kp-ink/60">Restaurant.pe devolvió una lista vacía.</p>
+                  )
+                ) : (
+                  <p className="text-xs text-kp-red break-all">{sede.error}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </BrutalCard>
 
       {/* Bloque 1b — Pedidos huérfanos (solo lectura: auto-abandono a 45 min) */}
       <BrutalCard
