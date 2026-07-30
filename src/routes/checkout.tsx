@@ -28,8 +28,7 @@ export const Route = createFileRoute("/checkout")({
 });
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
-const PAYMENTS_ENABLED = import.meta.env.VITE_PAYMENTS_ENABLED === "true";
-type PagoMetodo = "efectivo" | "datafono" | "online";
+type PagoMetodo = "efectivo" | "datafono";
 type FieldErrors = Partial<Record<"nombre" | "telefono" | "direccion", string>>;
 
 const FORM_KEY = "kp.checkoutForm";
@@ -92,10 +91,9 @@ function CheckoutPage() {
   const [notas, setNotas] = useState(persisted.notas ?? "");
   const [pickupDate, setPickupDate] = useState(persisted.pickupDate ?? pickupDefault.date);
   const [pickupTime, setPickupTime] = useState(persisted.pickupTime ?? pickupDefault.time);
-  const [pago, setPago] = useState<PagoMetodo>(() => {
-    const p = persisted.pago ?? "efectivo";
-    return p === "online" && !PAYMENTS_ENABLED ? "efectivo" : p;
-  });
+  const [pago, setPago] = useState<PagoMetodo>(() =>
+    persisted.pago === "datafono" ? "datafono" : "efectivo",
+  );
   const [enviando, setEnviando] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [resumenAbierto, setResumenAbierto] = useState(false);
@@ -680,7 +678,6 @@ function CheckoutPage() {
                 [
                   { id: "efectivo", label: "💵 Efectivo" },
                   { id: "datafono", label: "💳 Datáfono" },
-                  ...(PAYMENTS_ENABLED ? [{ id: "online", label: "🌐 Online" }] : []),
                 ] as { id: PagoMetodo; label: string }[]
               ).map((opt) => (
                 <button
