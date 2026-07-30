@@ -340,7 +340,14 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
             <div className="font-display text-2xl leading-none">{cop(total)}</div>
           </div>
         </div>
-        <BrutalButton variant="fire" size="lg" block onClick={agregar} disabled={!valido}>
+        <BrutalButton
+          variant="fire"
+          size="lg"
+          block
+          onClick={agregar}
+          aria-disabled={!valido}
+          className={valido ? "" : "opacity-70"}
+        >
           {valido ? `Agregar · ${cop(total)}` : (faltantes[0] ?? "Completa las opciones")}
         </BrutalButton>
       </div>
