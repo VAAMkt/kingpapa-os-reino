@@ -7,6 +7,7 @@ import { useActiveSede } from "@/lib/active-sede";
 import { openLocationGate } from "@/components/kp/LocationGate";
 import { setPendingIntent, GATE_CONFIRMED_EVENT, runPendingIntent } from "@/lib/pending-intent";
 import { ProductCustomizerSheet } from "@/components/kp/ProductCustomizerSheet";
+import { PostAddUpsellSheet } from "@/components/kp/PostAddUpsellSheet";
 import { track } from "@/lib/analytics";
 import { toast } from "sonner";
 
@@ -49,6 +50,7 @@ export function ProductCard({
 }) {
   const sede = useActiveSede();
   const [openCustomizer, setOpenCustomizer] = useState(false);
+  const [openUpsell, setOpenUpsell] = useState(false);
   useEffect(() => {
     ensureListener();
   }, []);
@@ -97,6 +99,7 @@ export function ProductCard({
       precio_final: producto.precioDesde,
     });
     toast.success(`${producto.nombre} al carrito`);
+    setOpenUpsell(true);
   }
 
   const isHero = destacado || producto.destacado;
