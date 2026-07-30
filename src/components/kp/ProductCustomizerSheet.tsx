@@ -127,7 +127,16 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
 
   function agregar() {
     if (!valido) {
+      const primero = grupos.find((g) => (sel[g.id]?.size ?? 0) < g.min);
       toast.error(faltantes[0] ?? "Faltan opciones");
+      if (primero) {
+        const node = document.getElementById(`grp-block-${primero.id}`);
+        node?.scrollIntoView({
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+          block: "center",
+        });
+        node?.focus();
+      }
       return;
     }
     addItem({
@@ -137,6 +146,8 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
       imagen: producto.imagen,
       modificadores: mods,
       cantidad,
+      // NO abrimos el carrito: el usuario sigue explorando.
+      silent: true,
     });
     track("add_to_cart", {
       producto_id: producto.id,
@@ -145,18 +156,30 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
       tiene_modificadores: mods.length > 0,
       tiene_upsell: bebidasSugeridas.length > 0,
     });
+    track("customizer_completed", {
+      producto_id: producto.id,
+      modificadores: mods.length,
+      cantidad,
+    });
     toast.success(`${producto.nombre} al carrito`);
     onDone();
   }
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Hero ≥40% altura */}
-      <div className="relative shrink-0 h-[42vh] min-h-[260px] bg-kp-ink">
+      {/* Hero compacto: la primera decisión debe verse sin scroll */}
+      <div className="relative shrink-0 h-[min(30vh,220px)] min-h-[150px] bg-kp-ink">
         {producto.imagen && (
-          <img src={producto.imagen} alt={producto.nombre} className="w-full h-full object-cover" />
+          <img
+            src={producto.imagen}
+            alt={producto.nombre}
+            width={1200}
+            height={800}
+            className="w-full h-full object-cover"
+          />
         )}
       </div>
+
 
       {/* Scroll area */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
