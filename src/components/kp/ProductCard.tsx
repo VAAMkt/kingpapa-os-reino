@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import type { Producto } from "@/types/kp";
-import { addItem } from "@/lib/cart";
+import { addItem, useCart } from "@/lib/cart";
 import { useActiveSede } from "@/lib/active-sede";
 import { openLocationGate } from "@/components/kp/LocationGate";
 import { setPendingIntent, GATE_CONFIRMED_EVENT, runPendingIntent } from "@/lib/pending-intent";
@@ -49,6 +49,7 @@ export function ProductCard({
   priority?: boolean;
 }) {
   const sede = useActiveSede();
+  const { orderType } = useCart();
   const [openCustomizer, setOpenCustomizer] = useState(false);
   const [openUpsell, setOpenUpsell] = useState(false);
   useEffect(() => {
@@ -59,8 +60,12 @@ export function ProductCard({
   const badges = badgesDe(producto);
 
   function onPedir() {
-    const tieneUbicacionReal = !!sede && sede.source !== "exploring";
-    if (!tieneUbicacionReal) {
+    const tieneSedeConfirmada = !!sede && sede.source !== "exploring";
+    const tieneDestinoDelivery =
+      tieneSedeConfirmada && sede.lat != null && sede.lng != null;
+    const puedeAgregar =
+      orderType === "pickup" ? tieneSedeConfirmada : tieneDestinoDelivery;
+    if (!puedeAgregar) {
       setPendingIntent({
         type: "add",
         productoId: producto.id,
