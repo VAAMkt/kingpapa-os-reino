@@ -36,8 +36,11 @@ export function CartDrawer() {
             </div>
             {items.length > 0 && (
               <button
-                onClick={clearCart}
-                className="text-xs font-display uppercase underline decoration-kp-red decoration-2 underline-offset-4"
+                onClick={() => {
+                  if (items.length > 1 && !window.confirm("¿Vaciar todo el pedido?")) return;
+                  clearCart();
+                }}
+                className="min-h-11 px-2 text-xs font-display uppercase underline decoration-kp-red decoration-2 underline-offset-4"
               >
                 Vaciar
               </button>
@@ -53,38 +56,52 @@ export function CartDrawer() {
             <>
               <ul className="divide-y-2 divide-kp-ink/20 max-h-[50vh] overflow-y-auto">
                 {items.map((i) => (
-                  <li key={i.key} className="py-3 flex items-center gap-3">
+                  <li key={i.key} className="py-3 flex items-start gap-3">
                     {i.imagen && (
                       <img
                         src={i.imagen}
                         alt=""
-                        className="w-14 h-14 object-cover border-2 border-kp-ink"
+                        width={112}
+                        height={112}
+                        loading="lazy"
+                        className="w-14 h-14 shrink-0 object-cover border-2 border-kp-ink"
+                        style={{ aspectRatio: "1 / 1" }}
                       />
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-display uppercase text-sm leading-tight">{i.nombre}</p>
-                      <p className="text-xs">{cop(i.precio)}</p>
+                      {i.modificadores && i.modificadores.length > 0 && (
+                        <ul className="mt-0.5 text-xs text-kp-ink/70 leading-snug">
+                          {i.modificadores.map((m) => (
+                            <li key={`${m.grupoId}-${m.opcionId}`}>
+                              · {m.nombre}
+                              {m.precio > 0 ? ` (+${cop(m.precio)})` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="text-xs mt-1">{cop(i.precio)}</p>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => decItem(i.key)}
-                        className="w-7 h-7 border-2 border-kp-ink bg-kp-cheese font-display"
-                        aria-label="Restar"
+                        className="w-11 h-11 border-2 border-kp-ink bg-kp-cheese font-display text-lg"
+                        aria-label={`Restar uno de ${i.nombre}`}
                       >
                         −
                       </button>
-                      <span className="w-6 text-center font-display">{i.cantidad}</span>
+                      <span className="w-7 text-center font-display">{i.cantidad}</span>
                       <button
                         onClick={() => incItem(i.key)}
-                        className="w-7 h-7 border-2 border-kp-ink bg-kp-yellow font-display"
-                        aria-label="Sumar"
+                        className="w-11 h-11 border-2 border-kp-ink bg-kp-yellow font-display text-lg"
+                        aria-label={`Sumar uno de ${i.nombre}`}
                       >
                         +
                       </button>
                       <button
                         onClick={() => removeItem(i.key)}
-                        className="ml-2 text-xs underline"
-                        aria-label="Eliminar"
+                        className="w-11 h-11 border-2 border-kp-ink/30 bg-kp-cheese font-display"
+                        aria-label={`Eliminar ${i.nombre}`}
                       >
                         ✕
                       </button>
@@ -92,6 +109,7 @@ export function CartDrawer() {
                   </li>
                 ))}
               </ul>
+
 
               <div className="mt-4">
                 <UpsellSection
