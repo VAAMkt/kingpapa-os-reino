@@ -6,6 +6,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       className="toaster group"
+      // Arriba y centrado: la zona inferior está ocupada por los CTAs
+      // (upsell, píldora del carrito) durante el flujo de pedido.
+      position="top-center"
+      offset="calc(var(--kp-appbar-h, 64px) + 8px)"
+      mobileOffset="calc(var(--kp-appbar-h, 64px) + 8px)"
       toastOptions={{
         classNames: {
           toast:
@@ -19,5 +24,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
     />
   );
 };
+
 
 export { Toaster };
