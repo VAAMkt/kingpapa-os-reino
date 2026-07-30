@@ -75,9 +75,11 @@ export function TopAppBar() {
       ref={headerRef}
       className="sticky top-0 z-40 bg-kp-yellow border-b-4 border-kp-ink"
     >
-      <div className="mx-auto max-w-7xl px-4 md:px-6 py-3 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center" aria-label="KINGPAPA — Inicio">
-          <img src={logoDark.url} alt="KINGPAPA" className="h-7 md:h-9 w-auto" />
+      {/* Una sola instancia de la píldora: en móvil salta a su propia línea
+          (order-last + w-full), en desktop vuelve a la fila del logo. */}
+      <div className="mx-auto max-w-7xl px-4 md:px-6 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Link to="/" className="flex items-center shrink-0" aria-label="KINGPAPA — Inicio">
+          <img src={logoDark.url} alt="KINGPAPA" className="h-8 md:h-9 w-auto" />
         </Link>
 
         <nav className="hidden lg:flex items-center gap-1">
@@ -93,8 +95,7 @@ export function TopAppBar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
-          <LocationPill className="hidden sm:inline-flex" />
+        <div className="flex items-center gap-2 ml-auto shrink-0">
           <UserMenu />
           <BrutalButton
             variant="dark"
@@ -106,12 +107,13 @@ export function TopAppBar() {
             {open ? "Cerrar" : "Menú"}
           </BrutalButton>
         </div>
+
+        <div className="order-last w-full lg:order-none lg:w-auto lg:ml-2 min-w-0">
+          <LocationPill />
+        </div>
       </div>
 
-      {/* Pill móvil en una segunda línea para que siempre se vea */}
-      <div className="sm:hidden px-4 pb-3">
-        <LocationPill className="w-full justify-start" />
-      </div>
+
 
       {open && (
         <div className="lg:hidden border-t-4 border-kp-ink bg-kp-yellow">
