@@ -237,7 +237,7 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
                   return (
                     <li key={o.id}>
                       <label
-                        className={`flex items-center gap-3 cursor-pointer px-2 py-2 border-2 ${
+                        className={`flex items-center gap-3 cursor-pointer min-h-12 px-3 py-2 border-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-kp-ink ${
                           checked
                             ? "bg-kp-ink text-kp-cheese border-kp-ink"
                             : "bg-kp-cheese text-kp-ink border-kp-ink/30 hover:border-kp-ink"
@@ -248,11 +248,11 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
                           name={`grp-${g.id}`}
                           checked={checked}
                           onChange={() => toggle(g.id, o.id, g.max)}
-                          className="accent-kp-yellow w-4 h-4"
+                          className="accent-kp-yellow w-5 h-5"
                         />
                         <span className="flex-1 text-sm">{o.nombre}</span>
                         {o.precio > 0 && (
-                          <span className="font-display text-sm">+ {cop(o.precio)}</span>
+                          <span className="font-display text-sm shrink-0">+ {cop(o.precio)}</span>
                         )}
                       </label>
                     </li>
