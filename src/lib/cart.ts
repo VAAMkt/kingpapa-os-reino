@@ -16,7 +16,10 @@ export type CartItem = {
   cantidad: number;
   imagen?: string | null;
   modificadores?: CartModifier[];
+  /** Nombre del producto al que acompaña (upsell post-agregado). Sólo visual. */
+  paraProducto?: string | null;
 };
+
 
 export type OrderType = "delivery" | "pickup";
 
