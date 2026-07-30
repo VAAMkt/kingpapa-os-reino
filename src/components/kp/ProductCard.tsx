@@ -7,6 +7,7 @@ import { useActiveSede } from "@/lib/active-sede";
 import { openLocationGate } from "@/components/kp/LocationGate";
 import { setPendingIntent, GATE_CONFIRMED_EVENT, runPendingIntent } from "@/lib/pending-intent";
 import { ProductCustomizerSheet } from "@/components/kp/ProductCustomizerSheet";
+import { PostAddUpsellSheet } from "@/components/kp/PostAddUpsellSheet";
 import { track } from "@/lib/analytics";
 import { toast } from "sonner";
 
@@ -49,6 +50,7 @@ export function ProductCard({
 }) {
   const sede = useActiveSede();
   const [openCustomizer, setOpenCustomizer] = useState(false);
+  const [openUpsell, setOpenUpsell] = useState(false);
   useEffect(() => {
     ensureListener();
   }, []);
@@ -97,6 +99,7 @@ export function ProductCard({
       precio_final: producto.precioDesde,
     });
     toast.success(`${producto.nombre} al carrito`);
+    setOpenUpsell(true);
   }
 
   const isHero = destacado || producto.destacado;
@@ -108,11 +111,12 @@ export function ProductCard({
         tone={isHero ? "yellow" : "cheese"}
         className="overflow-hidden flex flex-row sm:flex-col h-full"
       >
-        {/* Imagen: derecha en móvil, arriba en tablet/desktop */}
+        {/* Imagen: en móvil va a la derecha con el MISMO margen arriba,
+            derecha y abajo para quedar ópticamente centrada en su esquina. */}
         <div
-          className={`relative shrink-0 order-2 sm:order-none w-28 self-start m-3 sm:m-0 sm:w-full ${
+          className={`relative shrink-0 order-2 sm:order-none w-32 max-w-[38%] min-h-32 my-3 mr-3 sm:m-0 sm:w-full sm:max-w-none ${
             isHero ? "sm:aspect-[16/10]" : "sm:aspect-square"
-          } aspect-square bg-kp-ink border-2 border-kp-ink sm:border-0 sm:border-b-2`}
+          } bg-kp-ink border-2 border-kp-ink sm:border-0 sm:border-b-2`}
         >
           {producto.imagen ? (
             <img
@@ -123,7 +127,7 @@ export function ProductCard({
               loading={priority ? "eager" : "lazy"}
               fetchPriority={priority ? "high" : "auto"}
               decoding={priority ? "sync" : "async"}
-              sizes="(max-width: 640px) 112px, (max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 640px) 128px, (max-width: 1024px) 50vw, 33vw"
               className="w-full h-full object-cover"
               style={{ aspectRatio: "1 / 1" }}
             />
@@ -148,20 +152,22 @@ export function ProductCard({
             </div>
           )}
           <h3
-            className={`font-display uppercase leading-tight ${
-              isHero ? "text-xl sm:text-3xl md:text-4xl" : "text-[18px] sm:text-2xl"
+            className={`font-display uppercase leading-tight line-clamp-2 ${
+              isHero ? "text-xl sm:text-3xl md:text-4xl" : "text-[17px] sm:text-2xl"
             }`}
           >
             {producto.nombre}
           </h3>
           {!compact && producto.descripcion && (
-            <p className="text-sm text-kp-ink/80 line-clamp-2 sm:line-clamp-3">
+            <p className="text-[13px] sm:text-sm text-kp-ink/80 leading-snug line-clamp-4 sm:line-clamp-3">
               {producto.descripcion}
             </p>
           )}
 
-          <div className="mt-auto pt-2 sm:pt-3 flex items-center justify-between gap-2">
-            <span className={`font-display ${isHero ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl"}`}>
+          <div className="mt-auto pt-2 sm:pt-3 flex flex-wrap items-center justify-between gap-2">
+            <span
+              className={`font-display ${isHero ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl"}`}
+            >
               {cop(producto.precioDesde)}
             </span>
             <BrutalButton
@@ -182,8 +188,12 @@ export function ProductCard({
           producto={producto}
           open={openCustomizer}
           onOpenChange={setOpenCustomizer}
+          onAdded={() => setOpenUpsell(true)}
         />
       )}
+
+      <PostAddUpsellSheet producto={producto} open={openUpsell} onOpenChange={setOpenUpsell} />
     </>
   );
 }
+

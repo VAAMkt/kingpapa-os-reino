@@ -71,6 +71,11 @@ export function CartDrawer() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-display uppercase text-sm leading-tight">{i.nombre}</p>
+                      {i.paraProducto && (
+                        <p className="text-[11px] font-display uppercase opacity-70">
+                          Para tu {i.paraProducto}
+                        </p>
+                      )}
                       {i.modificadores && i.modificadores.length > 0 && (
                         <ul className="mt-0.5 text-xs text-kp-ink/70 leading-snug">
                           {i.modificadores.map((m) => (

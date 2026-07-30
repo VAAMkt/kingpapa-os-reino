@@ -33,10 +33,13 @@ export function ProductCustomizerSheet({
   producto,
   open,
   onOpenChange,
+  onAdded,
 }: {
   producto: Producto | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** Se dispara al confirmar el producto (para abrir el upsell del padre). */
+  onAdded?: () => void;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -48,7 +51,15 @@ export function ProductCustomizerSheet({
         <SheetDescription className="sr-only">
           Elige adiciones y cantidad antes de agregar al carrito.
         </SheetDescription>
-        {producto && <CustomizerBody producto={producto} onDone={() => onOpenChange(false)} />}
+        {producto && (
+          <CustomizerBody
+            producto={producto}
+            onDone={() => {
+              onOpenChange(false);
+              onAdded?.();
+            }}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
