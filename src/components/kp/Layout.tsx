@@ -24,16 +24,23 @@ function LocationPill({ className = "" }: { className?: string }) {
     <button
       onClick={openLocationGate}
       title={label}
+      aria-label={`Ubicación: ${label}. Tocar para cambiar`}
       className={
-        "inline-flex items-center gap-2 max-w-[260px] px-3 py-1.5 bg-kp-cheese border-2 border-kp-ink shadow-brutal-sm font-display uppercase text-[11px] md:text-xs hover:-translate-y-[1px] truncate " +
+        "inline-flex items-center gap-2 min-h-11 w-full lg:w-auto lg:max-w-[280px] px-3 py-1.5 bg-kp-cheese border-2 border-kp-ink shadow-brutal-sm font-display uppercase text-[11px] md:text-xs hover:-translate-y-[1px] " +
         className
       }
     >
-      <span>📍</span>
-      <span className="truncate">{label}</span>
+      <span className="shrink-0" aria-hidden>
+        📍
+      </span>
+      <span className="flex-1 min-w-0 truncate text-left">{label}</span>
+      <span className="shrink-0 text-[10px] underline underline-offset-2 decoration-2 opacity-70">
+        Cambiar
+      </span>
     </button>
   );
 }
+
 
 export function TopAppBar() {
   const [open, setOpen] = useState(false);
