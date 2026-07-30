@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { BrutalLink, BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { UserMenu } from "@/components/auth/UserMenu";
@@ -37,6 +37,7 @@ function LocationPill({ className = "" }: { className?: string }) {
 
 export function TopAppBar() {
   const [open, setOpen] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (open) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
@@ -45,8 +46,28 @@ export function TopAppBar() {
     };
   }, [open]);
 
+  // Publica la altura real del app bar como variable CSS para que barras
+  // sticky (ej. categorías de /menu) se posicionen debajo sin solaparse.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const apply = () => {
+      document.documentElement.style.setProperty(
+        "--kp-appbar-h",
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      );
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <header className="sticky top-0 z-40 bg-kp-yellow border-b-4 border-kp-ink">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-40 bg-kp-yellow border-b-4 border-kp-ink"
+    >
       <div className="mx-auto max-w-7xl px-4 md:px-6 py-3 flex items-center justify-between gap-3">
         <Link to="/" className="flex items-center" aria-label="KINGPAPA — Inicio">
           <img src={logoDark.url} alt="KINGPAPA" className="h-7 md:h-9 w-auto" />

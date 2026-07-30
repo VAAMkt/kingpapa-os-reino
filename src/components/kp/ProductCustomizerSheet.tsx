@@ -5,6 +5,7 @@ import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { addItem, type CartModifier } from "@/lib/cart";
 import { useUpsellGroups } from "@/components/kp/UpsellSection";
 import { track } from "@/lib/analytics";
+import { prefersReducedMotion } from "@/lib/utils";
 import type { Producto } from "@/types/kp";
 import { toast } from "sonner";
 
@@ -127,7 +128,16 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
 
   function agregar() {
     if (!valido) {
+      const primero = grupos.find((g) => (sel[g.id]?.size ?? 0) < g.min);
       toast.error(faltantes[0] ?? "Faltan opciones");
+      if (primero) {
+        const node = document.getElementById(`grp-block-${primero.id}`);
+        node?.scrollIntoView({
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+          block: "center",
+        });
+        node?.focus();
+      }
       return;
     }
     addItem({
@@ -137,6 +147,8 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
       imagen: producto.imagen,
       modificadores: mods,
       cantidad,
+      // NO abrimos el carrito: el usuario sigue explorando.
+      silent: true,
     });
     track("add_to_cart", {
       producto_id: producto.id,
@@ -145,18 +157,30 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
       tiene_modificadores: mods.length > 0,
       tiene_upsell: bebidasSugeridas.length > 0,
     });
+    track("customizer_completed", {
+      producto_id: producto.id,
+      modificadores: mods.length,
+      cantidad,
+    });
     toast.success(`${producto.nombre} al carrito`);
     onDone();
   }
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Hero ≥40% altura */}
-      <div className="relative shrink-0 h-[42vh] min-h-[260px] bg-kp-ink">
+      {/* Hero compacto: la primera decisión debe verse sin scroll */}
+      <div className="relative shrink-0 h-[min(30vh,220px)] min-h-[150px] bg-kp-ink">
         {producto.imagen && (
-          <img src={producto.imagen} alt={producto.nombre} className="w-full h-full object-cover" />
+          <img
+            src={producto.imagen}
+            alt={producto.nombre}
+            width={1200}
+            height={800}
+            className="w-full h-full object-cover"
+          />
         )}
       </div>
+
 
       {/* Scroll area */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
@@ -184,7 +208,12 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
           const incompleto = obligatorio && selected.size < g.min;
           const borderCls = incompleto ? "border-kp-red/70" : "border-kp-ink";
           return (
-            <div key={g.id} className={`border-2 ${borderCls} bg-kp-yellow/40 p-3 space-y-2`}>
+            <div
+              key={g.id}
+              id={`grp-block-${g.id}`}
+              tabIndex={-1}
+              className={`border-2 ${borderCls} bg-kp-yellow/40 p-3 space-y-2 scroll-mt-4 focus:outline-none`}
+            >
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="font-display uppercase text-lg leading-none">
                   {prettyGroupName(g.nombre)}
@@ -208,7 +237,7 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
                   return (
                     <li key={o.id}>
                       <label
-                        className={`flex items-center gap-3 cursor-pointer px-2 py-2 border-2 ${
+                        className={`flex items-center gap-3 cursor-pointer min-h-12 px-3 py-2 border-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-kp-ink ${
                           checked
                             ? "bg-kp-ink text-kp-cheese border-kp-ink"
                             : "bg-kp-cheese text-kp-ink border-kp-ink/30 hover:border-kp-ink"
@@ -219,11 +248,11 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
                           name={`grp-${g.id}`}
                           checked={checked}
                           onChange={() => toggle(g.id, o.id, g.max)}
-                          className="accent-kp-yellow w-4 h-4"
+                          className="accent-kp-yellow w-5 h-5"
                         />
                         <span className="flex-1 text-sm">{o.nombre}</span>
                         {o.precio > 0 && (
-                          <span className="font-display text-sm">+ {cop(o.precio)}</span>
+                          <span className="font-display text-sm shrink-0">+ {cop(o.precio)}</span>
                         )}
                       </label>
                     </li>
@@ -311,7 +340,14 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
             <div className="font-display text-2xl leading-none">{cop(total)}</div>
           </div>
         </div>
-        <BrutalButton variant="fire" size="lg" block onClick={agregar} disabled={!valido}>
+        <BrutalButton
+          variant="fire"
+          size="lg"
+          block
+          onClick={agregar}
+          aria-disabled={!valido}
+          className={valido ? "" : "opacity-70"}
+        >
           {valido ? `Agregar · ${cop(total)}` : (faltantes[0] ?? "Completa las opciones")}
         </BrutalButton>
       </div>
