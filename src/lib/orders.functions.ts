@@ -96,20 +96,15 @@ export const setOrderAnalyticsExclusion = createServerFn({ method: "POST" })
     if (roleError) throw new Error(roleError.message);
     if (!roles?.length) throw new Error("No tienes permiso para modificar las métricas.");
 
-    // NOTA: `is_test` / `analytics_excluded_at` / `analytics_exclusion_reason`
-    // no existen todavía en `public.orders`; el cast evita romper el build hasta
-    // que se defina el esquema de exclusión analítica.
-    const exclusionPayload = {
-      is_test: data.excluded,
-      analytics_excluded_at: data.excluded ? new Date().toISOString() : null,
-      analytics_exclusion_reason: data.excluded
-        ? "Marcado como prueba desde administración"
-        : null,
-    } as unknown as never;
-
     const { data: order, error } = await supabaseAdmin
       .from("orders")
-      .update(exclusionPayload)
+      .update({
+        is_test: data.excluded,
+        analytics_excluded_at: data.excluded ? new Date().toISOString() : null,
+        analytics_exclusion_reason: data.excluded
+          ? "Marcado como prueba desde administración"
+          : null,
+      })
       .eq("id", data.orderId)
       .select("id")
       .maybeSingle();
