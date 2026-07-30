@@ -95,7 +95,7 @@ export function TopAppBar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 ml-auto shrink-0">
+        <div className="flex items-center gap-2 ml-auto shrink-0 lg:order-2">
           <UserMenu />
           <BrutalButton
             variant="dark"
@@ -108,7 +108,7 @@ export function TopAppBar() {
           </BrutalButton>
         </div>
 
-        <div className="order-last w-full lg:order-none lg:w-auto lg:ml-2 min-w-0">
+        <div className="order-last w-full lg:order-1 lg:w-auto lg:ml-auto min-w-0">
           <LocationPill />
         </div>
       </div>
