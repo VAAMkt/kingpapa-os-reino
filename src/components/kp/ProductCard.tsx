@@ -114,7 +114,7 @@ export function ProductCard({
         {/* Imagen: en móvil va a la derecha con el MISMO margen arriba,
             derecha y abajo para quedar ópticamente centrada en su esquina. */}
         <div
-          className={`relative shrink-0 order-2 sm:order-none w-32 max-w-[38%] aspect-square my-3 mr-3 sm:m-0 sm:w-full sm:max-w-none ${
+          className={`relative shrink-0 order-2 sm:order-none w-32 max-w-[38%] min-h-32 my-3 mr-3 sm:m-0 sm:w-full sm:max-w-none ${
             isHero ? "sm:aspect-[16/10]" : "sm:aspect-square"
           } bg-kp-ink border-2 border-kp-ink sm:border-0 sm:border-b-2`}
         >
