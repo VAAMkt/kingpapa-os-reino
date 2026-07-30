@@ -5,6 +5,7 @@ import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { addItem, type CartModifier } from "@/lib/cart";
 import { useUpsellGroups } from "@/components/kp/UpsellSection";
 import { track } from "@/lib/analytics";
+import { prefersReducedMotion } from "@/lib/utils";
 import type { Producto } from "@/types/kp";
 import { toast } from "sonner";
 
