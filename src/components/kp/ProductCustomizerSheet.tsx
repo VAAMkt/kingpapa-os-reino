@@ -208,7 +208,12 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
           const incompleto = obligatorio && selected.size < g.min;
           const borderCls = incompleto ? "border-kp-red/70" : "border-kp-ink";
           return (
-            <div key={g.id} className={`border-2 ${borderCls} bg-kp-yellow/40 p-3 space-y-2`}>
+            <div
+              key={g.id}
+              id={`grp-block-${g.id}`}
+              tabIndex={-1}
+              className={`border-2 ${borderCls} bg-kp-yellow/40 p-3 space-y-2 scroll-mt-4 focus:outline-none`}
+            >
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="font-display uppercase text-lg leading-none">
                   {prettyGroupName(g.nombre)}
