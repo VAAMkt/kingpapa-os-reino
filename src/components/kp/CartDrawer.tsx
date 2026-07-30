@@ -11,7 +11,7 @@ const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
 export function CartDrawer() {
   const [open, setOpen] = useState(false);
-  const { items, count, subtotal } = useCart();
+  const { items, count, subtotal, orderType } = useCart();
   const sede = useActiveSede();
   const navigate = useNavigate();
 
@@ -30,7 +30,8 @@ export function CartDrawer() {
               <h2 className="font-display text-3xl uppercase leading-none">Tu pedido</h2>
               {sede && (
                 <p className="text-xs mt-1">
-                  📍 {sede.label} · <strong>{sede.enCobertura ? "Delivery" : "Recoger"}</strong>
+                  📍 {sede.label} ·{" "}
+                  <strong>{orderType === "pickup" ? "Recoger" : "Domicilio"}</strong>
                 </p>
               )}
             </div>
