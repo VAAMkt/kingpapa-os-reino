@@ -112,13 +112,6 @@ export function CartDrawer() {
                 <span className="text-lg">+{Math.floor(subtotal / 1000) * 10} pts</span>
               </div>
 
-              {/* FOMO: envío gratis (umbral provisional $40.000) */}
-              {subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD && (
-                <div className="mt-2 border-2 border-dashed border-kp-ink/60 px-3 py-2 text-xs font-display uppercase">
-                  Te faltan <strong>{cop(FREE_SHIPPING_THRESHOLD - subtotal)}</strong> para envío
-                  gratis
-                </div>
-              )}
 
               <BrutalButton
                 variant="fire"
