@@ -6,7 +6,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { rpGetPaymentMethods, rpGetDeliveryById } from "@/lib/restaurantpe.server";
+import {
+  extractRpDeliveryId,
+  rpFindDeliveryByIntegrationCode,
+  rpGetDeliveryById,
+  rpGetPaymentMethods,
+} from "@/lib/restaurantpe.server";
 
 export const getIntegrationsStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -124,8 +129,16 @@ export const runPaymentEvidenceAudit = createServerFn({ method: "POST" })
       .limit(20);
     if (error) throw new Error(error.message);
 
-    const { data: sedes } = await supabaseAdmin.from("sedes").select("id, nombre");
-    const sedeMap = new Map((sedes ?? []).map((sede) => [sede.id, sede.nombre]));
+    const { data: sedes, error: sedesError } = await supabaseAdmin
+      .from("sedes")
+      .select("id, nombre, rp_local_id");
+    if (sedesError) throw new Error(sedesError.message);
+    const sedeMap = new Map(
+      (sedes ?? []).map((sede) => [
+        sede.id,
+        { nombre: sede.nombre, localId: sede.rp_local_id },
+      ]),
+    );
 
     return Promise.all(
       (orders ?? []).map(async (order) => {
@@ -137,12 +150,33 @@ export const runPaymentEvidenceAudit = createServerFn({ method: "POST" })
           payload.delivery && typeof payload.delivery === "object" && !Array.isArray(payload.delivery)
             ? (payload.delivery as Record<string, unknown>)
             : {};
+        const sede = sedeMap.get(order.sede_id);
+        let resolvedDeliveryId: string | null = null;
         try {
-          const snapshot = await rpGetDeliveryById(order.rp_pedido_id!);
+          if (sede?.localId == null) {
+            throw new Error("La sede no tiene rp_local_id para resolver el delivery real.");
+          }
+          const matchedDelivery = await rpFindDeliveryByIntegrationCode({
+            localId: sede.localId,
+            integrationCode: order.id,
+          });
+          resolvedDeliveryId = extractRpDeliveryId(matchedDelivery);
+          if (!resolvedDeliveryId) {
+            throw new Error(
+              "No se encontró el delivery real mediante delivery_codigointegracion.",
+            );
+          }
+          const snapshot = await rpGetDeliveryById(resolvedDeliveryId);
+          if (!snapshot) {
+            throw new Error(
+              `Restaurant.pe no devolvió evidencia para el delivery ${resolvedDeliveryId}.`,
+            );
+          }
           return {
             order_id: order.id,
             rp_pedido_id: order.rp_pedido_id,
-            sede: sedeMap.get(order.sede_id) ?? order.sede_id,
+            sede: sede?.nombre ?? order.sede_id,
+            resolved_delivery_id: resolvedDeliveryId,
             tipo: order.tipo,
             pago_web: order.pago,
             total: order.total,
@@ -156,7 +190,8 @@ export const runPaymentEvidenceAudit = createServerFn({ method: "POST" })
           return {
             order_id: order.id,
             rp_pedido_id: order.rp_pedido_id,
-            sede: sedeMap.get(order.sede_id) ?? order.sede_id,
+            sede: sede?.nombre ?? order.sede_id,
+            resolved_delivery_id: resolvedDeliveryId,
             tipo: order.tipo,
             pago_web: order.pago,
             total: order.total,
