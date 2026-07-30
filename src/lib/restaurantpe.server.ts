@@ -430,7 +430,7 @@ export async function rpGetPaymentMethods(
       activo:
         rawActivo == null
           ? null
-          : rawActivo === true || rawActivo === 1 || String(rawActivo).toLowerCase() === "true",
+          : ["true", "1"].includes(String(rawActivo).trim().toLowerCase()),
       tarjeta_id:
         row.tarjeta_id != null
           ? String(row.tarjeta_id)
