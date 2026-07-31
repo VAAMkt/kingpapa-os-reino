@@ -271,6 +271,7 @@ export type Database = {
           id: string
           is_test: boolean
           items: Json
+          meta_capi_sent_at: string | null
           notas: string | null
           pago: string
           rp_numero_comanda: string | null
@@ -297,6 +298,7 @@ export type Database = {
           id?: string
           is_test?: boolean
           items: Json
+          meta_capi_sent_at?: string | null
           notas?: string | null
           pago: string
           rp_numero_comanda?: string | null
@@ -323,6 +325,7 @@ export type Database = {
           id?: string
           is_test?: boolean
           items?: Json
+          meta_capi_sent_at?: string | null
           notas?: string | null
           pago?: string
           rp_numero_comanda?: string | null

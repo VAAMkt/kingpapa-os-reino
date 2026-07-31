@@ -20,6 +20,17 @@ export const getIntegrationsStatus = createServerFn({ method: "GET" })
 
     const lastWebhookAt = lastRaw && lastRaw.length > 0 ? lastRaw[0].created_at : null;
 
+    // Última compra reportada a Meta por la API de Conversiones.
+    const { data: lastCapi } = await supabaseAdmin
+      .from("orders")
+      .select("meta_capi_sent_at")
+      .not("meta_capi_sent_at", "is", null)
+      .order("meta_capi_sent_at", { ascending: false })
+      .limit(1);
+
+    const { fetchDatasetQuality } = await import("@/lib/capi.server");
+    const quality = await fetchDatasetQuality();
+
     return {
       rp: {
         token_set: !!process.env.RESTAURANT_PE_TOKEN,
@@ -34,6 +45,17 @@ export const getIntegrationsStatus = createServerFn({ method: "GET" })
       google_maps: {
         browser_key_set: !!process.env.GOOGLE_MAPS_BROWSER_KEY_1,
         server_key_set: !!process.env.GOOGLE_MAPS_API_KEY_1,
+      },
+      meta: {
+        token_set: !!(process.env.META_CAPI_ACCESS_TOKEN || process.env.DATASET_QUALITY_API),
+        test_mode: !!process.env.META_TEST_EVENT_CODE,
+        dataset_id: "1348178064148165",
+        last_purchase_sent_at:
+          lastCapi && lastCapi.length > 0
+            ? ((lastCapi[0] as { meta_capi_sent_at: string | null }).meta_capi_sent_at ?? null)
+            : null,
+        quality_error: quality.error ?? null,
+        quality_metrics: quality.metrics ?? [],
       },
     };
   });
