@@ -101,7 +101,16 @@ function CheckoutPage() {
 
   // checkout_started: dispara una vez al montar si hay carrito.
   useEffect(() => {
-    if (count > 0) track("checkout_started", { items_count: count, subtotal });
+    if (count > 0)
+      track("checkout_started", {
+        items_count: count,
+        subtotal,
+        items: items.map((i) => ({
+          productoId: i.productoId,
+          cantidad: i.cantidad,
+          precio: i.precio,
+        })),
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -148,6 +148,8 @@ function Body({ producto, onClose }: { producto: Producto; onClose: () => void }
                       track("upsell_added", {
                         producto_padre_id: producto.id,
                         producto_id: p.id,
+                        producto_nombre: p.nombre,
+                        cantidad: 1,
                         grupo: active.key,
                         precio_final: p.precioDesde,
                       });
