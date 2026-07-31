@@ -19,6 +19,7 @@ import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
 import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
+import { pixelAdvancedMatch } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -101,7 +102,16 @@ function CheckoutPage() {
 
   // checkout_started: dispara una vez al montar si hay carrito.
   useEffect(() => {
-    if (count > 0) track("checkout_started", { items_count: count, subtotal });
+    if (count > 0)
+      track("checkout_started", {
+        items_count: count,
+        subtotal,
+        items: items.map((i) => ({
+          productoId: i.productoId,
+          cantidad: i.cantidad,
+          precio: i.precio,
+        })),
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -322,6 +332,8 @@ function CheckoutPage() {
     }
 
     setEnviando(true);
+    // Advanced Matching: sube la calidad de coincidencia en Meta (todo hasheado).
+    void pixelAdvancedMatch({ nombre, telefono, ciudad: "Cali" });
     track("order_submitted", {
       items_count: count,
       subtotal,
@@ -685,7 +697,7 @@ function CheckoutPage() {
                   type="button"
                   onClick={() => {
                     setPago(opt.id);
-                    track("payment_method_selected", { metodo: opt.id });
+                    track("payment_method_selected", { metodo: opt.id, total, subtotal });
                   }}
                   className={`px-3 py-2 border-2 font-display uppercase text-xs ${
                     pago === opt.id

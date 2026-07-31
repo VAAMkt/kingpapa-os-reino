@@ -38,7 +38,7 @@ type LastOrder = {
   pickupScheduledFor?: string | null;
   cliente: { nombre: string; telefono: string; direccion: string | null; detalles: string };
   sede: { id: string; slug: string; label: string } | null;
-  items: { key: string; nombre: string; cantidad: number; precio: number }[];
+  items: { key: string; productoId?: string; nombre: string; cantidad: number; precio: number }[];
   subtotal?: number;
   deliveryFee?: number;
   total: number;
@@ -137,7 +137,11 @@ function GraciasPage() {
     pixelPurchase({
       orderId: order.orderId,
       value: order.total,
-      contentIds: order.items?.map((i) => i.key) ?? [],
+      contents: (order.items ?? []).map((i) => ({
+        id: i.productoId ?? i.key,
+        quantity: i.cantidad,
+        item_price: i.precio,
+      })),
       numItems: order.items?.reduce((n, i) => n + i.cantidad, 0) ?? 0,
     });
   }, [order, order_id]);

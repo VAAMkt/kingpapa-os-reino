@@ -173,6 +173,23 @@ function MenuPage() {
     );
   }, [buscando, query, productos]);
 
+  // Search (Meta): una vez que el usuario deja de escribir.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) return;
+    const t = setTimeout(() => {
+      track("menu_search", {
+        query: q,
+        resultados: resultados.length,
+        resultados_ids: resultados.slice(0, 10).map((p) => p.id),
+      });
+    }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+
+
   // Scrollspy
   useEffect(() => {
     if (buscando) return;

@@ -133,6 +133,7 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
       producto_id: producto.id,
       producto_nombre: producto.nombre,
       precio_base: producto.precioDesde,
+      categoria: (producto.categorias ?? [])[0],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [producto.id]);
@@ -165,6 +166,8 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
       producto_id: producto.id,
       producto_nombre: producto.nombre,
       precio_final: unit,
+      cantidad,
+      categoria: (producto.categorias ?? [])[0],
       tiene_modificadores: mods.length > 0,
       tiene_upsell: bebidasSugeridas.length > 0,
     });
