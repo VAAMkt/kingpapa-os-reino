@@ -127,6 +127,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <noscript>
+          <img height="1" width="1" style={{ display: "none" }} src={META_PIXEL_NOSCRIPT_SRC} alt="" />
+        </noscript>
         {children}
         <Scripts />
       </body>
@@ -137,6 +140,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Meta Pixel: un PageView por navegación (la app es SPA).
+  useEffect(() => {
+    pixelPageView();
+  }, [pathname]);
 
   useEffect(() => {
     const {
