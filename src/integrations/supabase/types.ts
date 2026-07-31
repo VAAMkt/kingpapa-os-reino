@@ -260,6 +260,8 @@ export type Database = {
       }
       orders: {
         Row: {
+          analytics_excluded_at: string | null
+          analytics_exclusion_reason: string | null
           cancel_reason: string | null
           cancelled_at: string | null
           cliente: Json
@@ -267,6 +269,7 @@ export type Database = {
           delivery_distance_km: number | null
           delivery_fee: number
           id: string
+          is_test: boolean
           items: Json
           notas: string | null
           pago: string
@@ -283,6 +286,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          analytics_excluded_at?: string | null
+          analytics_exclusion_reason?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           cliente: Json
@@ -290,6 +295,7 @@ export type Database = {
           delivery_distance_km?: number | null
           delivery_fee?: number
           id?: string
+          is_test?: boolean
           items: Json
           notas?: string | null
           pago: string
@@ -306,6 +312,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          analytics_excluded_at?: string | null
+          analytics_exclusion_reason?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           cliente?: Json
@@ -313,6 +321,7 @@ export type Database = {
           delivery_distance_km?: number | null
           delivery_fee?: number
           id?: string
+          is_test?: boolean
           items?: Json
           notas?: string | null
           pago?: string

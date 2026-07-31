@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -16,6 +17,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { LocationGate } from "@/components/kp/LocationGate";
 import { CartDrawer } from "@/components/kp/CartDrawer";
 import { CartPill } from "@/components/kp/CartPill";
+import {
+  META_PIXEL_NOSCRIPT_SRC,
+  META_PIXEL_SNIPPET,
+  pixelPageView,
+} from "@/lib/meta-pixel";
 
 function NotFoundComponent() {
   return (
@@ -100,12 +106,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { rel: "preconnect", href: "https://connect.facebook.net" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700;800&display=swap",
       },
       { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
     ],
+    scripts: [{ children: META_PIXEL_SNIPPET }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -120,6 +128,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <noscript>
+          <img height="1" width="1" style={{ display: "none" }} src={META_PIXEL_NOSCRIPT_SRC} alt="" />
+        </noscript>
         {children}
         <Scripts />
       </body>
@@ -130,6 +141,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Meta Pixel: un PageView por navegación (la app es SPA).
+  useEffect(() => {
+    pixelPageView();
+  }, [pathname]);
 
   useEffect(() => {
     const {
