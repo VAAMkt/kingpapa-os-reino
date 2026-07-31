@@ -16,6 +16,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { LocationGate } from "@/components/kp/LocationGate";
 import { CartDrawer } from "@/components/kp/CartDrawer";
 import { CartPill } from "@/components/kp/CartPill";
+import {
+  META_PIXEL_NOSCRIPT_SRC,
+  META_PIXEL_SNIPPET,
+  pixelPageView,
+} from "@/lib/meta-pixel";
 
 function NotFoundComponent() {
   return (
