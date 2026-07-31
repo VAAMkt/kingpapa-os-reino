@@ -133,6 +133,7 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
       producto_id: producto.id,
       producto_nombre: producto.nombre,
       precio_base: producto.precioDesde,
+      categoria: (producto.categorias ?? [])[0],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [producto.id]);
