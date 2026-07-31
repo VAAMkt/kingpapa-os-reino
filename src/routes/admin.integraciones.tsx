@@ -235,6 +235,44 @@ function AdminIntegracionesPage() {
         </BrutalCard>
       </div>
 
+      {/* Bloque 1a — Meta (pixel + API de conversiones) */}
+      <BrutalCard tone="cheese" className="p-4">
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-display uppercase text-sm">Meta — Pixel + Conversions API</span>
+            <BrutalBadge tone={status?.meta.token_set ? "lime" : "red"}>
+              {status?.meta.token_set ? "conectado" : "sin token"}
+            </BrutalBadge>
+            {status?.meta.test_mode ? <BrutalBadge tone="yellow">modo prueba</BrutalBadge> : null}
+          </div>
+          <span className="text-[11px] font-mono text-kp-ink/60">
+            dataset {status?.meta.dataset_id}
+          </span>
+        </div>
+        <p className="text-xs text-kp-ink/70">
+          Última compra enviada al servidor de Meta:{" "}
+          <strong>{relativeAgo(status?.meta.last_purchase_sent_at ?? null)}</strong>. Navegador y
+          servidor comparten el mismo <code>event_id</code>, así que Meta nunca cuenta doble.
+        </p>
+        {status?.meta.quality_error ? (
+          <p className="text-[11px] font-mono text-kp-ink/60 mt-2">
+            Dataset Quality API: {status.meta.quality_error}
+          </p>
+        ) : (status?.meta.quality_metrics.length ?? 0) === 0 ? (
+          <p className="text-[11px] font-mono text-kp-ink/60 mt-2">
+            Dataset Quality API: sin métricas todavía (tarda 24–48 h en poblarse).
+          </p>
+        ) : (
+          <ul className="text-[11px] font-mono text-kp-ink/70 mt-2 space-y-0.5">
+            {status!.meta.quality_metrics.slice(0, 8).map((m) => (
+              <li key={m.event}>
+                {m.event}: coincidencia {m.matchRate ?? "—"} · eventos {m.count ?? "—"}
+              </li>
+            ))}
+          </ul>
+        )}
+      </BrutalCard>
+
       {/* Bloque 1b — Pedidos huérfanos (solo lectura: auto-abandono a 45 min) */}
       <BrutalCard
         tone={(orphansQuery.data?.orphans.length ?? 0) > 0 ? "yellow" : "cheese"}
