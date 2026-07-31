@@ -130,6 +130,17 @@ function GraciasPage() {
     }
   }, [order_id]);
 
+  // Meta Pixel: Purchase una sola vez por pedido confirmado.
+  useEffect(() => {
+    if (!order || order.orderId !== order_id || !order.total) return;
+    pixelPurchase({
+      orderId: order.orderId,
+      value: order.total,
+      contentIds: order.items?.map((i) => i.key) ?? [],
+      numItems: order.items?.reduce((n, i) => n + i.cantidad, 0) ?? 0,
+    });
+  }, [order, order_id]);
+
   // Buscar WhatsApp de la sede desde el backend público.
   useEffect(() => {
     if (!order?.sede?.slug) return;
