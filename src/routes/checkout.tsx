@@ -333,7 +333,7 @@ function CheckoutPage() {
 
     setEnviando(true);
     // Advanced Matching: sube la calidad de coincidencia en Meta (todo hasheado).
-    void pixelAdvancedMatch({ nombre, telefono, ciudad: sede?.ciudad ?? "Cali" });
+    void pixelAdvancedMatch({ nombre, telefono, ciudad: "Cali" });
     track("order_submitted", {
       items_count: count,
       subtotal,
