@@ -6,6 +6,7 @@ import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
 import { resolveOrderId } from "@/lib/orders.poll.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { pixelPurchase } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/gracias")({
   validateSearch: (s: Record<string, unknown>) => {
