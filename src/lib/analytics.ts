@@ -17,6 +17,8 @@ declare global {
 export function track(event: string, payload?: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
   try {
+    // Meta Pixel (siempre, también en preview para poder verificar con Pixel Helper).
+    pixelTrack(event, payload);
     if (import.meta.env.DEV) {
       console.log("[KP Analytics]", event, payload ?? {});
       return;
