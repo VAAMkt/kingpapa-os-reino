@@ -159,30 +159,37 @@ export async function sendCapiEvents(
 export type DatasetQuality = {
   configured: boolean;
   error?: string;
-  metrics?: Array<{ event: string; matchRate?: number; acr?: number; count?: number }>;
+  metrics?: Array<{ event: string; emq?: number | string }>;
 };
 
+/** GET /dataset_quality?dataset_id=... (Integration Quality API). */
 export async function fetchDatasetQuality(): Promise<DatasetQuality> {
   const token = accessToken();
   if (!token) return { configured: false, error: "missing_token" };
   try {
-    const url =
-      `https://graph.facebook.com/${GRAPH_VERSION}/${META_DATASET_ID}/dataset_quality_metrics` +
-      `?access_token=${encodeURIComponent(token)}`;
-    const res = await fetch(url);
+    const params = new URLSearchParams({
+      dataset_id: META_DATASET_ID,
+      fields: "web{event_match_quality,event_name}",
+      access_token: token,
+    });
+    const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/dataset_quality?${params}`);
     const json = (await res.json().catch(() => ({}))) as {
-      data?: Array<Record<string, unknown>>;
+      web?: Array<{ event_name?: string; event_match_quality?: unknown }>;
       error?: { message?: string };
     };
     if (!res.ok) return { configured: true, error: json?.error?.message ?? `HTTP ${res.status}` };
-    const metrics = (json.data ?? []).map((row) => ({
-      event: String(row["event_name"] ?? row["event"] ?? "—"),
-      matchRate: typeof row["event_match_quality"] === "number"
-        ? (row["event_match_quality"] as number)
-        : undefined,
-      acr: typeof row["acr"] === "number" ? (row["acr"] as number) : undefined,
-      count: typeof row["count"] === "number" ? (row["count"] as number) : undefined,
-    }));
+    const metrics = (json.web ?? []).map((row) => {
+      const raw = row.event_match_quality as
+        | number
+        | string
+        | { event_match_quality_score?: number; description?: string }
+        | undefined;
+      const emq =
+        typeof raw === "number" || typeof raw === "string"
+          ? raw
+          : (raw?.event_match_quality_score ?? raw?.description);
+      return { event: row.event_name ?? "—", emq };
+    });
     return { configured: true, metrics };
   } catch (err) {
     return { configured: true, error: err instanceof Error ? err.message : "unknown" };

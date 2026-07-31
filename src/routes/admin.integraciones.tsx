@@ -266,7 +266,7 @@ function AdminIntegracionesPage() {
           <ul className="text-[11px] font-mono text-kp-ink/70 mt-2 space-y-0.5">
             {status!.meta.quality_metrics.slice(0, 8).map((m) => (
               <li key={m.event}>
-                {m.event}: coincidencia {m.matchRate ?? "—"} · eventos {m.count ?? "—"}
+                {m.event}: coincidencia {m.emq ?? "—"}
               </li>
             ))}
           </ul>
