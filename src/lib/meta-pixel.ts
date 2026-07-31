@@ -30,6 +30,13 @@ function fbq(...args: unknown[]): void {
 }
 
 export function pixelPageView(): void {
+  if (typeof window === "undefined") return;
+  // El snippet del head ya dispara el primer PageView: evitamos duplicarlo.
+  const w = window as Window & { __kpPixelInitialPageView?: boolean };
+  if (w.__kpPixelInitialPageView) {
+    w.__kpPixelInitialPageView = false;
+    return;
+  }
   fbq("track", "PageView");
 }
 
