@@ -7,6 +7,8 @@
  * - PII: sólo Advanced Matching, hasheada con SHA-256 en el navegador.
  */
 
+import { sendMetaEvent } from "./capi.functions";
+
 export const META_PIXEL_ID = "1348178064148165";
 
 declare global {
@@ -38,7 +40,9 @@ export function pixelPageView(): void {
     w.__kpPixelInitialPageView = false;
     return;
   }
-  fbq("track", "PageView", {}, { eventID: eventId("PageView") });
+  const id = eventId("PageView");
+  fbq("track", "PageView", {}, { eventID: id });
+  mirror("PageView", id);
 }
 
 type StandardEvent =
@@ -195,7 +199,46 @@ function mapEvent(
 export function pixelTrack(event: string, payload?: Record<string, unknown>): void {
   const mapped = mapEvent(event, payload ?? {});
   if (!mapped) return;
-  fbq("track", mapped.name, clean(mapped.params), { eventID: eventId(mapped.name) });
+  const id = eventId(mapped.name);
+  const params = clean(mapped.params);
+  fbq("track", mapped.name, params, { eventID: id });
+  mirror(mapped.name, id, params);
+}
+
+/* ------------------------------------------------------------------ */
+/* Espejo servidor (Conversions API) — mismo event_id => sin duplicar   */
+/* ------------------------------------------------------------------ */
+
+/** Datos de contacto ya capturados en el checkout (memoria, no se persisten). */
+let matchedUser: { nombre?: string; telefono?: string; ciudad?: string } = {};
+
+function readCookie(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return m ? decodeURIComponent(m[1]!) : undefined;
+}
+
+function mirror(
+  eventName: string,
+  eventId: string,
+  customData?: Record<string, unknown>,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    void sendMetaEvent({
+      data: {
+        eventName,
+        eventId,
+        eventSourceUrl: window.location.href,
+        customData: customData as never,
+        fbp: readCookie("_fbp"),
+        fbc: readCookie("_fbc"),
+        ...matchedUser,
+      } as never,
+    }).catch(() => {});
+  } catch {
+    /* nunca romper UX por analytics */
+  }
 }
 
 function clean(o: Record<string, unknown>): Record<string, unknown> {
@@ -277,6 +320,11 @@ export async function pixelAdvancedMatch(user: {
   ciudad?: string | null;
 }): Promise<void> {
   if (typeof window === "undefined" || typeof crypto?.subtle === "undefined") return;
+  matchedUser = clean({
+    nombre: user.nombre ?? undefined,
+    telefono: user.telefono ?? undefined,
+    ciudad: user.ciudad ?? undefined,
+  }) as typeof matchedUser;
   const partes = (user.nombre ?? "").trim().toLowerCase().split(/\s+/).filter(Boolean);
   const phone = user.telefono ? normalizePhone(user.telefono) : undefined;
   const ciudad = (user.ciudad ?? "").trim().toLowerCase().replace(/\s+/g, "");
