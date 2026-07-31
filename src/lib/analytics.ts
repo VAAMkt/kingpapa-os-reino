@@ -1,3 +1,5 @@
+import { pixelTrack } from "./meta-pixel";
+
 declare global {
   interface Window {
     gtag?: (...args: unknown[]) => void;
