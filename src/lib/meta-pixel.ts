@@ -15,8 +15,8 @@ declare global {
   }
 }
 
-/** Snippet oficial de carga, sin el PageView (lo dispara el router). */
-export const META_PIXEL_SNIPPET = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${META_PIXEL_ID}');`;
+/** Snippet oficial de carga + PageView inmediato (lo que Meta detecta al verificar). */
+export const META_PIXEL_SNIPPET = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${META_PIXEL_ID}');fbq('track','PageView');window.__kpPixelInitialPageView=true;`;
 
 export const META_PIXEL_NOSCRIPT_SRC = `https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`;
 
@@ -30,6 +30,13 @@ function fbq(...args: unknown[]): void {
 }
 
 export function pixelPageView(): void {
+  if (typeof window === "undefined") return;
+  // El snippet del head ya dispara el primer PageView: evitamos duplicarlo.
+  const w = window as Window & { __kpPixelInitialPageView?: boolean };
+  if (w.__kpPixelInitialPageView) {
+    w.__kpPixelInitialPageView = false;
+    return;
+  }
   fbq("track", "PageView");
 }
 
