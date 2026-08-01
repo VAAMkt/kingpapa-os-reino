@@ -27,12 +27,20 @@ export function LocationCard({ sede }: { sede: SedeRow }) {
     <BrutalCard tone="cheese" className="p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="font-display text-2xl uppercase leading-none">{sede.nombre}</h3>
-          <p className="text-sm mt-1">{sede.direccion}</p>
-          <p className="text-xs text-kp-ink/70">
-            {sede.ciudad}
-            {sede.barrio ? ` · ${sede.barrio}` : sede.mall ? ` · ${sede.mall}` : ""}
-          </p>
+          <Link
+            to="/sedes/$slug"
+            params={{ slug: sede.slug }}
+            className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-kp-ink"
+          >
+            <h3 className="font-display text-2xl uppercase leading-none group-hover:underline underline-offset-4">
+              {sede.nombre}
+            </h3>
+            <p className="text-sm mt-1">{sede.direccion}</p>
+            <p className="text-xs text-kp-ink/70">
+              {sede.ciudad}
+              {sede.barrio ? ` · ${sede.barrio}` : sede.mall ? ` · ${sede.mall}` : ""}
+            </p>
+          </Link>
         </div>
         <BrutalBadge tone={sede.abierta_ahora ? "lime" : "black"}>
           {sede.abierta_ahora ? "Abierto" : "Cerrado"}
