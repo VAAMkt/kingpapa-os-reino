@@ -108,8 +108,8 @@ const emptyState: FormState = {
   delivery_base_distance_km: 1,
   delivery_extra_km_fee: 1200,
   delivery_max_distance_km: 8,
-  google_rating: null,
-  google_reviews_count: null,
+  google_place_id: null,
+
 
 
   tz: "America/Bogota",
