@@ -15,6 +15,9 @@ import {
   type SedeRow,
 } from "@/lib/sedes";
 import { listRpLocales } from "@/lib/rp.functions";
+import { syncGoogleRatings } from "@/lib/google-places.functions";
+import type { SyncSedeResult, SyncSummary } from "@/lib/google-places.server";
+
 import { PlacesAutocomplete } from "@/components/kp/PlacesAutocomplete";
 import { GateMap } from "@/components/kp/GateMap";
 import { toast } from "sonner";
