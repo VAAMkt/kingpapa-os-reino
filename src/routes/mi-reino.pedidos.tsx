@@ -97,7 +97,7 @@ function Pedidos() {
               </BrutalButton>
               <Link
                 to="/gracias"
-                search={{ order: o.id, q: undefined }}
+                search={{ order_id: o.id }}
                 className="font-display uppercase text-xs px-3 py-2 border-2 border-kp-ink bg-kp-cheese"
               >
                 Ver tracking

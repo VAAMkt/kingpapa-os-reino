@@ -207,11 +207,8 @@ function HomePage() {
         />
         {estrellas.length === 0 ? (
           <p className="text-sm text-kp-ink/70 border-2 border-dashed border-kp-ink p-4">
-            El menú aún no está sincronizado. Un editor puede traerlo desde{" "}
-            <Link to="/admin/sincronizacion" className="underline font-bold">
-              /admin/sincronizacion
-            </Link>
-            .
+            El menú aún no está sincronizado. Un editor puede traerlo desde el panel de
+            administración.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

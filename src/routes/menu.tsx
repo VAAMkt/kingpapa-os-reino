@@ -20,7 +20,7 @@ import { track } from "@/lib/analytics";
 import type { Producto, Categoria } from "@/types/kp";
 
 export const Route = createFileRoute("/menu")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { sede?: string } => ({
     sede: typeof search.sede === "string" ? search.sede : undefined,
   }),
   head: () => ({

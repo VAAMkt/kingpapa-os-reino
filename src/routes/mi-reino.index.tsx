@@ -87,7 +87,7 @@ function MiReinoInicio() {
               </BrutalButton>
               <Link
                 to="/gracias"
-                search={{ order: last.id, q: undefined }}
+                search={{ order_id: last.id }}
                 className="font-display uppercase text-xs px-3 py-2 border-2 border-kp-ink bg-kp-yellow"
               >
                 Ver estado
