@@ -230,7 +230,7 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
   const syncRatings = useMutation({
     mutationFn: async () => runSync({ data: { sedeId: initial?.id ?? null } }),
     onSuccess: (res) => {
-      const r = res.results.find((x) => x.sede_id === initial?.id) ?? res.results[0];
+      const r = res.results.find((x: { sede_id: string }) => x.sede_id === initial?.id) ?? res.results[0];
       if (r?.ok) {
         setRatingView({
           rating: r.rating ?? null,
