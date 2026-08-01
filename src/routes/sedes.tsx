@@ -53,10 +53,12 @@ export const Route = createFileRoute("/sedes")({
 });
 
 function SedesPage() {
+  const { sedes: initialSedes } = Route.useLoaderData();
   const { data: sedes = [], isLoading } = useQuery({
     queryKey: ["sedes", "public"],
     queryFn: listPublicSedes,
     staleTime: 60_000,
+    initialData: initialSedes,
   });
 
   const [q, setQ] = useState("");
