@@ -5,7 +5,20 @@ import { BrutalBadge } from "@/components/ui-kp/Brutal";
 
 export const Route = createFileRoute("/mi-reino")({
   head: () => ({
-    meta: [{ title: "Mi Reino — KINGPAPA OS" }],
+    meta: [
+      { title: "Mi Reino — KINGPAPA OS" },
+      {
+        name: "description",
+        content:
+          "Tu panel del Reino KINGPAPA: revisa tus pedidos, acumula puntos, guarda favoritos y desbloquea premios por frecuencia.",
+      },
+      { property: "og:title", content: "Mi Reino — KINGPAPA OS" },
+      {
+        property: "og:description",
+        content: "Pedidos, puntos y premios de tu cuenta KINGPAPA en un solo lugar.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
   }),
   component: MiReinoLayout,
 });
