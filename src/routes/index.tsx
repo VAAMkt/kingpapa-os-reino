@@ -29,6 +29,20 @@ import {
   SITE_URL,
 } from "@/lib/seo-schema";
 
+// Variantes del hero (LCP). El CDN de assets no transforma imágenes, así que
+// cada ancho/formato se sube como asset propio y se sirve por srcset.
+const HERO_AVIF_SRCSET = [
+  `${heroAvif480.url} 480w`,
+  `${heroAvif768.url} 768w`,
+  `${heroAvif1080.url} 1080w`,
+].join(", ");
+const HERO_WEBP_SRCSET = [
+  `${heroWebp480.url} 480w`,
+  `${heroWebp768.url} 768w`,
+  `${heroWebp1080.url} 1080w`,
+].join(", ");
+const HERO_SIZES = "(min-width: 768px) 50vw, 100vw";
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
