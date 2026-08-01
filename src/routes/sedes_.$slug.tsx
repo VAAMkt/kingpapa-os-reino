@@ -26,6 +26,11 @@ function zona(sede: SedeRow): string {
   return sede.barrio || sede.mall || "";
 }
 
+/** Nombre completo sin duplicar la marca (varias sedes ya se llaman "KINGPAPA ..."). */
+function nombreMarca(sede: SedeRow): string {
+  return /^kingpapa/i.test(sede.nombre.trim()) ? sede.nombre.trim() : `KINGPAPA ${sede.nombre}`;
+}
+
 export const Route = createFileRoute("/sedes_/$slug")({
   loader: async ({ params, context }) => {
     const sede = await context.queryClient.ensureQueryData(sedeQuery(params.slug));
