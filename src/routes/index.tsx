@@ -150,6 +150,8 @@ function HomePage() {
                 alt="SalchiTender LTO — La Nueva Reina llegó al Reino KINGPAPA"
                 width={1280}
                 height={1280}
+                fetchPriority="high"
+                decoding="async"
                 className="w-full h-full object-cover"
               />
             </div>
