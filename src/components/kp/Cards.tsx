@@ -12,6 +12,38 @@ export function formatFecha(iso: string): string {
 }
 import type { Historia } from "@/types/kp";
 
+/** Miles con punto, sin depender del locale del runtime (evita hydration mismatch). */
+function formatMiles(n: number): string {
+  return Math.round(n)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/** Badge de reputación Google. Solo se muestra si hay calificación y cantidad de reseñas. */
+export function GoogleRatingBadge({
+  rating,
+  reviews,
+  className = "",
+}: {
+  rating: number | null | undefined;
+  reviews: number | null | undefined;
+  className?: string;
+}) {
+  if (rating == null || reviews == null) return null;
+  const r = Number(rating);
+  const c = Number(reviews);
+  if (!Number.isFinite(r) || !Number.isFinite(c) || c <= 0) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[11px] font-display uppercase bg-kp-yellow text-kp-ink border-2 border-kp-ink px-2 py-1 ${className}`}
+      aria-label={`Calificación de Google ${r.toFixed(1)} sobre 5 con ${formatMiles(c)} reseñas`}
+    >
+      <span aria-hidden="true">⭐</span>
+      {r.toFixed(1)} ({formatMiles(c)} reseñas)
+    </span>
+  );
+}
+
 export function LocationCard({ sede }: { sede: SedeRow }) {
   const services = [
     sede.delivery && "Delivery",
