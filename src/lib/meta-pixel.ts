@@ -7,7 +7,7 @@
  * - PII: sólo Advanced Matching, hasheada con SHA-256 en el navegador.
  */
 
-import { sendMetaEvent } from "./capi.functions";
+
 
 export const META_PIXEL_ID = "1348178064148165";
 
