@@ -73,6 +73,11 @@ export function LocationCard({ sede }: { sede: SedeRow }) {
               {sede.barrio ? ` · ${sede.barrio}` : sede.mall ? ` · ${sede.mall}` : ""}
             </p>
           </Link>
+          <GoogleRatingBadge
+            rating={sede.google_rating}
+            reviews={sede.google_reviews_count}
+            className="mt-2"
+          />
         </div>
         <BrutalBadge tone={sede.abierta_ahora ? "lime" : "black"}>
           {sede.abierta_ahora ? "Abierto" : "Cerrado"}
