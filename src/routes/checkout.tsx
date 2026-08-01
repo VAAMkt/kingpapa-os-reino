@@ -19,7 +19,7 @@ import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
 import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
-import { pixelAdvancedMatch } from "@/lib/meta-pixel";
+import { pixelAdvancedMatch, getOrCreateExternalId } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -313,6 +313,8 @@ function CheckoutPage() {
         tipo === "delivery" && sede?.lat != null && sede?.lng != null
           ? { lat: Number(sede.lat), lng: Number(sede.lng) }
           : null,
+      // Clave de identidad para deduplicar navegador ↔ servidor en Meta.
+      externalId: getOrCreateExternalId() ?? null,
     };
   }
 
@@ -621,6 +623,10 @@ function CheckoutPage() {
                 <BrutalInput
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
+                  onBlur={() => {
+                    if (nombre.trim())
+                      void pixelAdvancedMatch({ nombre, telefono, ciudad: "Cali" });
+                  }}
                   placeholder="Nombre"
                   autoComplete="name"
                   className={errors.nombre ? "border-kp-red" : ""}
@@ -630,6 +636,10 @@ function CheckoutPage() {
                 <BrutalInput
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
+                  onBlur={() => {
+                    if (/^\d{7,}$/.test(telefono.replace(/\D/g, "")))
+                      void pixelAdvancedMatch({ nombre, telefono, ciudad: "Cali" });
+                  }}
                   placeholder="Teléfono / WhatsApp"
                   inputMode="tel"
                   autoComplete="tel"

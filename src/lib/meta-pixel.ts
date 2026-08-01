@@ -7,7 +7,7 @@
  * - PII: sólo Advanced Matching, hasheada con SHA-256 en el navegador.
  */
 
-import { sendMetaEvent } from "./capi.functions";
+
 
 export const META_PIXEL_ID = "1348178064148165";
 
@@ -18,8 +18,12 @@ declare global {
   }
 }
 
-/** Snippet oficial de carga + PageView inmediato (lo que Meta detecta al verificar). */
-export const META_PIXEL_SNIPPET = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${META_PIXEL_ID}');fbq('track','PageView');window.__kpPixelInitialPageView=true;`;
+/**
+ * Snippet oficial de carga + PageView inmediato (lo que Meta detecta al verificar).
+ * El `eventID` se genera aquí y se expone en `window.__kpInitialPageViewId` para
+ * que el espejo de servidor use exactamente la misma clave de deduplicación.
+ */
+export const META_PIXEL_SNIPPET = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${META_PIXEL_ID}');var kpEid='kp-PageView-'+((window.crypto&&crypto.randomUUID)?crypto.randomUUID():Math.random().toString(36).slice(2));window.__kpInitialPageViewId=kpEid;fbq('track','PageView',{},{eventID:kpEid});window.__kpPixelInitialPageView=true;`;
 
 export const META_PIXEL_NOSCRIPT_SRC = `https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`;
 
@@ -32,12 +36,59 @@ function fbq(...args: unknown[]): void {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Claves de identidad: external_id estable + rescate de _fbc          */
+/* ------------------------------------------------------------------ */
+
+const EXTERNAL_ID_KEY = "kp.meta.eid";
+
+/** Identificador anónimo propio, estable por navegador. Clave fuerte de dedup. */
+export function getOrCreateExternalId(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const existing = localStorage.getItem(EXTERNAL_ID_KEY);
+    if (existing) return existing;
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `kp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(EXTERNAL_ID_KEY, id);
+    return id;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Si la URL trae `fbclid` y Meta aún no creó la cookie `_fbc`, la construimos
+ * con el formato oficial `fb.1.<timestamp>.<fbclid>` y la persistimos 90 días.
+ */
+export function ensureFbc(): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    const fbclid = new URLSearchParams(window.location.search).get("fbclid");
+    if (!fbclid) return;
+    if (readCookie("_fbc")) return;
+    const value = `fb.1.${Date.now()}.${fbclid}`;
+    const maxAge = 90 * 24 * 60 * 60;
+    document.cookie = `_fbc=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  } catch {
+    /* nunca romper UX por analytics */
+  }
+}
+
 export function pixelPageView(): void {
   if (typeof window === "undefined") return;
-  // El snippet del head ya dispara el primer PageView: evitamos duplicarlo.
-  const w = window as Window & { __kpPixelInitialPageView?: boolean };
+  ensureFbc();
+  // El snippet del head ya disparó el primer PageView: no lo repetimos en el
+  // navegador, pero sí mandamos su gemelo de servidor con el MISMO event_id.
+  const w = window as Window & {
+    __kpPixelInitialPageView?: boolean;
+    __kpInitialPageViewId?: string;
+  };
   if (w.__kpPixelInitialPageView) {
     w.__kpPixelInitialPageView = false;
+    mirror("PageView", w.__kpInitialPageViewId ?? eventId("PageView"));
     return;
   }
   const id = eventId("PageView");
@@ -209,8 +260,42 @@ export function pixelTrack(event: string, payload?: Record<string, unknown>): vo
 /* Espejo servidor (Conversions API) — mismo event_id => sin duplicar   */
 /* ------------------------------------------------------------------ */
 
-/** Datos de contacto ya capturados en el checkout (memoria, no se persisten). */
+/** Datos de contacto ya capturados en el checkout (no se persisten en servidor). */
 let matchedUser: { nombre?: string; telefono?: string; ciudad?: string } = {};
+
+const MATCH_KEY = "kp.meta.match";
+
+function loadMatchedUser(): void {
+  if (typeof window === "undefined") return;
+  if (Object.keys(matchedUser).length > 0) return;
+  try {
+    const raw = sessionStorage.getItem(MATCH_KEY);
+    if (raw) matchedUser = JSON.parse(raw) as typeof matchedUser;
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Registra los datos de contacto para el emparejamiento (sin re-init del pixel). */
+export function setMetaMatchedUser(user: {
+  nombre?: string | null;
+  telefono?: string | null;
+  ciudad?: string | null;
+}): void {
+  if (typeof window === "undefined") return;
+  const next = clean({
+    nombre: user.nombre ?? undefined,
+    telefono: user.telefono ?? undefined,
+    ciudad: user.ciudad ?? undefined,
+  }) as typeof matchedUser;
+  if (Object.keys(next).length === 0) return;
+  matchedUser = { ...matchedUser, ...next };
+  try {
+    sessionStorage.setItem(MATCH_KEY, JSON.stringify(matchedUser));
+  } catch {
+    /* modo privado */
+  }
+}
 
 function readCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
@@ -218,6 +303,10 @@ function readCookie(name: string): string | undefined {
   return m ? decodeURIComponent(m[1]!) : undefined;
 }
 
+/**
+ * Espejo de servidor vía ruta HTTP pública (no server function): permite
+ * `keepalive`, así el evento no se pierde si el usuario navega enseguida.
+ */
 function mirror(
   eventName: string,
   eventId: string,
@@ -225,16 +314,23 @@ function mirror(
 ): void {
   if (typeof window === "undefined") return;
   try {
-    void sendMetaEvent({
-      data: {
-        eventName,
-        eventId,
-        eventSourceUrl: window.location.href,
-        customData: customData as never,
-        fbp: readCookie("_fbp"),
-        fbc: readCookie("_fbc"),
-        ...matchedUser,
-      } as never,
+    loadMatchedUser();
+    const body = JSON.stringify({
+      eventName,
+      eventId,
+      eventSourceUrl: window.location.href,
+      customData,
+      fbp: readCookie("_fbp"),
+      fbc: readCookie("_fbc"),
+      externalId: getOrCreateExternalId(),
+      ...matchedUser,
+    });
+    void fetch("/api/public/meta-capi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+      credentials: "omit",
     }).catch(() => {});
   } catch {
     /* nunca romper UX por analytics */
@@ -320,11 +416,7 @@ export async function pixelAdvancedMatch(user: {
   ciudad?: string | null;
 }): Promise<void> {
   if (typeof window === "undefined" || typeof crypto?.subtle === "undefined") return;
-  matchedUser = clean({
-    nombre: user.nombre ?? undefined,
-    telefono: user.telefono ?? undefined,
-    ciudad: user.ciudad ?? undefined,
-  }) as typeof matchedUser;
+  setMetaMatchedUser(user);
   const partes = (user.nombre ?? "").trim().toLowerCase().split(/\s+/).filter(Boolean);
   const phone = user.telefono ? normalizePhone(user.telefono) : undefined;
   const ciudad = (user.ciudad ?? "").trim().toLowerCase().replace(/\s+/g, "");
@@ -337,7 +429,7 @@ export async function pixelAdvancedMatch(user: {
     sha256("co"),
   ]);
 
-  const data = clean({ ph, fn, ln, ct, country });
+  const data = clean({ ph, fn, ln, ct, country, external_id: getOrCreateExternalId() });
   if (Object.keys(data).length === 0) return;
   fbq("init", META_PIXEL_ID, data);
 }

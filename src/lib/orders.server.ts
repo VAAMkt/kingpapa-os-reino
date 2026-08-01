@@ -37,6 +37,7 @@ export type CheckoutInput = {
   items: CheckoutInputItem[];
   userId?: string | null;
   destino?: { lat: number; lng: number } | null;
+  externalId?: string | null;
 };
 
 type ModOption = { id: number; nombre: string; precio: number };
@@ -703,6 +704,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     total,
     items: itemsSnapshot,
     cliente: input.cliente,
+    externalId: input.externalId ?? null,
   });
 
   return {
@@ -719,6 +721,7 @@ async function sendPurchaseToMeta(args: {
   total: number;
   items: { productoId: string; cantidad: number; precio: number }[];
   cliente: { nombre: string; telefono: string };
+  externalId?: string | null;
 }): Promise<void> {
   try {
     // Candado de idempotencia: sólo el primer intento gana la fila.
@@ -754,7 +757,7 @@ async function sendPurchaseToMeta(args: {
           nombre: args.cliente.nombre,
           telefono: args.cliente.telefono,
           ciudad: "Cali",
-          externalId: args.orderId,
+          externalId: args.externalId ?? args.orderId,
           fbp: getCookie("_fbp") ?? null,
           fbc: getCookie("_fbc") ?? null,
           ip: getRequestIP({ xForwardedFor: true }) ?? null,
