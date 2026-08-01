@@ -173,15 +173,20 @@ function HomePage() {
               </BrutalBadge>
             </div>
             <div className="aspect-square bg-kp-ink border-2 border-kp-ink shadow-brutal-lg overflow-hidden">
-              <img
-                src={heroAsset.url}
-                alt="SalchiTender LTO — La Nueva Reina llegó al Reino KINGPAPA"
-                width={1280}
-                height={1280}
-                fetchPriority="high"
-                decoding="async"
-                className="w-full h-full object-cover"
-              />
+              <picture>
+                <source type="image/avif" srcSet={HERO_AVIF_SRCSET} sizes={HERO_SIZES} />
+                <source type="image/webp" srcSet={HERO_WEBP_SRCSET} sizes={HERO_SIZES} />
+                <img
+                  src={heroAsset.url}
+                  alt="SalchiTender LTO — La Nueva Reina llegó al Reino KINGPAPA"
+                  width={1080}
+                  height={1080}
+                  fetchPriority="high"
+                  loading="eager"
+                  decoding="async"
+                  className="w-full h-full object-cover"
+                />
+              </picture>
             </div>
           </div>
         </div>
