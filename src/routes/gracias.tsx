@@ -221,7 +221,9 @@ function GraciasPage() {
             <div className="flex justify-between">
               <span className="font-display uppercase">Subtotal</span>
               <span className="font-display">
-                {cop(order.subtotal ?? order.items.reduce((sum, i) => sum + i.precio * i.cantidad, 0))}
+                {cop(
+                  order.subtotal ?? order.items.reduce((sum, i) => sum + i.precio * i.cantidad, 0),
+                )}
               </span>
             </div>
             {!esRecoger ? (

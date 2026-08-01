@@ -444,18 +444,13 @@ export async function submitOrder(input: CheckoutInput): Promise<{
   // intente enviar "online", nunca registramos un pedido como pago online sin
   // verificar primero una transacción firmada por la pasarela.
   if (input.pago === "online") {
-    throw new Error("El pago online con Wompi todavía no está disponible. Elige efectivo o datáfono.");
+    throw new Error(
+      "El pago online con Wompi todavía no está disponible. Elige efectivo o datáfono.",
+    );
   }
 
-  const {
-    sede,
-    detalle,
-    subtotal,
-    total,
-    deliveryFee,
-    deliveryDistanceKm,
-    deliveryQuote,
-  } = await resolveOrder(input);
+  const { sede, detalle, subtotal, total, deliveryFee, deliveryDistanceKm, deliveryQuote } =
+    await resolveOrder(input);
 
   // 1) Insertar registro local PRIMERO para tener UUID que sirva como
   //    delivery_codigointegracion (antiduplica en el POS, Swagger V2).
@@ -520,7 +515,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
       delivery_montodescuento: 0,
       delivery_costoenvio: input.tipo === "delivery" ? deliveryFee : 0,
       delivery_modalidad: input.tipo === "delivery" ? 1 : 2,
-      ...((() => {
+      ...(() => {
         if (!input.pickupScheduledFor) {
           return { delivery_programado: "0", delivery_sesolicitorecojo: "0" };
         }
@@ -535,7 +530,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
           delivery_sesolicitorecojo: "1",
           delivery_personarecoje: input.cliente.nombre,
         };
-      })()),
+      })(),
 
       delivery_direccionenvio: input.cliente.direccion ?? "",
       delivery_referencia: input.cliente.detalles ?? "",

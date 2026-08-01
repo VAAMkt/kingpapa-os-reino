@@ -142,7 +142,11 @@ function MenuPage() {
       ...(masPedidos.length
         ? [
             {
-              categoria: { id: "mas-pedidos", nombre: "Más pedidos", filtro: "Más pedidos" } as Categoria,
+              categoria: {
+                id: "mas-pedidos",
+                nombre: "Más pedidos",
+                filtro: "Más pedidos",
+              } as Categoria,
               productos: masPedidos,
             },
           ]
@@ -297,10 +301,7 @@ function MenuPage() {
                   aria-pressed={modo === t}
                   onClick={() => {
                     setOrderType(t);
-                    if (
-                      t === "pickup" &&
-                      (!activeSede || activeSede.source === "exploring")
-                    ) {
+                    if (t === "pickup" && (!activeSede || activeSede.source === "exploring")) {
                       confirmarSedePickup(sedeSlug);
                     }
                   }}

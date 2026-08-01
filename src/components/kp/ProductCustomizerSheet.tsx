@@ -192,7 +192,6 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
         )}
       </div>
 
-
       {/* Scroll area */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
         <div>

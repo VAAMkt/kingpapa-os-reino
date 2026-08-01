@@ -270,7 +270,6 @@ function AdminMenuPage() {
         </span>
       </BrutalCard>
 
-
       {menuQ.isLoading && <p className="text-sm">Cargando catálogo…</p>}
 
       {menuQ.data && (

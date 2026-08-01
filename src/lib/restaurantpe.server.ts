@@ -289,10 +289,7 @@ function tenantBase(): string {
       ? `${sub}.${parsed.hostname}`
       : parsed.hostname;
   const existingPath = parsed.pathname.replace(/\/+$/, "");
-  const basePath =
-    existingPath && existingPath !== "/"
-      ? existingPath
-      : "/restaurant/api/rest";
+  const basePath = existingPath && existingPath !== "/" ? existingPath : "/restaurant/api/rest";
   return `${parsed.protocol}//${hostname}${basePath}`;
 }
 

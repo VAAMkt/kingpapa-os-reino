@@ -181,6 +181,29 @@ export const syncBranches = createServerFn({ method: "POST" })
 
     const log: { matched: number; missing: number[] } = { matched: 0, missing: [] };
 
+    const localIds = locales.map((l) => l.rp_local_id).filter((id) => id != null);
+
+    let existingSedes: { id: string; rp_local_id: number | null }[] = [];
+    if (localIds.length > 0) {
+      // Fetch all existing sedes in one query
+      const { data, error: existingErr } = await supabase
+        .from("sedes")
+        .select("id, rp_local_id")
+        .in("rp_local_id", localIds);
+
+      if (existingErr) throw new Error(`Error fetching existing sedes: ${existingErr.message}`);
+      if (data) existingSedes = data;
+    }
+
+    const existingMap = new Map<number, string>();
+    for (const sede of existingSedes) {
+      if (sede.rp_local_id != null) {
+        existingMap.set(sede.rp_local_id, sede.id);
+      }
+    }
+
+    const updates = [];
+
     for (let idx = 0; idx < locales.length; idx++) {
       const local = locales[idx];
       const rawLocal = (data.locales ?? [])[idx] as Record<string, unknown> | undefined;
@@ -188,30 +211,34 @@ export const syncBranches = createServerFn({ method: "POST" })
       const rpAceptaDelivery =
         rawLocal?.local_aceptadelivery != null ? Number(rawLocal.local_aceptadelivery) : null;
 
-      const { data: existing } = await supabase
-        .from("sedes")
-        .select("id, rp_local_id")
-        .eq("rp_local_id", local.rp_local_id)
-        .maybeSingle();
+      const existingId = local.rp_local_id != null ? existingMap.get(local.rp_local_id) : undefined;
 
-      if (existing) {
-        const { error: updErr } = await supabase
-          .from("sedes")
-          .update({
-            lat: local.lat ?? undefined,
-            lng: local.lng ?? undefined,
-            delivery: local.delivery,
-            pickup: local.pickup,
-            rp_local_estado: rpLocalEstado,
-            rp_acepta_delivery: rpAceptaDelivery,
-          } as never)
-          .eq("id", existing.id);
-        if (updErr) throw new Error(`Sede ${local.rp_local_id}: ${updErr.message}`);
+      if (existingId) {
+        updates.push(
+          supabase
+            .from("sedes")
+            .update({
+              lat: local.lat ?? undefined,
+              lng: local.lng ?? undefined,
+              delivery: local.delivery,
+              pickup: local.pickup,
+              rp_local_estado: rpLocalEstado,
+              rp_acepta_delivery: rpAceptaDelivery,
+            } as never)
+            .eq("id", existingId)
+            .then(({ error: updErr }) => {
+              if (updErr) throw new Error(`Sede ${local.rp_local_id}: ${updErr.message}`);
+            }),
+        );
         log.matched += 1;
       } else {
-        log.missing.push(local.rp_local_id);
+        if (local.rp_local_id != null) {
+          log.missing.push(local.rp_local_id);
+        }
       }
     }
+
+    await Promise.all(updates);
 
     await supabase.from("rp_sync_log").insert({
       tipo: "branches",

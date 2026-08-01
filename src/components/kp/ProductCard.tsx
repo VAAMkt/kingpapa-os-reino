@@ -61,10 +61,8 @@ export function ProductCard({
 
   function onPedir() {
     const tieneSedeConfirmada = !!sede && sede.source !== "exploring";
-    const tieneDestinoDelivery =
-      tieneSedeConfirmada && sede.lat != null && sede.lng != null;
-    const puedeAgregar =
-      orderType === "pickup" ? tieneSedeConfirmada : tieneDestinoDelivery;
+    const tieneDestinoDelivery = tieneSedeConfirmada && sede.lat != null && sede.lng != null;
+    const puedeAgregar = orderType === "pickup" ? tieneSedeConfirmada : tieneDestinoDelivery;
     if (!puedeAgregar) {
       setPendingIntent({
         type: "add",
@@ -201,4 +199,3 @@ export function ProductCard({
     </>
   );
 }
-

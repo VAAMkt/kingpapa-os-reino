@@ -423,9 +423,7 @@ function CheckoutPage() {
 
       {/* Elección principal, visible y mobile-first */}
       <fieldset className="space-y-2">
-        <legend className="font-display uppercase text-sm">
-          ¿Cómo quieres recibir tu pedido?
-        </legend>
+        <legend className="font-display uppercase text-sm">¿Cómo quieres recibir tu pedido?</legend>
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Tipo de entrega">
           <button
             type="button"
@@ -442,7 +440,9 @@ function CheckoutPage() {
                 : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
             }`}
           >
-            <span className="block text-2xl" aria-hidden>🛵</span>
+            <span className="block text-2xl" aria-hidden>
+              🛵
+            </span>
             <span className="block font-display uppercase text-sm">Domicilio</span>
             <span className="block text-[11px] opacity-80">Te lo llevamos</span>
           </button>
@@ -460,7 +460,9 @@ function CheckoutPage() {
                 : "bg-kp-cheese text-kp-ink hover:bg-kp-yellow"
             }`}
           >
-            <span className="block text-2xl" aria-hidden>🛍️</span>
+            <span className="block text-2xl" aria-hidden>
+              🛍️
+            </span>
             <span className="block font-display uppercase text-sm">Recoger</span>
             <span className="block text-[11px] opacity-80">Elige sede y hora</span>
           </button>
@@ -474,7 +476,7 @@ function CheckoutPage() {
           </p>
           <p className="font-display uppercase text-xs truncate">
             {esRecoger
-              ? selectedSede?.nombre ?? sede?.slug ?? "Selecciona una sede"
+              ? (selectedSede?.nombre ?? sede?.slug ?? "Selecciona una sede")
               : direccionResumen}
           </p>
         </div>
@@ -511,7 +513,11 @@ function CheckoutPage() {
               No encontramos sedes disponibles para recoger en este momento.
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" role="radiogroup" aria-label="Sede de recogida">
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+              role="radiogroup"
+              aria-label="Sede de recogida"
+            >
               {pickupSedes.map((item) => {
                 const seleccionada = item.id === sede?.sedeId;
                 return (
@@ -536,7 +542,8 @@ function CheckoutPage() {
                       )}
                     </span>
                     <span className="mt-1 block text-xs opacity-75">
-                      {item.direccion}{item.ciudad ? ` · ${item.ciudad}` : ""}
+                      {item.direccion}
+                      {item.ciudad ? ` · ${item.ciudad}` : ""}
                     </span>
                   </button>
                 );

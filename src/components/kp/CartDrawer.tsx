@@ -8,7 +8,6 @@ import { UpsellSection } from "@/components/kp/UpsellSection";
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 
-
 export function CartDrawer() {
   const [open, setOpen] = useState(false);
   const { items, count, subtotal, orderType } = useCart();
@@ -116,7 +115,6 @@ export function CartDrawer() {
                 ))}
               </ul>
 
-
               <div className="mt-4">
                 <UpsellSection
                   excludeIds={items.map((i) => i.productoId)}
@@ -135,7 +133,6 @@ export function CartDrawer() {
                 <span>👑 Ganarás</span>
                 <span className="text-lg">+{Math.floor(subtotal / 1000) * 10} pts</span>
               </div>
-
 
               <BrutalButton
                 variant="fire"

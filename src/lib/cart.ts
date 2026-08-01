@@ -20,7 +20,6 @@ export type CartItem = {
   paraProducto?: string | null;
 };
 
-
 export type OrderType = "delivery" | "pickup";
 
 type CartState = {

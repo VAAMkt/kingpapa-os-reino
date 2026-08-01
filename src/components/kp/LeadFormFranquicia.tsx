@@ -57,11 +57,7 @@ const step2Schema = z.object({
     invalid_type_error: "Responde sí o no",
     required_error: "Responde sí o no",
   }),
-  motivacion: z
-    .string()
-    .trim()
-    .min(20, "Cuéntanos un poco más (mín. 20 caracteres)")
-    .max(2000),
+  motivacion: z.string().trim().min(20, "Cuéntanos un poco más (mín. 20 caracteres)").max(2000),
 });
 
 type Step1State = {
@@ -202,8 +198,8 @@ export function LeadFormFranquicia() {
         <div className="text-5xl">👑</div>
         <h3 className="font-display text-3xl uppercase mt-2">Postulación recibida</h3>
         <p className="mt-3 text-kp-ink/90">
-          Nuestro equipo de Expansión revisa tu perfil y te contacta en los próximos días
-          hábiles por email o WhatsApp.
+          Nuestro equipo de Expansión revisa tu perfil y te contacta en los próximos días hábiles
+          por email o WhatsApp.
         </p>
         <ol className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 text-left text-sm">
           <li className="border-2 border-kp-ink bg-kp-cheese p-3">
@@ -226,9 +222,7 @@ export function LeadFormFranquicia() {
   return (
     <BrutalCard tone="cheese" className="p-5 md:p-7">
       <BrutalBadge tone="red">Franquicia</BrutalBadge>
-      <h3 className="font-display text-3xl md:text-4xl uppercase mt-3">
-        Postula tu franquicia
-      </h3>
+      <h3 className="font-display text-3xl md:text-4xl uppercase mt-3">Postula tu franquicia</h3>
       <p className="text-sm mt-2 text-kp-ink/80">
         Dos pasos. En el primero quedas registrado, así que si te sales retomamos después.
       </p>
@@ -299,14 +293,12 @@ export function LeadFormFranquicia() {
               onChange={(e) => setS1((p) => ({ ...p, privacy: e.target.checked }))}
             />
             <span>
-              Autorizo a KINGPAPA a tratar mis datos para contactarme sobre esta
-              postulación, conforme a la política de tratamiento de datos personales.
+              Autorizo a KINGPAPA a tratar mis datos para contactarme sobre esta postulación,
+              conforme a la política de tratamiento de datos personales.
             </span>
           </label>
           {errors.privacy && (
-            <p className="md:col-span-2 -mt-2 text-xs text-kp-red font-body">
-              {errors.privacy}
-            </p>
+            <p className="md:col-span-2 -mt-2 text-xs text-kp-red font-body">{errors.privacy}</p>
           )}
 
           {serverError && (
@@ -330,8 +322,8 @@ export function LeadFormFranquicia() {
         <form onSubmit={submitStep2} className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
           {s1.full_name && (
             <div className="md:col-span-2 border-2 border-kp-ink bg-kp-yellow px-3 py-2 text-xs font-body">
-              Hola <strong>{s1.full_name.split(" ")[0]}</strong>, solo falta este paso para
-              enviar tu postulación.
+              Hola <strong>{s1.full_name.split(" ")[0]}</strong>, solo falta este paso para enviar
+              tu postulación.
             </div>
           )}
 

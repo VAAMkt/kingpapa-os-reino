@@ -62,13 +62,29 @@ function AdminDashboard() {
             <Kpi tone="red" label="Cancelación" value={`${data.kpis.cancelacionPct}%`} />
             <Kpi tone="cheese" label="Pedidos activos" value={data.kpis.activos.toString()} />
             <Kpi tone="red" label="Errores / descartados" value={data.kpis.errores.toString()} />
-            <Kpi tone="cheese" label="Pruebas excluidas" value={data.kpis.pruebasExcluidas.toString()} />
+            <Kpi
+              tone="cheese"
+              label="Pruebas excluidas"
+              value={data.kpis.pruebasExcluidas.toString()}
+            />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Kpi tone="yellow" label="Ingresos domicilio" value={fmt(data.kpis.ingresosDomicilio)} />
-            <Kpi tone="cheese" label="Tarifa domicilio prom." value={fmt(data.kpis.tarifaDomicilioPromedio)} />
-            <Kpi tone="purple" label="Distancia prom." value={`${data.kpis.distanciaPromedioKm.toLocaleString("es-CO")} km`} />
+            <Kpi
+              tone="yellow"
+              label="Ingresos domicilio"
+              value={fmt(data.kpis.ingresosDomicilio)}
+            />
+            <Kpi
+              tone="cheese"
+              label="Tarifa domicilio prom."
+              value={fmt(data.kpis.tarifaDomicilioPromedio)}
+            />
+            <Kpi
+              tone="purple"
+              label="Distancia prom."
+              value={`${data.kpis.distanciaPromedioKm.toLocaleString("es-CO")} km`}
+            />
             <Kpi tone="cheese" label="Sedes con venta" value={data.porSede.length.toString()} />
           </div>
 
@@ -83,7 +99,6 @@ function AdminDashboard() {
               label="Súbditos totales"
               value={data.kpis.subditosTotal.toString()}
             />
-
           </div>
 
           <p className="text-xs text-kp-ink/65">

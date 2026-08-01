@@ -16,12 +16,7 @@ import { listPublicPosts } from "@/lib/posts";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { rpProductoToProducto, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
 import heroAsset from "@/assets/salchitender-lto.jpeg.asset.json";
-import {
-  faqPageJsonLd,
-  organizationJsonLd,
-  websiteJsonLd,
-  SITE_URL,
-} from "@/lib/seo-schema";
+import { faqPageJsonLd, organizationJsonLd, websiteJsonLd, SITE_URL } from "@/lib/seo-schema";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -91,7 +86,6 @@ function HomePage() {
     if (picked.length < 4) take(disponibles);
     return picked.map((p) => rpProductoToProducto(p, catsById));
   }, [menuQ.data]);
-
 
   const { data: posts = [] } = useQuery({
     queryKey: ["posts", "public"],

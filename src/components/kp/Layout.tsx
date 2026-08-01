@@ -41,7 +41,6 @@ function LocationPill({ className = "" }: { className?: string }) {
   );
 }
 
-
 export function TopAppBar() {
   const [open, setOpen] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -71,10 +70,7 @@ export function TopAppBar() {
   }, []);
 
   return (
-    <header
-      ref={headerRef}
-      className="sticky top-0 z-40 bg-kp-yellow border-b-4 border-kp-ink"
-    >
+    <header ref={headerRef} className="sticky top-0 z-40 bg-kp-yellow border-b-4 border-kp-ink">
       {/* Una sola instancia de la píldora: en móvil salta a su propia línea
           (order-last + w-full), en desktop vuelve a la fila del logo. */}
       <div className="mx-auto max-w-7xl px-4 md:px-6 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -112,8 +108,6 @@ export function TopAppBar() {
           <LocationPill />
         </div>
       </div>
-
-
 
       {open && (
         <div className="lg:hidden border-t-4 border-kp-ink bg-kp-yellow">
