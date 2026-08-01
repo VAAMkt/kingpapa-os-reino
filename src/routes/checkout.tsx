@@ -313,6 +313,8 @@ function CheckoutPage() {
         tipo === "delivery" && sede?.lat != null && sede?.lng != null
           ? { lat: Number(sede.lat), lng: Number(sede.lng) }
           : null,
+      // Clave de identidad para deduplicar navegador ↔ servidor en Meta.
+      externalId: getOrCreateExternalId() ?? null,
     };
   }
 
