@@ -10,7 +10,7 @@ export const Route = createFileRoute("/franquicias")({
       {
         name: "description",
         content:
-          "15 sedes en menos de 5 años, comunidad digital de +3M y meta de 50 puntos a 2030. Aplica para abrir tu KINGPAPA y crecer con una marca SAS BIC con tracción brutal.",
+          "15 sedes en menos de 5 años y comunidad de +3M. Aplica para abrir tu franquicia KINGPAPA y crecer con una marca SAS BIC con tracción brutal.",
       },
       { property: "og:title", content: "Franquicias KINGPAPA — Sé pionero del Reino" },
       {
@@ -18,10 +18,10 @@ export const Route = createFileRoute("/franquicias")({
         content:
           "Marca BIC con la comunidad digital más grande de un restaurante en Colombia. Inversión desde $200M, retorno promedio 26 meses.",
       },
-      { property: "og:url", content: "https://kingpapa-os-reino.lovable.app/franquicias" },
+      { property: "og:url", content: "https://kingpapa.co/franquicias" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://kingpapa-os-reino.lovable.app/franquicias" }],
+    links: [{ rel: "canonical", href: "https://kingpapa.co/franquicias" }],
   }),
   component: FranquiciasPage,
 });
