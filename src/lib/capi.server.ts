@@ -80,13 +80,14 @@ async function buildUserData(u: CapiUser | undefined): Promise<Record<string, un
   const ciudad = normText(u.ciudad ?? "").replace(/\s+/g, "");
   const email = u.email ? normText(u.email) : undefined;
 
-  const [ph, fn, ln, ct, country, em] = await Promise.all([
+  const [ph, fn, ln, ct, country, em, ext] = await Promise.all([
     phone ? sha256Hex(phone) : Promise.resolve(undefined),
     partes[0] ? sha256Hex(partes[0]) : Promise.resolve(undefined),
     partes.length > 1 ? sha256Hex(partes[partes.length - 1]!) : Promise.resolve(undefined),
     ciudad ? sha256Hex(ciudad) : Promise.resolve(undefined),
     sha256Hex("co"),
     email ? sha256Hex(email) : Promise.resolve(undefined),
+    u.externalId ? sha256Hex(normText(u.externalId)) : Promise.resolve(undefined),
   ]);
 
   return clean({
@@ -96,7 +97,7 @@ async function buildUserData(u: CapiUser | undefined): Promise<Record<string, un
     ct: ct ? [ct] : undefined,
     country: country ? [country] : undefined,
     em: em ? [em] : undefined,
-    external_id: u.externalId ?? undefined,
+    external_id: ext ? [ext] : undefined,
     fbp: u.fbp ?? undefined,
     fbc: u.fbc ?? undefined,
     client_ip_address: u.ip ?? undefined,

@@ -44,6 +44,7 @@ import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
 import { Route as AdminSedesIndexRouteImport } from './routes/admin.sedes.index'
 import { Route as AdminContenidosIndexRouteImport } from './routes/admin.contenidos.index'
 import { Route as ApiPublicRpWebhookRouteImport } from './routes/api/public/rp-webhook'
+import { Route as ApiPublicMetaCapiRouteImport } from './routes/api/public/meta-capi'
 import { Route as AdminSedesNuevoRouteImport } from './routes/admin.sedes.nuevo'
 import { Route as AdminSedesIdRouteImport } from './routes/admin.sedes.$id'
 import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
@@ -225,6 +226,11 @@ const ApiPublicRpWebhookRoute = ApiPublicRpWebhookRouteImport.update({
   path: '/api/public/rp-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMetaCapiRoute = ApiPublicMetaCapiRouteImport.update({
+  id: '/api/public/meta-capi',
+  path: '/api/public/meta-capi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminSedesNuevoRoute = AdminSedesNuevoRouteImport.update({
   id: '/nuevo',
   path: '/nuevo',
@@ -289,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
   '/admin/sedes/$id': typeof AdminSedesIdRoute
   '/admin/sedes/nuevo': typeof AdminSedesNuevoRoute
+  '/api/public/meta-capi': typeof ApiPublicMetaCapiRoute
   '/api/public/rp-webhook': typeof ApiPublicRpWebhookRoute
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
   '/admin/sedes/': typeof AdminSedesIndexRoute
@@ -327,6 +334,7 @@ export interface FileRoutesByTo {
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
   '/admin/sedes/$id': typeof AdminSedesIdRoute
   '/admin/sedes/nuevo': typeof AdminSedesNuevoRoute
+  '/api/public/meta-capi': typeof ApiPublicMetaCapiRoute
   '/api/public/rp-webhook': typeof ApiPublicRpWebhookRoute
   '/admin/contenidos': typeof AdminContenidosIndexRoute
   '/admin/sedes': typeof AdminSedesIndexRoute
@@ -370,6 +378,7 @@ export interface FileRoutesById {
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
   '/admin/sedes/$id': typeof AdminSedesIdRoute
   '/admin/sedes/nuevo': typeof AdminSedesNuevoRoute
+  '/api/public/meta-capi': typeof ApiPublicMetaCapiRoute
   '/api/public/rp-webhook': typeof ApiPublicRpWebhookRoute
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
   '/admin/sedes/': typeof AdminSedesIndexRoute
@@ -414,6 +423,7 @@ export interface FileRouteTypes {
     | '/admin/contenidos/nuevo'
     | '/admin/sedes/$id'
     | '/admin/sedes/nuevo'
+    | '/api/public/meta-capi'
     | '/api/public/rp-webhook'
     | '/admin/contenidos/'
     | '/admin/sedes/'
@@ -452,6 +462,7 @@ export interface FileRouteTypes {
     | '/admin/contenidos/nuevo'
     | '/admin/sedes/$id'
     | '/admin/sedes/nuevo'
+    | '/api/public/meta-capi'
     | '/api/public/rp-webhook'
     | '/admin/contenidos'
     | '/admin/sedes'
@@ -494,6 +505,7 @@ export interface FileRouteTypes {
     | '/admin/contenidos/nuevo'
     | '/admin/sedes/$id'
     | '/admin/sedes/nuevo'
+    | '/api/public/meta-capi'
     | '/api/public/rp-webhook'
     | '/admin/contenidos/'
     | '/admin/sedes/'
@@ -517,6 +529,7 @@ export interface RootRouteChildren {
   SedesRoute: typeof SedesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TrackingRoute: typeof TrackingRoute
+  ApiPublicMetaCapiRoute: typeof ApiPublicMetaCapiRoute
   ApiPublicRpWebhookRoute: typeof ApiPublicRpWebhookRoute
   ApiPublicHooksRpReconcileRoute: typeof ApiPublicHooksRpReconcileRoute
 }
@@ -768,6 +781,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicRpWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/meta-capi': {
+      id: '/api/public/meta-capi'
+      path: '/api/public/meta-capi'
+      fullPath: '/api/public/meta-capi'
+      preLoaderRoute: typeof ApiPublicMetaCapiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/sedes/nuevo': {
       id: '/admin/sedes/nuevo'
       path: '/nuevo'
@@ -914,6 +934,7 @@ const rootRouteChildren: RootRouteChildren = {
   SedesRoute: SedesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TrackingRoute: TrackingRoute,
+  ApiPublicMetaCapiRoute: ApiPublicMetaCapiRoute,
   ApiPublicRpWebhookRoute: ApiPublicRpWebhookRoute,
   ApiPublicHooksRpReconcileRoute: ApiPublicHooksRpReconcileRoute,
 }
