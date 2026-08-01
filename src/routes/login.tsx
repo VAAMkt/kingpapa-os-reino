@@ -14,6 +14,12 @@ export const Route = createFileRoute("/login")({
         name: "description",
         content: "Entra al Reino: pide, acumula puntos y desbloquea combos secretos.",
       },
+      { property: "og:title", content: "Iniciar sesión — KINGPAPA OS" },
+      {
+        property: "og:description",
+        content: "Entra a tu cuenta KINGPAPA para pedir más rápido y sumar puntos del Reino.",
+      },
+      { name: "robots", content: "noindex" },
     ],
   }),
   component: LoginPage,
