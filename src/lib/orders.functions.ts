@@ -20,6 +20,8 @@ const checkoutSchema = z.object({
   }),
   notas: z.string().max(500).nullable().optional(),
   pickupScheduledFor: z.string().datetime().nullable().optional(),
+  // Identificador anónimo del navegador para el emparejamiento en Meta.
+  externalId: z.string().max(120).nullable().optional(),
   // Debe declararse explícitamente: Zod elimina propiedades desconocidas.
   // Sin este campo, las coordenadas enviadas por el checkout se perdían
   // antes de llegar a submitOrder y todos los domicilios fallaban al confirmar.
