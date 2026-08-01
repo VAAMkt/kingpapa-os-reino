@@ -37,6 +37,7 @@ export type CheckoutInput = {
   items: CheckoutInputItem[];
   userId?: string | null;
   destino?: { lat: number; lng: number } | null;
+  externalId?: string | null;
 };
 
 type ModOption = { id: number; nombre: string; precio: number };
