@@ -23,7 +23,20 @@ import { pixelAdvancedMatch } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
-    meta: [{ title: "Checkout — KINGPAPA" }, { name: "robots", content: "noindex" }],
+    meta: [
+      { title: "Checkout — KINGPAPA" },
+      {
+        name: "description",
+        content:
+          "Confirma tu pedido KINGPAPA: elige domicilio o recoger en sede, revisa el total y pedí directo sin comisiones de apps.",
+      },
+      { property: "og:title", content: "Checkout — KINGPAPA" },
+      {
+        property: "og:description",
+        content: "Confirma tu pedido KINGPAPA y pedí directo, sin comisiones de apps.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
   }),
   component: CheckoutPage,
 });

@@ -55,7 +55,7 @@
   /* KP palette (oklch) */
   --kp-yellow: oklch(0.88 0.18 95);     /* papa */
   --kp-orange: oklch(0.75 0.19 55);     /* salsa */
-  --kp-red:    oklch(0.6  0.23 25);     /* fuego */
+  --kp-red:    oklch(0.53 0.21 25);     /* fuego (contraste AA sobre texto queso) */
   --kp-black:  oklch(0.16 0.02 60);     /* noche */
   --kp-purple: oklch(0.55 0.28 305);    /* neón */
   --kp-cheese: oklch(0.97 0.03 95);     /* blanco queso */

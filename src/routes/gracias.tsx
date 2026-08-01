@@ -23,6 +23,16 @@ export const Route = createFileRoute("/gracias")({
   head: () => ({
     meta: [
       { title: "¡Tu corona se está forjando! — KINGPAPA" },
+      {
+        name: "description",
+        content:
+          "Tu pedido KINGPAPA quedó confirmado. Seguí el estado en vivo, desde la cocina hasta tu puerta, y prepará la corona.",
+      },
+      { property: "og:title", content: "¡Tu corona se está forjando! — KINGPAPA" },
+      {
+        property: "og:description",
+        content: "Seguí en vivo el estado de tu pedido KINGPAPA.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
