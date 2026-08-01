@@ -40,7 +40,10 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:url", content: `${SITE_URL}/` },
     ],
-    links: [{ rel: "canonical", href: `${SITE_URL}/` }],
+    links: [
+      { rel: "canonical", href: `${SITE_URL}/` },
+      { rel: "preload", as: "image", href: heroAsset.url, fetchpriority: "high" },
+    ],
     scripts: [
       { type: "application/ld+json", children: JSON.stringify(organizationJsonLd()) },
       { type: "application/ld+json", children: JSON.stringify(websiteJsonLd()) },
