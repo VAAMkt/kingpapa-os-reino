@@ -27,6 +27,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MiReinoIndexRouteImport } from './routes/mi-reino.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as SedesSlugRouteImport } from './routes/sedes_.$slug'
 import { Route as MiReinoPuntosRouteImport } from './routes/mi-reino.puntos'
 import { Route as MiReinoPedidosRouteImport } from './routes/mi-reino.pedidos'
 import { Route as MiReinoFavoritosRouteImport } from './routes/mi-reino.favoritos'
@@ -140,6 +141,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
+} as any)
+const SedesSlugRoute = SedesSlugRouteImport.update({
+  id: '/sedes_/$slug',
+  path: '/sedes/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const MiReinoPuntosRoute = MiReinoPuntosRouteImport.update({
   id: '/puntos',
@@ -289,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
   '/mi-reino/pedidos': typeof MiReinoPedidosRoute
   '/mi-reino/puntos': typeof MiReinoPuntosRoute
+  '/sedes/$slug': typeof SedesSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/mi-reino/': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
@@ -328,6 +335,7 @@ export interface FileRoutesByTo {
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
   '/mi-reino/pedidos': typeof MiReinoPedidosRoute
   '/mi-reino/puntos': typeof MiReinoPuntosRoute
+  '/sedes/$slug': typeof SedesSlugRoute
   '/admin': typeof AdminIndexRoute
   '/mi-reino': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
@@ -372,6 +380,7 @@ export interface FileRoutesById {
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
   '/mi-reino/pedidos': typeof MiReinoPedidosRoute
   '/mi-reino/puntos': typeof MiReinoPuntosRoute
+  '/sedes_/$slug': typeof SedesSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/mi-reino/': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
@@ -417,6 +426,7 @@ export interface FileRouteTypes {
     | '/mi-reino/favoritos'
     | '/mi-reino/pedidos'
     | '/mi-reino/puntos'
+    | '/sedes/$slug'
     | '/admin/'
     | '/mi-reino/'
     | '/admin/contenidos/$id'
@@ -456,6 +466,7 @@ export interface FileRouteTypes {
     | '/mi-reino/favoritos'
     | '/mi-reino/pedidos'
     | '/mi-reino/puntos'
+    | '/sedes/$slug'
     | '/admin'
     | '/mi-reino'
     | '/admin/contenidos/$id'
@@ -499,6 +510,7 @@ export interface FileRouteTypes {
     | '/mi-reino/favoritos'
     | '/mi-reino/pedidos'
     | '/mi-reino/puntos'
+    | '/sedes_/$slug'
     | '/admin/'
     | '/mi-reino/'
     | '/admin/contenidos/$id'
@@ -529,6 +541,7 @@ export interface RootRouteChildren {
   SedesRoute: typeof SedesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TrackingRoute: typeof TrackingRoute
+  SedesSlugRoute: typeof SedesSlugRoute
   ApiPublicMetaCapiRoute: typeof ApiPublicMetaCapiRoute
   ApiPublicRpWebhookRoute: typeof ApiPublicRpWebhookRoute
   ApiPublicHooksRpReconcileRoute: typeof ApiPublicHooksRpReconcileRoute
@@ -661,6 +674,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/sedes_/$slug': {
+      id: '/sedes_/$slug'
+      path: '/sedes/$slug'
+      fullPath: '/sedes/$slug'
+      preLoaderRoute: typeof SedesSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/mi-reino/puntos': {
       id: '/mi-reino/puntos'
@@ -934,6 +954,7 @@ const rootRouteChildren: RootRouteChildren = {
   SedesRoute: SedesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TrackingRoute: TrackingRoute,
+  SedesSlugRoute: SedesSlugRoute,
   ApiPublicMetaCapiRoute: ApiPublicMetaCapiRoute,
   ApiPublicRpWebhookRoute: ApiPublicRpWebhookRoute,
   ApiPublicHooksRpReconcileRoute: ApiPublicHooksRpReconcileRoute,
@@ -941,13 +962,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

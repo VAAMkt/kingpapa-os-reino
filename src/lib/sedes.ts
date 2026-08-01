@@ -32,6 +32,18 @@ export async function getSedeById(id: string): Promise<SedeRow | null> {
   return data;
 }
 
+/** Sede pública por slug (para la página indexable /sedes/{slug}). */
+export async function getSedeBySlug(slug: string): Promise<SedeRow | null> {
+  const { data, error } = await supabase
+    .from("sedes")
+    .select("*")
+    .eq("slug", slug)
+    .eq("publicado", true)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export async function createSede(input: SedeInsert): Promise<SedeRow> {
   const { data, error } = await supabase.from("sedes").insert(input).select().single();
   if (error) throw error;

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 import { listAllPosts } from "@/lib/posts";
+import { listPublicSedes } from "@/lib/sedes";
 
 const SITE_URL =
   (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_SITE_URL) ||
@@ -35,10 +36,21 @@ export const Route = createFileRoute("/sitemap.xml")({
           posts = [];
         }
 
+        let sedes: { slug: string }[] = [];
+        try {
+          sedes = (await listPublicSedes()).map((s) => ({ slug: s.slug }));
+        } catch {
+          sedes = [];
+        }
+
         const urls = [
           ...STATIC_PATHS.map(
             (e) =>
               `  <url><loc>${SITE_URL}${e.path}</loc><changefreq>${e.changefreq}</changefreq><priority>${e.priority}</priority></url>`,
+          ),
+          ...sedes.map(
+            (s) =>
+              `  <url><loc>${SITE_URL}/sedes/${s.slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>`,
           ),
           ...posts.map(
             (p) =>
