@@ -250,8 +250,42 @@ export function pixelTrack(event: string, payload?: Record<string, unknown>): vo
 /* Espejo servidor (Conversions API) — mismo event_id => sin duplicar   */
 /* ------------------------------------------------------------------ */
 
-/** Datos de contacto ya capturados en el checkout (memoria, no se persisten). */
+/** Datos de contacto ya capturados en el checkout (no se persisten en servidor). */
 let matchedUser: { nombre?: string; telefono?: string; ciudad?: string } = {};
+
+const MATCH_KEY = "kp.meta.match";
+
+function loadMatchedUser(): void {
+  if (typeof window === "undefined") return;
+  if (Object.keys(matchedUser).length > 0) return;
+  try {
+    const raw = sessionStorage.getItem(MATCH_KEY);
+    if (raw) matchedUser = JSON.parse(raw) as typeof matchedUser;
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Registra los datos de contacto para el emparejamiento (sin re-init del pixel). */
+export function setMetaMatchedUser(user: {
+  nombre?: string | null;
+  telefono?: string | null;
+  ciudad?: string | null;
+}): void {
+  if (typeof window === "undefined") return;
+  const next = clean({
+    nombre: user.nombre ?? undefined,
+    telefono: user.telefono ?? undefined,
+    ciudad: user.ciudad ?? undefined,
+  }) as typeof matchedUser;
+  if (Object.keys(next).length === 0) return;
+  matchedUser = { ...matchedUser, ...next };
+  try {
+    sessionStorage.setItem(MATCH_KEY, JSON.stringify(matchedUser));
+  } catch {
+    /* modo privado */
+  }
+}
 
 function readCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
@@ -259,6 +293,10 @@ function readCookie(name: string): string | undefined {
   return m ? decodeURIComponent(m[1]!) : undefined;
 }
 
+/**
+ * Espejo de servidor vía ruta HTTP pública (no server function): permite
+ * `keepalive`, así el evento no se pierde si el usuario navega enseguida.
+ */
 function mirror(
   eventName: string,
   eventId: string,
@@ -266,16 +304,23 @@ function mirror(
 ): void {
   if (typeof window === "undefined") return;
   try {
-    void sendMetaEvent({
-      data: {
-        eventName,
-        eventId,
-        eventSourceUrl: window.location.href,
-        customData: customData as never,
-        fbp: readCookie("_fbp"),
-        fbc: readCookie("_fbc"),
-        ...matchedUser,
-      } as never,
+    loadMatchedUser();
+    const body = JSON.stringify({
+      eventName,
+      eventId,
+      eventSourceUrl: window.location.href,
+      customData,
+      fbp: readCookie("_fbp"),
+      fbc: readCookie("_fbc"),
+      externalId: getOrCreateExternalId(),
+      ...matchedUser,
+    });
+    void fetch("/api/public/meta-capi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+      credentials: "omit",
     }).catch(() => {});
   } catch {
     /* nunca romper UX por analytics */
