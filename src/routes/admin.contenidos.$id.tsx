@@ -5,6 +5,17 @@ import { PostForm } from "@/components/admin/PostForm";
 import { getPostById } from "@/lib/posts";
 
 export const Route = createFileRoute("/admin/contenidos/$id")({
+  head: () => ({
+    meta: [
+      { title: "Editar contenido — Admin KINGPAPA" },
+      { name: "description", content: "Edición privada de contenido de KINGPAPA." },
+      { property: "og:title", content: "Editar contenido — Admin KINGPAPA" },
+      { property: "og:description", content: "Edición privada de contenido de KINGPAPA." },
+      { name: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: EditarPost,
 });
 

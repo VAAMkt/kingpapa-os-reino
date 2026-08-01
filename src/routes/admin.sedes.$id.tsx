@@ -5,6 +5,17 @@ import { SedeForm } from "@/components/admin/SedeForm";
 import { getSedeById } from "@/lib/sedes";
 
 export const Route = createFileRoute("/admin/sedes/$id")({
+  head: () => ({
+    meta: [
+      { title: "Editar sede — Admin KINGPAPA" },
+      { name: "description", content: "Edición privada de sedes de KINGPAPA." },
+      { property: "og:title", content: "Editar sede — Admin KINGPAPA" },
+      { property: "og:description", content: "Edición privada de sedes de KINGPAPA." },
+      { name: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: EditarSede,
 });
 
