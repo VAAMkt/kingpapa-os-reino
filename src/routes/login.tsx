@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { LoginForm } from "@/components/auth/AuthForms";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
     redirect: typeof search.redirect === "string" ? search.redirect : "/mi-reino",
   }),
   head: () => ({
