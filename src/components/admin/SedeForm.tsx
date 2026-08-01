@@ -65,6 +65,8 @@ const SedeSchema = z.object({
   delivery_base_distance_km: z.number().min(0).max(20),
   delivery_extra_km_fee: z.number().min(0).max(20000),
   delivery_max_distance_km: z.number().min(0).max(50).nullable(),
+  google_rating: z.number().min(0, "Entre 0 y 5").max(5, "Entre 0 y 5").nullable(),
+  google_reviews_count: z.number().int("Debe ser entero").min(0, "No puede ser negativo").nullable(),
   tz: z.string().min(3).max(60),
   kill_switch: z.boolean(),
   horarios: HorariosSchema,
@@ -106,6 +108,9 @@ const emptyState: FormState = {
   delivery_base_distance_km: 1,
   delivery_extra_km_fee: 1200,
   delivery_max_distance_km: 8,
+  google_rating: null,
+  google_reviews_count: null,
+
 
   tz: "America/Bogota",
   kill_switch: false,
@@ -174,6 +179,9 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         extra.delivery_extra_km_fee != null ? Number(extra.delivery_extra_km_fee) : 1200,
       delivery_max_distance_km:
         extra.delivery_max_distance_km != null ? Number(extra.delivery_max_distance_km) : 8,
+      google_rating: initial.google_rating != null ? Number(initial.google_rating) : null,
+      google_reviews_count:
+        initial.google_reviews_count != null ? Number(initial.google_reviews_count) : null,
       tz: extra.tz ?? "America/Bogota",
       kill_switch: extra.kill_switch ?? false,
       horarios:
@@ -234,6 +242,14 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         delivery_max_distance_km:
           form.delivery_max_distance_km != null && String(form.delivery_max_distance_km).length > 0
             ? Number(form.delivery_max_distance_km)
+            : null,
+        google_rating:
+          form.google_rating != null && String(form.google_rating).length > 0
+            ? Number(form.google_rating)
+            : null,
+        google_reviews_count:
+          form.google_reviews_count != null && String(form.google_reviews_count).length > 0
+            ? Math.round(Number(form.google_reviews_count))
             : null,
       };
       const parsed = SedeSchema.safeParse(cleaned);
@@ -578,6 +594,55 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           </p>
         )}
       </BrutalCard>
+
+      <BrutalCard tone="cheese" className="p-5 space-y-3">
+        <h3 className="font-display uppercase text-lg">Reputación Google</h3>
+        <p className="text-xs text-kp-ink/70">
+          Carga manual desde la ficha de Google de esta sede. Solo se muestra en la web cuando
+          ambos campos tienen valor.
+        </p>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className={fieldCls}>
+            <label className={labelCls}>Calificación (0 a 5)</label>
+            <BrutalInput
+              type="number"
+              step="0.1"
+              min={0}
+              max={5}
+              value={form.google_rating ?? ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  google_rating: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+              placeholder="Ej: 4.8"
+            />
+            {errors.google_rating && <p className="text-xs text-kp-red">{errors.google_rating}</p>}
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Cantidad de reseñas</label>
+            <BrutalInput
+              type="number"
+              step="1"
+              min={0}
+              value={form.google_reviews_count ?? ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  google_reviews_count: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+              placeholder="Ej: 8430"
+            />
+            {errors.google_reviews_count && (
+              <p className="text-xs text-kp-red">{errors.google_reviews_count}</p>
+            )}
+          </div>
+        </div>
+      </BrutalCard>
+
+
 
       <BrutalCard tone="cheese" className="p-5 space-y-3">
         <h3 className="font-display uppercase text-lg">Servicios y estado</h3>

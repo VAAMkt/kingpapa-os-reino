@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { BrutalBadge, BrutalCard } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { getSedeBySlug, type SedeRow } from "@/lib/sedes";
+import { GoogleRatingBadge } from "@/components/kp/Cards";
 import { SITE_URL } from "@/lib/seo-schema";
 
 const sedeQuery = (slug: string) => ({
@@ -78,6 +79,17 @@ export const Route = createFileRoute("/sedes_/$slug")({
         ? { geo: { "@type": "GeoCoordinates", latitude: sede.lat, longitude: sede.lng } }
         : {}),
       ...(sede.maps_url ? { hasMap: sede.maps_url } : {}),
+      ...(sede.google_rating != null && sede.google_reviews_count != null
+        ? {
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: Number(sede.google_rating),
+              reviewCount: Number(sede.google_reviews_count),
+              bestRating: 5,
+              worstRating: 1,
+            },
+          }
+        : {}),
       parentOrganization: { "@type": "Organization", name: "KINGPAPA", url: SITE_URL },
     };
 
@@ -186,6 +198,10 @@ function SedeDetalle() {
               {sede.abierta_ahora ? "Abierto ahora" : "Cerrado"}
             </BrutalBadge>
             <BrutalBadge tone="yellow">{sede.ciudad}</BrutalBadge>
+            <GoogleRatingBadge
+              rating={sede.google_rating}
+              reviews={sede.google_reviews_count}
+            />
           </div>
 
           <h1 className="font-display text-4xl md:text-6xl uppercase mt-3 leading-none">
