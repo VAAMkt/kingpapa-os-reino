@@ -406,11 +406,7 @@ export async function pixelAdvancedMatch(user: {
   ciudad?: string | null;
 }): Promise<void> {
   if (typeof window === "undefined" || typeof crypto?.subtle === "undefined") return;
-  matchedUser = clean({
-    nombre: user.nombre ?? undefined,
-    telefono: user.telefono ?? undefined,
-    ciudad: user.ciudad ?? undefined,
-  }) as typeof matchedUser;
+  setMetaMatchedUser(user);
   const partes = (user.nombre ?? "").trim().toLowerCase().split(/\s+/).filter(Boolean);
   const phone = user.telefono ? normalizePhone(user.telefono) : undefined;
   const ciudad = (user.ciudad ?? "").trim().toLowerCase().replace(/\s+/g, "");
@@ -423,7 +419,7 @@ export async function pixelAdvancedMatch(user: {
     sha256("co"),
   ]);
 
-  const data = clean({ ph, fn, ln, ct, country });
+  const data = clean({ ph, fn, ln, ct, country, external_id: getOrCreateExternalId() });
   if (Object.keys(data).length === 0) return;
   fbq("init", META_PIXEL_ID, data);
 }
