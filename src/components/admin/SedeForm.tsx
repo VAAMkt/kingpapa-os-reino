@@ -243,6 +243,14 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           form.delivery_max_distance_km != null && String(form.delivery_max_distance_km).length > 0
             ? Number(form.delivery_max_distance_km)
             : null,
+        google_rating:
+          form.google_rating != null && String(form.google_rating).length > 0
+            ? Number(form.google_rating)
+            : null,
+        google_reviews_count:
+          form.google_reviews_count != null && String(form.google_reviews_count).length > 0
+            ? Math.round(Number(form.google_reviews_count))
+            : null,
       };
       const parsed = SedeSchema.safeParse(cleaned);
       if (!parsed.success) {
