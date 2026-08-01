@@ -69,27 +69,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "google-site-verification", content: "iw-wuGnkQx69KexbV4B7sznauCkTPYkG_A2zGy5kAvM" },
-      { title: "KINGPAPA — El Reino" },
+      { title: "KINGPAPA" },
       {
         name: "description",
         content:
-          "Los REYES de esta pendeja’. Salchipapas estrambóticas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones.",
+          "KINGPAPA: salchipapas, bowls y combos coronados en Cali. Menú, sedes y pedidos directos sin comisiones.",
       },
       { name: "author", content: "KINGPAPA" },
-      { property: "og:title", content: "KINGPAPA — El Reino" },
+      { property: "og:title", content: "KINGPAPA" },
       {
         property: "og:description",
         content:
-          "Los REYES de esta pendeja’. Salchipapas estrambóticas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones.",
+          "KINGPAPA: salchipapas, bowls y combos coronados en Cali. Menú, sedes y pedidos directos sin comisiones.",
       },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "KINGPAPA" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "KINGPAPA — El Reino" },
+      { name: "twitter:title", content: "KINGPAPA" },
       {
         name: "twitter:description",
         content:
-          "Los REYES de esta pendeja’. Salchipapas estrambóticas, bowls coronados y retos pa’ toda la banda. Pedí directo, sin comisiones.",
+          "KINGPAPA: salchipapas, bowls y combos coronados en Cali. Menú, sedes y pedidos directos sin comisiones.",
       },
       {
         property: "og:image",
