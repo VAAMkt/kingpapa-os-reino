@@ -191,12 +191,12 @@ export function Footer() {
                 <a href="mailto:contabilidadmvk@gmail.com">Factura electrónica</a>
               </li>
               <li>
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
+                <a href="https://www.instagram.com/kingpapaco" target="_blank" rel="noopener noreferrer">
                   Instagram
                 </a>
               </li>
               <li>
-                <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer">
+                <a href="https://www.tiktok.com/@kingpapaco" target="_blank" rel="noopener noreferrer">
                   TikTok
                 </a>
               </li>

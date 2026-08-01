@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -451,12 +451,17 @@ function MenuPage() {
             <p className="font-display uppercase text-2xl">
               Esta sede aún no tiene menú sincronizado.
             </p>
-            <Link
-              to="/admin/sincronizacion"
+            <p className="text-sm">
+              Mientras lo arreglamos, pedí directo por WhatsApp y te atendemos igual.
+            </p>
+            <a
+              href="https://wa.me/573172455336"
+              target="_blank"
+              rel="noopener noreferrer"
               className="font-display uppercase underline underline-offset-4 decoration-4 decoration-kp-yellow"
             >
-              Ir a sincronización →
-            </Link>
+              Pedir por WhatsApp →
+            </a>
           </div>
         )}
 

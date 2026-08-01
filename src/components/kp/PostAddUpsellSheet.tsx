@@ -72,7 +72,7 @@ function Body({ producto, onClose }: { producto: Producto; onClose: () => void }
         {producto.imagen ? (
           <img
             src={producto.imagen}
-            alt=""
+            alt={producto.nombre}
             className="w-14 h-14 shrink-0 object-cover border-2 border-kp-ink"
           />
         ) : (
@@ -118,7 +118,7 @@ function Body({ producto, onClose }: { producto: Producto; onClose: () => void }
                   {p.imagen ? (
                     <img
                       src={p.imagen}
-                      alt=""
+                      alt={p.nombre}
                       loading="lazy"
                       className="w-14 h-14 object-cover border-2 border-kp-ink shrink-0"
                     />

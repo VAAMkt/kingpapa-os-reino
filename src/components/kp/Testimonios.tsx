@@ -44,7 +44,7 @@ export function Testimonios() {
       </div>
       <div className="mt-5 flex flex-wrap gap-3">
         <a
-          href="https://instagram.com"
+          href="https://www.instagram.com/kingpapaco"
           target="_blank"
           rel="noopener noreferrer"
           className="font-display uppercase text-sm underline underline-offset-4 decoration-4 decoration-kp-yellow"
@@ -52,7 +52,7 @@ export function Testimonios() {
           Ver a la banda en Instagram →
         </a>
         <a
-          href="https://tiktok.com"
+          href="https://www.tiktok.com/@kingpapaco"
           target="_blank"
           rel="noopener noreferrer"
           className="font-display uppercase text-sm underline underline-offset-4 decoration-4 decoration-kp-purple"
