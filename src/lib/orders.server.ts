@@ -704,6 +704,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     total,
     items: itemsSnapshot,
     cliente: input.cliente,
+    externalId: input.externalId ?? null,
   });
 
   return {
