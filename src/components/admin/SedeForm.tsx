@@ -179,6 +179,9 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         extra.delivery_extra_km_fee != null ? Number(extra.delivery_extra_km_fee) : 1200,
       delivery_max_distance_km:
         extra.delivery_max_distance_km != null ? Number(extra.delivery_max_distance_km) : 8,
+      google_rating: initial.google_rating != null ? Number(initial.google_rating) : null,
+      google_reviews_count:
+        initial.google_reviews_count != null ? Number(initial.google_reviews_count) : null,
       tz: extra.tz ?? "America/Bogota",
       kill_switch: extra.kill_switch ?? false,
       horarios:
