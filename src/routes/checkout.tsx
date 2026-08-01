@@ -19,7 +19,7 @@ import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
 import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
-import { pixelAdvancedMatch } from "@/lib/meta-pixel";
+import { pixelAdvancedMatch, getOrCreateExternalId } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
