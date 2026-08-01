@@ -598,49 +598,62 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
       <BrutalCard tone="cheese" className="p-5 space-y-3">
         <h3 className="font-display uppercase text-lg">Reputación Google</h3>
         <p className="text-xs text-kp-ink/70">
-          Carga manual desde la ficha de Google de esta sede. Solo se muestra en la web cuando
-          ambos campos tienen valor.
+          El rating y las reseñas se sincronizan automáticamente desde Google (semanal). Carga el
+          Place ID una sola vez.
         </p>
+        <div className={fieldCls}>
+          <label className={labelCls}>Google Place ID</label>
+          <BrutalInput
+            value={form.google_place_id ?? ""}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                google_place_id: e.target.value === "" ? null : e.target.value,
+              })
+            }
+            placeholder="Ej: ChIJN1t_tDeuEmsRUsoyG83frY4"
+          />
+          {errors.google_place_id && (
+            <p className="text-xs text-kp-red">{errors.google_place_id}</p>
+          )}
+        </div>
         <div className="grid md:grid-cols-2 gap-3">
           <div className={fieldCls}>
-            <label className={labelCls}>Calificación (0 a 5)</label>
-            <BrutalInput
-              type="number"
-              step="0.1"
-              min={0}
-              max={5}
-              value={form.google_rating ?? ""}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  google_rating: e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
-              placeholder="Ej: 4.8"
-            />
-            {errors.google_rating && <p className="text-xs text-kp-red">{errors.google_rating}</p>}
+            <label className={labelCls}>Calificación (solo lectura)</label>
+            <div className="px-4 py-3 border-2 border-kp-ink bg-kp-cheese/50 font-display">
+              {ratingView.rating != null ? Number(ratingView.rating).toFixed(1) : "—"}
+            </div>
           </div>
           <div className={fieldCls}>
-            <label className={labelCls}>Cantidad de reseñas</label>
-            <BrutalInput
-              type="number"
-              step="1"
-              min={0}
-              value={form.google_reviews_count ?? ""}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  google_reviews_count: e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
-              placeholder="Ej: 8430"
-            />
-            {errors.google_reviews_count && (
-              <p className="text-xs text-kp-red">{errors.google_reviews_count}</p>
-            )}
+            <label className={labelCls}>Reseñas (solo lectura)</label>
+            <div className="px-4 py-3 border-2 border-kp-ink bg-kp-cheese/50 font-display">
+              {ratingView.reviews != null ? ratingView.reviews : "—"}
+            </div>
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <BrutalButton
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={!editing || !initial?.google_place_id || syncRatings.isPending}
+            onClick={() => syncRatings.mutate()}
+          >
+            {syncRatings.isPending ? "Sincronizando…" : "Sincronizar ahora"}
+          </BrutalButton>
+          <span className="text-[11px] text-kp-ink/60">
+            {ratingView.syncedAt
+              ? `Última sincronización: ${new Date(ratingView.syncedAt).toLocaleString("es-CO")}`
+              : "Nunca sincronizado"}
+          </span>
+        </div>
+        {editing && !initial?.google_place_id && (
+          <p className="text-[11px] text-kp-ink/60">
+            Guarda primero el Place ID para poder sincronizar.
+          </p>
+        )}
       </BrutalCard>
+
 
 
 

@@ -50,6 +50,7 @@ import { Route as AdminSedesNuevoRouteImport } from './routes/admin.sedes.nuevo'
 import { Route as AdminSedesIdRouteImport } from './routes/admin.sedes.$id'
 import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
 import { Route as AdminContenidosIdRouteImport } from './routes/admin.contenidos.$id'
+import { Route as ApiPublicHooksSyncGoogleRatingsRouteImport } from './routes/api/public/hooks/sync-google-ratings'
 import { Route as ApiPublicHooksRpReconcileRouteImport } from './routes/api/public/hooks/rp-reconcile'
 
 const TrackingRoute = TrackingRouteImport.update({
@@ -257,6 +258,12 @@ const AdminContenidosIdRoute = AdminContenidosIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AdminContenidosRoute,
 } as any)
+const ApiPublicHooksSyncGoogleRatingsRoute =
+  ApiPublicHooksSyncGoogleRatingsRouteImport.update({
+    id: '/api/public/hooks/sync-google-ratings',
+    path: '/api/public/hooks/sync-google-ratings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksRpReconcileRoute =
   ApiPublicHooksRpReconcileRouteImport.update({
     id: '/api/public/hooks/rp-reconcile',
@@ -307,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
   '/admin/sedes/': typeof AdminSedesIndexRoute
   '/api/public/hooks/rp-reconcile': typeof ApiPublicHooksRpReconcileRoute
+  '/api/public/hooks/sync-google-ratings': typeof ApiPublicHooksSyncGoogleRatingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -347,6 +355,7 @@ export interface FileRoutesByTo {
   '/admin/contenidos': typeof AdminContenidosIndexRoute
   '/admin/sedes': typeof AdminSedesIndexRoute
   '/api/public/hooks/rp-reconcile': typeof ApiPublicHooksRpReconcileRoute
+  '/api/public/hooks/sync-google-ratings': typeof ApiPublicHooksSyncGoogleRatingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -392,6 +401,7 @@ export interface FileRoutesById {
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
   '/admin/sedes/': typeof AdminSedesIndexRoute
   '/api/public/hooks/rp-reconcile': typeof ApiPublicHooksRpReconcileRoute
+  '/api/public/hooks/sync-google-ratings': typeof ApiPublicHooksSyncGoogleRatingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -438,6 +448,7 @@ export interface FileRouteTypes {
     | '/admin/contenidos/'
     | '/admin/sedes/'
     | '/api/public/hooks/rp-reconcile'
+    | '/api/public/hooks/sync-google-ratings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -478,6 +489,7 @@ export interface FileRouteTypes {
     | '/admin/contenidos'
     | '/admin/sedes'
     | '/api/public/hooks/rp-reconcile'
+    | '/api/public/hooks/sync-google-ratings'
   id:
     | '__root__'
     | '/'
@@ -522,6 +534,7 @@ export interface FileRouteTypes {
     | '/admin/contenidos/'
     | '/admin/sedes/'
     | '/api/public/hooks/rp-reconcile'
+    | '/api/public/hooks/sync-google-ratings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -545,6 +558,7 @@ export interface RootRouteChildren {
   ApiPublicMetaCapiRoute: typeof ApiPublicMetaCapiRoute
   ApiPublicRpWebhookRoute: typeof ApiPublicRpWebhookRoute
   ApiPublicHooksRpReconcileRoute: typeof ApiPublicHooksRpReconcileRoute
+  ApiPublicHooksSyncGoogleRatingsRoute: typeof ApiPublicHooksSyncGoogleRatingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -836,6 +850,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminContenidosIdRouteImport
       parentRoute: typeof AdminContenidosRoute
     }
+    '/api/public/hooks/sync-google-ratings': {
+      id: '/api/public/hooks/sync-google-ratings'
+      path: '/api/public/hooks/sync-google-ratings'
+      fullPath: '/api/public/hooks/sync-google-ratings'
+      preLoaderRoute: typeof ApiPublicHooksSyncGoogleRatingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/rp-reconcile': {
       id: '/api/public/hooks/rp-reconcile'
       path: '/api/public/hooks/rp-reconcile'
@@ -958,6 +979,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMetaCapiRoute: ApiPublicMetaCapiRoute,
   ApiPublicRpWebhookRoute: ApiPublicRpWebhookRoute,
   ApiPublicHooksRpReconcileRoute: ApiPublicHooksRpReconcileRoute,
+  ApiPublicHooksSyncGoogleRatingsRoute: ApiPublicHooksSyncGoogleRatingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
