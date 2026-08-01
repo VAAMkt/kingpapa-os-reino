@@ -11,7 +11,7 @@ import {
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { LocationCard } from "@/components/kp/Cards";
 import { FaqKing } from "@/components/kp/FaqKing";
-import { listPublicSedes } from "@/lib/sedes";
+import { listPublicSedes, type SedeRow } from "@/lib/sedes";
 import { faqPageJsonLd, sedesLocalBusinessJsonLd, SITE_URL } from "@/lib/seo-schema";
 
 export const Route = createFileRoute("/sedes")({
@@ -53,8 +53,8 @@ export const Route = createFileRoute("/sedes")({
 });
 
 function SedesPage() {
-  const { sedes: initialSedes } = Route.useLoaderData();
-  const { data: sedes = [], isLoading } = useQuery({
+  const { sedes: initialSedes } = Route.useLoaderData() as { sedes: SedeRow[] };
+  const { data: sedes = [] as SedeRow[], isLoading } = useQuery({
     queryKey: ["sedes", "public"],
     queryFn: listPublicSedes,
     staleTime: 60_000,
