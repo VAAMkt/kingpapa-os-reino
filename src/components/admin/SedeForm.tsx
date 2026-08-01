@@ -212,6 +212,39 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
     return m;
   }, [usedQuery.data, initial?.id]);
 
+  // Valores de reputación en pantalla (solo lectura; se refrescan al sincronizar).
+  const [ratingView, setRatingView] = useState<{
+    rating: number | null;
+    reviews: number | null;
+    syncedAt: string | null;
+  }>({
+    rating: initial?.google_rating != null ? Number(initial.google_rating) : null,
+    reviews: initial?.google_reviews_count != null ? Number(initial.google_reviews_count) : null,
+    syncedAt: initial?.google_rating_synced_at ?? null,
+  });
+
+  const runSync = useServerFn(syncGoogleRatings);
+  const syncRatings = useMutation({
+    mutationFn: async () => runSync({ data: { sedeId: initial?.id ?? null } }),
+    onSuccess: (res) => {
+      const r = res.results.find((x) => x.sede_id === initial?.id) ?? res.results[0];
+      if (r?.ok) {
+        setRatingView({
+          rating: r.rating ?? null,
+          reviews: r.reviews ?? null,
+          syncedAt: res.synced_at,
+        });
+        toast.success(`Rating actualizado: ${r.rating ?? "—"} (${r.reviews ?? "—"} reseñas)`);
+      } else {
+        toast.error(r?.error ?? "No se pudo sincronizar esta sede");
+      }
+      queryClient.invalidateQueries({ queryKey: ["sedes"] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Error de sincronización"),
+  });
+
+
+
   useEffect(() => {
     if (!slugTouched) setForm((f) => ({ ...f, slug: slugifySede(f.nombre) }));
   }, [form.nombre, slugTouched]);
