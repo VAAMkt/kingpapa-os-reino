@@ -32,6 +32,47 @@ function fbq(...args: unknown[]): void {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Claves de identidad: external_id estable + rescate de _fbc          */
+/* ------------------------------------------------------------------ */
+
+const EXTERNAL_ID_KEY = "kp.meta.eid";
+
+/** Identificador anónimo propio, estable por navegador. Clave fuerte de dedup. */
+export function getOrCreateExternalId(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const existing = localStorage.getItem(EXTERNAL_ID_KEY);
+    if (existing) return existing;
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `kp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(EXTERNAL_ID_KEY, id);
+    return id;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Si la URL trae `fbclid` y Meta aún no creó la cookie `_fbc`, la construimos
+ * con el formato oficial `fb.1.<timestamp>.<fbclid>` y la persistimos 90 días.
+ */
+export function ensureFbc(): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    const fbclid = new URLSearchParams(window.location.search).get("fbclid");
+    if (!fbclid) return;
+    if (readCookie("_fbc")) return;
+    const value = `fb.1.${Date.now()}.${fbclid}`;
+    const maxAge = 90 * 24 * 60 * 60;
+    document.cookie = `_fbc=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  } catch {
+    /* nunca romper UX por analytics */
+  }
+}
+
 export function pixelPageView(): void {
   if (typeof window === "undefined") return;
   // El snippet del head ya dispara el primer PageView: evitamos duplicarlo.
