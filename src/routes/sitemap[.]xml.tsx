@@ -36,10 +36,21 @@ export const Route = createFileRoute("/sitemap.xml")({
           posts = [];
         }
 
+        let sedes: { slug: string }[] = [];
+        try {
+          sedes = (await listPublicSedes()).map((s) => ({ slug: s.slug }));
+        } catch {
+          sedes = [];
+        }
+
         const urls = [
           ...STATIC_PATHS.map(
             (e) =>
               `  <url><loc>${SITE_URL}${e.path}</loc><changefreq>${e.changefreq}</changefreq><priority>${e.priority}</priority></url>`,
+          ),
+          ...sedes.map(
+            (s) =>
+              `  <url><loc>${SITE_URL}/sedes/${s.slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>`,
           ),
           ...posts.map(
             (p) =>
