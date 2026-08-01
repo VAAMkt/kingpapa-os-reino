@@ -596,6 +596,55 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
       </BrutalCard>
 
       <BrutalCard tone="cheese" className="p-5 space-y-3">
+        <h3 className="font-display uppercase text-lg">Reputación Google</h3>
+        <p className="text-xs text-kp-ink/70">
+          Carga manual desde la ficha de Google de esta sede. Solo se muestra en la web cuando
+          ambos campos tienen valor.
+        </p>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className={fieldCls}>
+            <label className={labelCls}>Calificación (0 a 5)</label>
+            <BrutalInput
+              type="number"
+              step="0.1"
+              min={0}
+              max={5}
+              value={form.google_rating ?? ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  google_rating: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+              placeholder="Ej: 4.8"
+            />
+            {errors.google_rating && <p className="text-xs text-kp-red">{errors.google_rating}</p>}
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Cantidad de reseñas</label>
+            <BrutalInput
+              type="number"
+              step="1"
+              min={0}
+              value={form.google_reviews_count ?? ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  google_reviews_count: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+              placeholder="Ej: 8430"
+            />
+            {errors.google_reviews_count && (
+              <p className="text-xs text-kp-red">{errors.google_reviews_count}</p>
+            )}
+          </div>
+        </div>
+      </BrutalCard>
+
+
+
+      <BrutalCard tone="cheese" className="p-5 space-y-3">
         <h3 className="font-display uppercase text-lg">Servicios y estado</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {(
