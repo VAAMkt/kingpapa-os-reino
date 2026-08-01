@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { BrutalBadge, BrutalCard } from "@/components/ui-kp/Brutal";
 import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { getSedeBySlug, type SedeRow } from "@/lib/sedes";
+import { GoogleRatingBadge } from "@/components/kp/Cards";
 import { SITE_URL } from "@/lib/seo-schema";
 
 const sedeQuery = (slug: string) => ({
@@ -197,6 +198,10 @@ function SedeDetalle() {
               {sede.abierta_ahora ? "Abierto ahora" : "Cerrado"}
             </BrutalBadge>
             <BrutalBadge tone="yellow">{sede.ciudad}</BrutalBadge>
+            <GoogleRatingBadge
+              rating={sede.google_rating}
+              reviews={sede.google_reviews_count}
+            />
           </div>
 
           <h1 className="font-display text-4xl md:text-6xl uppercase mt-3 leading-none">
