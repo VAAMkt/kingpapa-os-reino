@@ -292,7 +292,7 @@ function CustomizerBody({ producto, onDone }: { producto: Producto; onDone: () =
                   {b.imagen ? (
                     <img
                       src={b.imagen}
-                      alt=""
+                      alt={b.nombre}
                       className="w-full aspect-square object-cover border-2 border-kp-ink"
                     />
                   ) : (
