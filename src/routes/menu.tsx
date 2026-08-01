@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -20,7 +20,7 @@ import { track } from "@/lib/analytics";
 import type { Producto, Categoria } from "@/types/kp";
 
 export const Route = createFileRoute("/menu")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { sede?: string } => ({
     sede: typeof search.sede === "string" ? search.sede : undefined,
   }),
   head: () => ({
@@ -176,6 +176,21 @@ function MenuPage() {
       (p) => norm(p.nombre).includes(q) || norm(p.descripcion ?? "").includes(q),
     );
   }, [buscando, query, productos]);
+
+  // Search (Meta): una vez que el usuario deja de escribir.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) return;
+    const t = setTimeout(() => {
+      track("menu_search", {
+        query: q,
+        resultados: resultados.length,
+        resultados_ids: resultados.slice(0, 10).map((p) => p.id),
+      });
+    }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   // Scrollspy
   useEffect(() => {
@@ -435,12 +450,17 @@ function MenuPage() {
             <p className="font-display uppercase text-2xl">
               Esta sede aún no tiene menú sincronizado.
             </p>
-            <Link
-              to="/admin/sincronizacion"
+            <p className="text-sm">
+              Mientras lo arreglamos, pedí directo por WhatsApp y te atendemos igual.
+            </p>
+            <a
+              href="https://wa.me/573172455336"
+              target="_blank"
+              rel="noopener noreferrer"
               className="font-display uppercase underline underline-offset-4 decoration-4 decoration-kp-yellow"
             >
-              Ir a sincronización →
-            </Link>
+              Pedir por WhatsApp →
+            </a>
           </div>
         )}
 

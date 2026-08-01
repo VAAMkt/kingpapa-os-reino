@@ -78,6 +78,9 @@ export function ProductCard({
     if (tieneMods) {
       track("customizer_opened", {
         producto_id: producto.id,
+        producto_nombre: producto.nombre,
+        precio_base: producto.precioDesde,
+        categoria: (producto.categorias ?? [])[0],
         grupos: producto.modificadores?.length ?? 0,
       });
       setOpenCustomizer(true);
@@ -95,6 +98,8 @@ export function ProductCard({
       producto_id: producto.id,
       producto_nombre: producto.nombre,
       precio_final: producto.precioDesde,
+      cantidad: 1,
+      categoria: (producto.categorias ?? [])[0],
       tiene_modificadores: false,
     });
     track("simple_product_added", {

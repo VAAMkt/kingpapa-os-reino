@@ -141,7 +141,7 @@ export function UpsellSection({
             {p.imagen ? (
               <img
                 src={p.imagen}
-                alt=""
+                alt={p.nombre}
                 className="w-14 h-14 object-cover border-2 border-kp-ink shrink-0"
               />
             ) : (

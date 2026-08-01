@@ -254,6 +254,7 @@ export type Database = {
       };
       orders: {
         Row: {
+<<<<<<< HEAD
           cancel_reason: string | null;
           cancelled_at: string | null;
           cliente: Json;
@@ -346,6 +347,88 @@ export type Database = {
           updated_at?: string;
           user_id?: string | null;
         };
+=======
+          analytics_excluded_at: string | null
+          analytics_exclusion_reason: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cliente: Json
+          created_at: string
+          delivery_distance_km: number | null
+          delivery_fee: number
+          id: string
+          is_test: boolean
+          items: Json
+          meta_capi_sent_at: string | null
+          notas: string | null
+          pago: string
+          rp_numero_comanda: string | null
+          rp_payload: Json
+          rp_pedido_id: string | null
+          rp_response: Json | null
+          sede_id: string
+          status: string
+          subtotal: number
+          tipo: string
+          total: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          analytics_excluded_at?: string | null
+          analytics_exclusion_reason?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cliente: Json
+          created_at?: string
+          delivery_distance_km?: number | null
+          delivery_fee?: number
+          id?: string
+          is_test?: boolean
+          items: Json
+          meta_capi_sent_at?: string | null
+          notas?: string | null
+          pago: string
+          rp_numero_comanda?: string | null
+          rp_payload: Json
+          rp_pedido_id?: string | null
+          rp_response?: Json | null
+          sede_id: string
+          status?: string
+          subtotal?: number
+          tipo: string
+          total?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          analytics_excluded_at?: string | null
+          analytics_exclusion_reason?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cliente?: Json
+          created_at?: string
+          delivery_distance_km?: number | null
+          delivery_fee?: number
+          id?: string
+          is_test?: boolean
+          items?: Json
+          meta_capi_sent_at?: string | null
+          notas?: string | null
+          pago?: string
+          rp_numero_comanda?: string | null
+          rp_payload?: Json
+          rp_pedido_id?: string | null
+          rp_response?: Json | null
+          sede_id?: string
+          status?: string
+          subtotal?: number
+          tipo?: string
+          total?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+>>>>>>> origin/main
         Relationships: [
           {
             foreignKeyName: "orders_sede_id_fkey";
@@ -638,6 +721,7 @@ export type Database = {
       };
       sedes: {
         Row: {
+<<<<<<< HEAD
           abierta_ahora: boolean;
           barrio: string | null;
           ciudad: string;
@@ -738,6 +822,120 @@ export type Database = {
         };
         Relationships: [];
       };
+=======
+          abierta_ahora: boolean
+          barrio: string | null
+          ciudad: string
+          cobertura_radio_km: number
+          created_at: string
+          delivery: boolean
+          delivery_base_distance_km: number
+          delivery_base_fee: number | null
+          delivery_extra_km_fee: number
+          delivery_max_distance_km: number | null
+          direccion: string
+          google_place_id: string | null
+          google_rating: number | null
+          google_rating_synced_at: string | null
+          google_reviews_count: number | null
+          horario: string
+          horarios: Json
+          id: string
+          kill_switch: boolean
+          lat: number | null
+          lng: number | null
+          mall: string | null
+          maps_url: string | null
+          nombre: string
+          orden: number
+          pickup: boolean
+          publicado: boolean
+          qr_mesa: boolean
+          rp_acepta_delivery: number | null
+          rp_local_estado: number | null
+          rp_local_id: number | null
+          slug: string
+          tz: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          abierta_ahora?: boolean
+          barrio?: string | null
+          ciudad: string
+          cobertura_radio_km?: number
+          created_at?: string
+          delivery?: boolean
+          delivery_base_distance_km?: number
+          delivery_base_fee?: number | null
+          delivery_extra_km_fee?: number
+          delivery_max_distance_km?: number | null
+          direccion: string
+          google_place_id?: string | null
+          google_rating?: number | null
+          google_rating_synced_at?: string | null
+          google_reviews_count?: number | null
+          horario?: string
+          horarios?: Json
+          id?: string
+          kill_switch?: boolean
+          lat?: number | null
+          lng?: number | null
+          mall?: string | null
+          maps_url?: string | null
+          nombre: string
+          orden?: number
+          pickup?: boolean
+          publicado?: boolean
+          qr_mesa?: boolean
+          rp_acepta_delivery?: number | null
+          rp_local_estado?: number | null
+          rp_local_id?: number | null
+          slug: string
+          tz?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          abierta_ahora?: boolean
+          barrio?: string | null
+          ciudad?: string
+          cobertura_radio_km?: number
+          created_at?: string
+          delivery?: boolean
+          delivery_base_distance_km?: number
+          delivery_base_fee?: number | null
+          delivery_extra_km_fee?: number
+          delivery_max_distance_km?: number | null
+          direccion?: string
+          google_place_id?: string | null
+          google_rating?: number | null
+          google_rating_synced_at?: string | null
+          google_reviews_count?: number | null
+          horario?: string
+          horarios?: Json
+          id?: string
+          kill_switch?: boolean
+          lat?: number | null
+          lng?: number | null
+          mall?: string | null
+          maps_url?: string | null
+          nombre?: string
+          orden?: number
+          pickup?: boolean
+          publicado?: boolean
+          qr_mesa?: boolean
+          rp_acepta_delivery?: number | null
+          rp_local_estado?: number | null
+          rp_local_id?: number | null
+          slug?: string
+          tz?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+>>>>>>> origin/main
       subditos: {
         Row: {
           arquetipo: string | null;

@@ -19,10 +19,24 @@ import { submitCheckoutOrder, precheckStock } from "@/lib/orders.functions";
 import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
+import { pixelAdvancedMatch, getOrCreateExternalId } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
-    meta: [{ title: "Checkout — KINGPAPA" }, { name: "robots", content: "noindex" }],
+    meta: [
+      { title: "Checkout — KINGPAPA" },
+      {
+        name: "description",
+        content:
+          "Confirma tu pedido KINGPAPA: elige domicilio o recoger en sede, revisa el total y pedí directo sin comisiones de apps.",
+      },
+      { property: "og:title", content: "Checkout — KINGPAPA" },
+      {
+        property: "og:description",
+        content: "Confirma tu pedido KINGPAPA y pedí directo, sin comisiones de apps.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
   }),
   component: CheckoutPage,
 });
@@ -101,7 +115,16 @@ function CheckoutPage() {
 
   // checkout_started: dispara una vez al montar si hay carrito.
   useEffect(() => {
-    if (count > 0) track("checkout_started", { items_count: count, subtotal });
+    if (count > 0)
+      track("checkout_started", {
+        items_count: count,
+        subtotal,
+        items: items.map((i) => ({
+          productoId: i.productoId,
+          cantidad: i.cantidad,
+          precio: i.precio,
+        })),
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -290,6 +313,8 @@ function CheckoutPage() {
         tipo === "delivery" && sede?.lat != null && sede?.lng != null
           ? { lat: Number(sede.lat), lng: Number(sede.lng) }
           : null,
+      // Clave de identidad para deduplicar navegador ↔ servidor en Meta.
+      externalId: getOrCreateExternalId() ?? null,
     };
   }
 
@@ -322,6 +347,8 @@ function CheckoutPage() {
     }
 
     setEnviando(true);
+    // Advanced Matching: sube la calidad de coincidencia en Meta (todo hasheado).
+    void pixelAdvancedMatch({ nombre, telefono, ciudad: "Cali" });
     track("order_submitted", {
       items_count: count,
       subtotal,
@@ -603,6 +630,10 @@ function CheckoutPage() {
                 <BrutalInput
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
+                  onBlur={() => {
+                    if (nombre.trim())
+                      void pixelAdvancedMatch({ nombre, telefono, ciudad: "Cali" });
+                  }}
                   placeholder="Nombre"
                   autoComplete="name"
                   className={errors.nombre ? "border-kp-red" : ""}
@@ -612,6 +643,10 @@ function CheckoutPage() {
                 <BrutalInput
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
+                  onBlur={() => {
+                    if (/^\d{7,}$/.test(telefono.replace(/\D/g, "")))
+                      void pixelAdvancedMatch({ nombre, telefono, ciudad: "Cali" });
+                  }}
                   placeholder="Teléfono / WhatsApp"
                   inputMode="tel"
                   autoComplete="tel"
@@ -692,7 +727,7 @@ function CheckoutPage() {
                   type="button"
                   onClick={() => {
                     setPago(opt.id);
-                    track("payment_method_selected", { metodo: opt.id });
+                    track("payment_method_selected", { metodo: opt.id, total, subtotal });
                   }}
                   className={`px-3 py-2 border-2 font-display uppercase text-xs ${
                     pago === opt.id

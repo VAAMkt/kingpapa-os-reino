@@ -60,7 +60,7 @@ export function CartDrawer() {
                     {i.imagen && (
                       <img
                         src={i.imagen}
-                        alt=""
+                        alt={i.nombre}
                         width={112}
                         height={112}
                         loading="lazy"

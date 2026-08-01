@@ -27,6 +27,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MiReinoIndexRouteImport } from './routes/mi-reino.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as SedesSlugRouteImport } from './routes/sedes_.$slug'
 import { Route as MiReinoPuntosRouteImport } from './routes/mi-reino.puntos'
 import { Route as MiReinoPedidosRouteImport } from './routes/mi-reino.pedidos'
 import { Route as MiReinoFavoritosRouteImport } from './routes/mi-reino.favoritos'
@@ -44,10 +45,12 @@ import { Route as AdminContenidosRouteImport } from './routes/admin.contenidos'
 import { Route as AdminSedesIndexRouteImport } from './routes/admin.sedes.index'
 import { Route as AdminContenidosIndexRouteImport } from './routes/admin.contenidos.index'
 import { Route as ApiPublicRpWebhookRouteImport } from './routes/api/public/rp-webhook'
+import { Route as ApiPublicMetaCapiRouteImport } from './routes/api/public/meta-capi'
 import { Route as AdminSedesNuevoRouteImport } from './routes/admin.sedes.nuevo'
 import { Route as AdminSedesIdRouteImport } from './routes/admin.sedes.$id'
 import { Route as AdminContenidosNuevoRouteImport } from './routes/admin.contenidos.nuevo'
 import { Route as AdminContenidosIdRouteImport } from './routes/admin.contenidos.$id'
+import { Route as ApiPublicHooksSyncGoogleRatingsRouteImport } from './routes/api/public/hooks/sync-google-ratings'
 import { Route as ApiPublicHooksRpReconcileRouteImport } from './routes/api/public/hooks/rp-reconcile'
 
 const TrackingRoute = TrackingRouteImport.update({
@@ -140,6 +143,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const SedesSlugRoute = SedesSlugRouteImport.update({
+  id: '/sedes_/$slug',
+  path: '/sedes/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MiReinoPuntosRoute = MiReinoPuntosRouteImport.update({
   id: '/puntos',
   path: '/puntos',
@@ -225,6 +233,11 @@ const ApiPublicRpWebhookRoute = ApiPublicRpWebhookRouteImport.update({
   path: '/api/public/rp-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMetaCapiRoute = ApiPublicMetaCapiRouteImport.update({
+  id: '/api/public/meta-capi',
+  path: '/api/public/meta-capi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminSedesNuevoRoute = AdminSedesNuevoRouteImport.update({
   id: '/nuevo',
   path: '/nuevo',
@@ -245,6 +258,12 @@ const AdminContenidosIdRoute = AdminContenidosIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AdminContenidosRoute,
 } as any)
+const ApiPublicHooksSyncGoogleRatingsRoute =
+  ApiPublicHooksSyncGoogleRatingsRouteImport.update({
+    id: '/api/public/hooks/sync-google-ratings',
+    path: '/api/public/hooks/sync-google-ratings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksRpReconcileRoute =
   ApiPublicHooksRpReconcileRouteImport.update({
     id: '/api/public/hooks/rp-reconcile',
@@ -283,16 +302,19 @@ export interface FileRoutesByFullPath {
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
   '/mi-reino/pedidos': typeof MiReinoPedidosRoute
   '/mi-reino/puntos': typeof MiReinoPuntosRoute
+  '/sedes/$slug': typeof SedesSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/mi-reino/': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
   '/admin/sedes/$id': typeof AdminSedesIdRoute
   '/admin/sedes/nuevo': typeof AdminSedesNuevoRoute
+  '/api/public/meta-capi': typeof ApiPublicMetaCapiRoute
   '/api/public/rp-webhook': typeof ApiPublicRpWebhookRoute
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
   '/admin/sedes/': typeof AdminSedesIndexRoute
   '/api/public/hooks/rp-reconcile': typeof ApiPublicHooksRpReconcileRoute
+  '/api/public/hooks/sync-google-ratings': typeof ApiPublicHooksSyncGoogleRatingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -321,16 +343,19 @@ export interface FileRoutesByTo {
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
   '/mi-reino/pedidos': typeof MiReinoPedidosRoute
   '/mi-reino/puntos': typeof MiReinoPuntosRoute
+  '/sedes/$slug': typeof SedesSlugRoute
   '/admin': typeof AdminIndexRoute
   '/mi-reino': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
   '/admin/sedes/$id': typeof AdminSedesIdRoute
   '/admin/sedes/nuevo': typeof AdminSedesNuevoRoute
+  '/api/public/meta-capi': typeof ApiPublicMetaCapiRoute
   '/api/public/rp-webhook': typeof ApiPublicRpWebhookRoute
   '/admin/contenidos': typeof AdminContenidosIndexRoute
   '/admin/sedes': typeof AdminSedesIndexRoute
   '/api/public/hooks/rp-reconcile': typeof ApiPublicHooksRpReconcileRoute
+  '/api/public/hooks/sync-google-ratings': typeof ApiPublicHooksSyncGoogleRatingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -364,16 +389,19 @@ export interface FileRoutesById {
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
   '/mi-reino/pedidos': typeof MiReinoPedidosRoute
   '/mi-reino/puntos': typeof MiReinoPuntosRoute
+  '/sedes_/$slug': typeof SedesSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/mi-reino/': typeof MiReinoIndexRoute
   '/admin/contenidos/$id': typeof AdminContenidosIdRoute
   '/admin/contenidos/nuevo': typeof AdminContenidosNuevoRoute
   '/admin/sedes/$id': typeof AdminSedesIdRoute
   '/admin/sedes/nuevo': typeof AdminSedesNuevoRoute
+  '/api/public/meta-capi': typeof ApiPublicMetaCapiRoute
   '/api/public/rp-webhook': typeof ApiPublicRpWebhookRoute
   '/admin/contenidos/': typeof AdminContenidosIndexRoute
   '/admin/sedes/': typeof AdminSedesIndexRoute
   '/api/public/hooks/rp-reconcile': typeof ApiPublicHooksRpReconcileRoute
+  '/api/public/hooks/sync-google-ratings': typeof ApiPublicHooksSyncGoogleRatingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -408,16 +436,19 @@ export interface FileRouteTypes {
     | '/mi-reino/favoritos'
     | '/mi-reino/pedidos'
     | '/mi-reino/puntos'
+    | '/sedes/$slug'
     | '/admin/'
     | '/mi-reino/'
     | '/admin/contenidos/$id'
     | '/admin/contenidos/nuevo'
     | '/admin/sedes/$id'
     | '/admin/sedes/nuevo'
+    | '/api/public/meta-capi'
     | '/api/public/rp-webhook'
     | '/admin/contenidos/'
     | '/admin/sedes/'
     | '/api/public/hooks/rp-reconcile'
+    | '/api/public/hooks/sync-google-ratings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -446,16 +477,19 @@ export interface FileRouteTypes {
     | '/mi-reino/favoritos'
     | '/mi-reino/pedidos'
     | '/mi-reino/puntos'
+    | '/sedes/$slug'
     | '/admin'
     | '/mi-reino'
     | '/admin/contenidos/$id'
     | '/admin/contenidos/nuevo'
     | '/admin/sedes/$id'
     | '/admin/sedes/nuevo'
+    | '/api/public/meta-capi'
     | '/api/public/rp-webhook'
     | '/admin/contenidos'
     | '/admin/sedes'
     | '/api/public/hooks/rp-reconcile'
+    | '/api/public/hooks/sync-google-ratings'
   id:
     | '__root__'
     | '/'
@@ -488,16 +522,19 @@ export interface FileRouteTypes {
     | '/mi-reino/favoritos'
     | '/mi-reino/pedidos'
     | '/mi-reino/puntos'
+    | '/sedes_/$slug'
     | '/admin/'
     | '/mi-reino/'
     | '/admin/contenidos/$id'
     | '/admin/contenidos/nuevo'
     | '/admin/sedes/$id'
     | '/admin/sedes/nuevo'
+    | '/api/public/meta-capi'
     | '/api/public/rp-webhook'
     | '/admin/contenidos/'
     | '/admin/sedes/'
     | '/api/public/hooks/rp-reconcile'
+    | '/api/public/hooks/sync-google-ratings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -517,8 +554,11 @@ export interface RootRouteChildren {
   SedesRoute: typeof SedesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TrackingRoute: typeof TrackingRoute
+  SedesSlugRoute: typeof SedesSlugRoute
+  ApiPublicMetaCapiRoute: typeof ApiPublicMetaCapiRoute
   ApiPublicRpWebhookRoute: typeof ApiPublicRpWebhookRoute
   ApiPublicHooksRpReconcileRoute: typeof ApiPublicHooksRpReconcileRoute
+  ApiPublicHooksSyncGoogleRatingsRoute: typeof ApiPublicHooksSyncGoogleRatingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -649,6 +689,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/sedes_/$slug': {
+      id: '/sedes_/$slug'
+      path: '/sedes/$slug'
+      fullPath: '/sedes/$slug'
+      preLoaderRoute: typeof SedesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mi-reino/puntos': {
       id: '/mi-reino/puntos'
       path: '/puntos'
@@ -768,6 +815,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicRpWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/meta-capi': {
+      id: '/api/public/meta-capi'
+      path: '/api/public/meta-capi'
+      fullPath: '/api/public/meta-capi'
+      preLoaderRoute: typeof ApiPublicMetaCapiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/sedes/nuevo': {
       id: '/admin/sedes/nuevo'
       path: '/nuevo'
@@ -795,6 +849,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/contenidos/$id'
       preLoaderRoute: typeof AdminContenidosIdRouteImport
       parentRoute: typeof AdminContenidosRoute
+    }
+    '/api/public/hooks/sync-google-ratings': {
+      id: '/api/public/hooks/sync-google-ratings'
+      path: '/api/public/hooks/sync-google-ratings'
+      fullPath: '/api/public/hooks/sync-google-ratings'
+      preLoaderRoute: typeof ApiPublicHooksSyncGoogleRatingsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/rp-reconcile': {
       id: '/api/public/hooks/rp-reconcile'
@@ -914,19 +975,12 @@ const rootRouteChildren: RootRouteChildren = {
   SedesRoute: SedesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TrackingRoute: TrackingRoute,
+  SedesSlugRoute: SedesSlugRoute,
+  ApiPublicMetaCapiRoute: ApiPublicMetaCapiRoute,
   ApiPublicRpWebhookRoute: ApiPublicRpWebhookRoute,
   ApiPublicHooksRpReconcileRoute: ApiPublicHooksRpReconcileRoute,
+  ApiPublicHooksSyncGoogleRatingsRoute: ApiPublicHooksSyncGoogleRatingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

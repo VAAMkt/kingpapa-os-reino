@@ -5,7 +5,11 @@ import { BrutalBadge } from "@/components/ui-kp/Brutal";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
-    meta: [{ title: "Admin — KINGPAPA OS" }],
+    meta: [
+      { title: "Admin — KINGPAPA OS" },
+      { name: "robots", content: "noindex, nofollow" },
+      { name: "googlebot", content: "noindex, nofollow" },
+    ],
   }),
   component: AdminLayout,
 });

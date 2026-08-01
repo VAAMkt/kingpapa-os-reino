@@ -6,9 +6,10 @@ import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
 import { resolveOrderId } from "@/lib/orders.poll.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { pixelPurchase } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/gracias")({
-  validateSearch: (s: Record<string, unknown>) => {
+  validateSearch: (s: Record<string, unknown>): { order_id?: string } => {
     const raw =
       typeof s.order_id === "string"
         ? s.order_id
@@ -22,6 +23,16 @@ export const Route = createFileRoute("/gracias")({
   head: () => ({
     meta: [
       { title: "¡Tu corona se está forjando! — KINGPAPA" },
+      {
+        name: "description",
+        content:
+          "Tu pedido KINGPAPA quedó confirmado. Seguí el estado en vivo, desde la cocina hasta tu puerta, y prepará la corona.",
+      },
+      { property: "og:title", content: "¡Tu corona se está forjando! — KINGPAPA" },
+      {
+        property: "og:description",
+        content: "Seguí en vivo el estado de tu pedido KINGPAPA.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -37,7 +48,7 @@ type LastOrder = {
   pickupScheduledFor?: string | null;
   cliente: { nombre: string; telefono: string; direccion: string | null; detalles: string };
   sede: { id: string; slug: string; label: string } | null;
-  items: { key: string; nombre: string; cantidad: number; precio: number }[];
+  items: { key: string; productoId?: string; nombre: string; cantidad: number; precio: number }[];
   subtotal?: number;
   deliveryFee?: number;
   total: number;
@@ -129,6 +140,21 @@ function GraciasPage() {
       /* ignore */
     }
   }, [order_id]);
+
+  // Meta Pixel: Purchase una sola vez por pedido confirmado.
+  useEffect(() => {
+    if (!order || order.orderId !== order_id || !order.total) return;
+    pixelPurchase({
+      orderId: order.orderId,
+      value: order.total,
+      contents: (order.items ?? []).map((i) => ({
+        id: i.productoId ?? i.key,
+        quantity: i.cantidad,
+        item_price: i.precio,
+      })),
+      numItems: order.items?.reduce((n, i) => n + i.cantidad, 0) ?? 0,
+    });
+  }, [order, order_id]);
 
   // Buscar WhatsApp de la sede desde el backend público.
   useEffect(() => {

@@ -13,6 +13,8 @@ import { rpGetCatalogo, rpRegistrarDelivery } from "@/lib/restaurantpe.server";
 import type { RpMenuData, RpProducto } from "@/types/restaurantpe";
 import { quoteDeliveryInternal } from "@/lib/delivery-quote.server";
 import { restaurantPePaymentFields } from "@/lib/payment-methods";
+import { sendCapiEvents } from "@/lib/capi.server";
+import { getCookie, getRequestHeader, getRequestIP } from "@tanstack/react-start/server";
 
 export type CheckoutInputItem = {
   productoId: string; // productos_master.id (uuid)
@@ -35,6 +37,7 @@ export type CheckoutInput = {
   items: CheckoutInputItem[];
   userId?: string | null;
   destino?: { lat: number; lng: number } | null;
+  externalId?: string | null;
 };
 
 type ModOption = { id: number; nombre: string; precio: number };
@@ -687,6 +690,18 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     );
   }
 
+  // 4) Meta Conversions API — Purchase desde el servidor.
+  //    Mismo event_id que el pixel del navegador => Meta deduplica.
+  //    Candado en BD: el pedido se marca antes de enviar, así una recarga o
+  //    un reintento nunca reporta la compra dos veces.
+  await sendPurchaseToMeta({
+    orderId: localId,
+    total,
+    items: itemsSnapshot,
+    cliente: input.cliente,
+    externalId: input.externalId ?? null,
+  });
+
   return {
     orderId: localId,
     localId,
@@ -694,4 +709,58 @@ export async function submitOrder(input: CheckoutInput): Promise<{
     subtotal,
     total,
   };
+}
+
+async function sendPurchaseToMeta(args: {
+  orderId: string;
+  total: number;
+  items: { productoId: string; cantidad: number; precio: number }[];
+  cliente: { nombre: string; telefono: string };
+  externalId?: string | null;
+}): Promise<void> {
+  try {
+    // Candado de idempotencia: sólo el primer intento gana la fila.
+    const { data: locked } = await supabaseAdmin
+      .from("orders")
+      .update({ meta_capi_sent_at: new Date().toISOString() } as never)
+      .eq("id", args.orderId)
+      .is("meta_capi_sent_at", null)
+      .select("id");
+    if (!locked || locked.length === 0) return;
+
+    const contents = args.items.map((i) => ({
+      id: i.productoId,
+      quantity: i.cantidad,
+      item_price: i.precio,
+    }));
+
+    await sendCapiEvents([
+      {
+        eventName: "Purchase",
+        eventId: `kp-order-${args.orderId}`,
+        actionSource: "website",
+        eventSourceUrl: getRequestHeader("referer") ?? "https://kingpapa.co/gracias",
+        customData: {
+          value: args.total,
+          currency: "COP",
+          content_type: "product",
+          content_ids: contents.map((c) => c.id),
+          contents,
+          num_items: contents.reduce((n, c) => n + c.quantity, 0),
+        },
+        user: {
+          nombre: args.cliente.nombre,
+          telefono: args.cliente.telefono,
+          ciudad: "Cali",
+          externalId: args.externalId ?? args.orderId,
+          fbp: getCookie("_fbp") ?? null,
+          fbc: getCookie("_fbc") ?? null,
+          ip: getRequestIP({ xForwardedFor: true }) ?? null,
+          userAgent: getRequestHeader("user-agent") ?? null,
+        },
+      },
+    ]);
+  } catch (err) {
+    console.error("[Meta CAPI] purchase failed", err);
+  }
 }

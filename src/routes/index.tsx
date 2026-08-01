@@ -16,7 +16,36 @@ import { listPublicPosts } from "@/lib/posts";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { rpProductoToProducto, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
 import heroAsset from "@/assets/salchitender-lto.jpeg.asset.json";
+<<<<<<< HEAD
 import { faqPageJsonLd, organizationJsonLd, websiteJsonLd, SITE_URL } from "@/lib/seo-schema";
+=======
+import heroAvif480 from "@/assets/hero-480.avif.asset.json";
+import heroAvif768 from "@/assets/hero-768.avif.asset.json";
+import heroAvif1080 from "@/assets/hero-1080.avif.asset.json";
+import heroWebp480 from "@/assets/hero-480.webp.asset.json";
+import heroWebp768 from "@/assets/hero-768.webp.asset.json";
+import heroWebp1080 from "@/assets/hero-1080.webp.asset.json";
+import {
+  faqPageJsonLd,
+  organizationJsonLd,
+  websiteJsonLd,
+  SITE_URL,
+} from "@/lib/seo-schema";
+>>>>>>> origin/main
+
+// Variantes del hero (LCP). El CDN de assets no transforma imágenes, así que
+// cada ancho/formato se sube como asset propio y se sirve por srcset.
+const HERO_AVIF_SRCSET = [
+  `${heroAvif480.url} 480w`,
+  `${heroAvif768.url} 768w`,
+  `${heroAvif1080.url} 1080w`,
+].join(", ");
+const HERO_WEBP_SRCSET = [
+  `${heroWebp480.url} 480w`,
+  `${heroWebp768.url} 768w`,
+  `${heroWebp1080.url} 1080w`,
+].join(", ");
+const HERO_SIZES = "(min-width: 768px) 50vw, 100vw";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,7 +64,18 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:url", content: `${SITE_URL}/` },
     ],
-    links: [{ rel: "canonical", href: `${SITE_URL}/` }],
+    links: [
+      { rel: "canonical", href: `${SITE_URL}/` },
+      {
+        rel: "preload",
+        as: "image",
+        type: "image/avif",
+        href: heroAvif768.url,
+        imagesrcset: HERO_AVIF_SRCSET,
+        imagesizes: HERO_SIZES,
+        fetchpriority: "high",
+      },
+    ],
     scripts: [
       { type: "application/ld+json", children: JSON.stringify(organizationJsonLd()) },
       { type: "application/ld+json", children: JSON.stringify(websiteJsonLd()) },
@@ -136,13 +176,20 @@ function HomePage() {
               </BrutalBadge>
             </div>
             <div className="aspect-square bg-kp-ink border-2 border-kp-ink shadow-brutal-lg overflow-hidden">
-              <img
-                src={heroAsset.url}
-                alt="SalchiTender LTO — La Nueva Reina llegó al Reino KINGPAPA"
-                width={1280}
-                height={1280}
-                className="w-full h-full object-cover"
-              />
+              <picture>
+                <source type="image/avif" srcSet={HERO_AVIF_SRCSET} sizes={HERO_SIZES} />
+                <source type="image/webp" srcSet={HERO_WEBP_SRCSET} sizes={HERO_SIZES} />
+                <img
+                  src={heroAsset.url}
+                  alt="SalchiTender LTO — La Nueva Reina llegó al Reino KINGPAPA"
+                  width={1080}
+                  height={1080}
+                  fetchPriority="high"
+                  loading="eager"
+                  decoding="async"
+                  className="w-full h-full object-cover"
+                />
+              </picture>
             </div>
           </div>
         </div>
@@ -163,11 +210,8 @@ function HomePage() {
         />
         {estrellas.length === 0 ? (
           <p className="text-sm text-kp-ink/70 border-2 border-dashed border-kp-ink p-4">
-            El menú aún no está sincronizado. Un editor puede traerlo desde{" "}
-            <Link to="/admin/sincronizacion" className="underline font-bold">
-              /admin/sincronizacion
-            </Link>
-            .
+            El menú aún no está sincronizado. Un editor puede traerlo desde el panel de
+            administración.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

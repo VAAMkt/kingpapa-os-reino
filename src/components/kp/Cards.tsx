@@ -12,6 +12,38 @@ export function formatFecha(iso: string): string {
 }
 import type { Historia } from "@/types/kp";
 
+/** Miles con punto, sin depender del locale del runtime (evita hydration mismatch). */
+function formatMiles(n: number): string {
+  return Math.round(n)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/** Badge de reputación Google. Solo se muestra si hay calificación y cantidad de reseñas. */
+export function GoogleRatingBadge({
+  rating,
+  reviews,
+  className = "",
+}: {
+  rating: number | null | undefined;
+  reviews: number | null | undefined;
+  className?: string;
+}) {
+  if (rating == null || reviews == null) return null;
+  const r = Number(rating);
+  const c = Number(reviews);
+  if (!Number.isFinite(r) || !Number.isFinite(c) || c <= 0) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[11px] font-display uppercase bg-kp-yellow text-kp-ink border-2 border-kp-ink px-2 py-1 ${className}`}
+      aria-label={`Calificación de Google ${r.toFixed(1)} sobre 5 con ${formatMiles(c)} reseñas`}
+    >
+      <span aria-hidden="true">⭐</span>
+      {r.toFixed(1)} ({formatMiles(c)} reseñas)
+    </span>
+  );
+}
+
 export function LocationCard({ sede }: { sede: SedeRow }) {
   const services = [
     sede.delivery && "Delivery",
@@ -27,12 +59,25 @@ export function LocationCard({ sede }: { sede: SedeRow }) {
     <BrutalCard tone="cheese" className="p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="font-display text-2xl uppercase leading-none">{sede.nombre}</h3>
-          <p className="text-sm mt-1">{sede.direccion}</p>
-          <p className="text-xs text-kp-ink/70">
-            {sede.ciudad}
-            {sede.barrio ? ` · ${sede.barrio}` : sede.mall ? ` · ${sede.mall}` : ""}
-          </p>
+          <Link
+            to="/sedes/$slug"
+            params={{ slug: sede.slug }}
+            className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-kp-ink"
+          >
+            <h3 className="font-display text-2xl uppercase leading-none group-hover:underline underline-offset-4">
+              {sede.nombre}
+            </h3>
+            <p className="text-sm mt-1">{sede.direccion}</p>
+            <p className="text-xs text-kp-ink/70">
+              {sede.ciudad}
+              {sede.barrio ? ` · ${sede.barrio}` : sede.mall ? ` · ${sede.mall}` : ""}
+            </p>
+          </Link>
+          <GoogleRatingBadge
+            rating={sede.google_rating}
+            reviews={sede.google_reviews_count}
+            className="mt-2"
+          />
         </div>
         <BrutalBadge tone={sede.abierta_ahora ? "lime" : "black"}>
           {sede.abierta_ahora ? "Abierto" : "Cerrado"}
