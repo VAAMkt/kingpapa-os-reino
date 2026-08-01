@@ -721,6 +721,7 @@ async function sendPurchaseToMeta(args: {
   total: number;
   items: { productoId: string; cantidad: number; precio: number }[];
   cliente: { nombre: string; telefono: string };
+  externalId?: string | null;
 }): Promise<void> {
   try {
     // Candado de idempotencia: sólo el primer intento gana la fila.
