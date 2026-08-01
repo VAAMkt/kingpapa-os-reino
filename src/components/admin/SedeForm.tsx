@@ -65,8 +65,8 @@ const SedeSchema = z.object({
   delivery_base_distance_km: z.number().min(0).max(20),
   delivery_extra_km_fee: z.number().min(0).max(20000),
   delivery_max_distance_km: z.number().min(0).max(50).nullable(),
-  google_rating: z.number().min(0, "Entre 0 y 5").max(5, "Entre 0 y 5").nullable(),
-  google_reviews_count: z.number().int("Debe ser entero").min(0, "No puede ser negativo").nullable(),
+  google_place_id: z.string().trim().max(300).nullable().optional(),
+
   tz: z.string().min(3).max(60),
   kill_switch: z.boolean(),
   horarios: HorariosSchema,
