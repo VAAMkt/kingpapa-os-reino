@@ -15,6 +15,9 @@ import {
   type SedeRow,
 } from "@/lib/sedes";
 import { listRpLocales } from "@/lib/rp.functions";
+import { syncGoogleRatings } from "@/lib/google-places.functions";
+
+
 import { PlacesAutocomplete } from "@/components/kp/PlacesAutocomplete";
 import { GateMap } from "@/components/kp/GateMap";
 import { toast } from "sonner";
@@ -65,8 +68,8 @@ const SedeSchema = z.object({
   delivery_base_distance_km: z.number().min(0).max(20),
   delivery_extra_km_fee: z.number().min(0).max(20000),
   delivery_max_distance_km: z.number().min(0).max(50).nullable(),
-  google_rating: z.number().min(0, "Entre 0 y 5").max(5, "Entre 0 y 5").nullable(),
-  google_reviews_count: z.number().int("Debe ser entero").min(0, "No puede ser negativo").nullable(),
+  google_place_id: z.string().trim().max(300).nullable().optional(),
+
   tz: z.string().min(3).max(60),
   kill_switch: z.boolean(),
   horarios: HorariosSchema,
@@ -108,8 +111,8 @@ const emptyState: FormState = {
   delivery_base_distance_km: 1,
   delivery_extra_km_fee: 1200,
   delivery_max_distance_km: 8,
-  google_rating: null,
-  google_reviews_count: null,
+  google_place_id: null,
+
 
 
   tz: "America/Bogota",
@@ -179,9 +182,8 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
         extra.delivery_extra_km_fee != null ? Number(extra.delivery_extra_km_fee) : 1200,
       delivery_max_distance_km:
         extra.delivery_max_distance_km != null ? Number(extra.delivery_max_distance_km) : 8,
-      google_rating: initial.google_rating != null ? Number(initial.google_rating) : null,
-      google_reviews_count:
-        initial.google_reviews_count != null ? Number(initial.google_reviews_count) : null,
+      google_place_id: initial.google_place_id ?? null,
+
       tz: extra.tz ?? "America/Bogota",
       kill_switch: extra.kill_switch ?? false,
       horarios:
@@ -213,6 +215,39 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
     return m;
   }, [usedQuery.data, initial?.id]);
 
+  // Valores de reputación en pantalla (solo lectura; se refrescan al sincronizar).
+  const [ratingView, setRatingView] = useState<{
+    rating: number | null;
+    reviews: number | null;
+    syncedAt: string | null;
+  }>({
+    rating: initial?.google_rating != null ? Number(initial.google_rating) : null,
+    reviews: initial?.google_reviews_count != null ? Number(initial.google_reviews_count) : null,
+    syncedAt: initial?.google_rating_synced_at ?? null,
+  });
+
+  const runSync = useServerFn(syncGoogleRatings);
+  const syncRatings = useMutation({
+    mutationFn: async () => runSync({ data: { sedeId: initial?.id ?? null } }),
+    onSuccess: (res) => {
+      const r = res.results.find((x: { sede_id: string }) => x.sede_id === initial?.id) ?? res.results[0];
+      if (r?.ok) {
+        setRatingView({
+          rating: r.rating ?? null,
+          reviews: r.reviews ?? null,
+          syncedAt: res.synced_at,
+        });
+        toast.success(`Rating actualizado: ${r.rating ?? "—"} (${r.reviews ?? "—"} reseñas)`);
+      } else {
+        toast.error(r?.error ?? "No se pudo sincronizar esta sede");
+      }
+      queryClient.invalidateQueries({ queryKey: ["sedes"] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Error de sincronización"),
+  });
+
+
+
   useEffect(() => {
     if (!slugTouched) setForm((f) => ({ ...f, slug: slugifySede(f.nombre) }));
   }, [form.nombre, slugTouched]);
@@ -243,14 +278,8 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
           form.delivery_max_distance_km != null && String(form.delivery_max_distance_km).length > 0
             ? Number(form.delivery_max_distance_km)
             : null,
-        google_rating:
-          form.google_rating != null && String(form.google_rating).length > 0
-            ? Number(form.google_rating)
-            : null,
-        google_reviews_count:
-          form.google_reviews_count != null && String(form.google_reviews_count).length > 0
-            ? Math.round(Number(form.google_reviews_count))
-            : null,
+        google_place_id: form.google_place_id?.trim() ? form.google_place_id.trim() : null,
+
       };
       const parsed = SedeSchema.safeParse(cleaned);
       if (!parsed.success) {
@@ -598,49 +627,62 @@ export function SedeForm({ initial }: { initial?: SedeRow }) {
       <BrutalCard tone="cheese" className="p-5 space-y-3">
         <h3 className="font-display uppercase text-lg">Reputación Google</h3>
         <p className="text-xs text-kp-ink/70">
-          Carga manual desde la ficha de Google de esta sede. Solo se muestra en la web cuando
-          ambos campos tienen valor.
+          El rating y las reseñas se sincronizan automáticamente desde Google (semanal). Carga el
+          Place ID una sola vez.
         </p>
+        <div className={fieldCls}>
+          <label className={labelCls}>Google Place ID</label>
+          <BrutalInput
+            value={form.google_place_id ?? ""}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                google_place_id: e.target.value === "" ? null : e.target.value,
+              })
+            }
+            placeholder="Ej: ChIJN1t_tDeuEmsRUsoyG83frY4"
+          />
+          {errors.google_place_id && (
+            <p className="text-xs text-kp-red">{errors.google_place_id}</p>
+          )}
+        </div>
         <div className="grid md:grid-cols-2 gap-3">
           <div className={fieldCls}>
-            <label className={labelCls}>Calificación (0 a 5)</label>
-            <BrutalInput
-              type="number"
-              step="0.1"
-              min={0}
-              max={5}
-              value={form.google_rating ?? ""}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  google_rating: e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
-              placeholder="Ej: 4.8"
-            />
-            {errors.google_rating && <p className="text-xs text-kp-red">{errors.google_rating}</p>}
+            <label className={labelCls}>Calificación (solo lectura)</label>
+            <div className="px-4 py-3 border-2 border-kp-ink bg-kp-cheese/50 font-display">
+              {ratingView.rating != null ? Number(ratingView.rating).toFixed(1) : "—"}
+            </div>
           </div>
           <div className={fieldCls}>
-            <label className={labelCls}>Cantidad de reseñas</label>
-            <BrutalInput
-              type="number"
-              step="1"
-              min={0}
-              value={form.google_reviews_count ?? ""}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  google_reviews_count: e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
-              placeholder="Ej: 8430"
-            />
-            {errors.google_reviews_count && (
-              <p className="text-xs text-kp-red">{errors.google_reviews_count}</p>
-            )}
+            <label className={labelCls}>Reseñas (solo lectura)</label>
+            <div className="px-4 py-3 border-2 border-kp-ink bg-kp-cheese/50 font-display">
+              {ratingView.reviews != null ? ratingView.reviews : "—"}
+            </div>
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <BrutalButton
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={!editing || !initial?.google_place_id || syncRatings.isPending}
+            onClick={() => syncRatings.mutate()}
+          >
+            {syncRatings.isPending ? "Sincronizando…" : "Sincronizar ahora"}
+          </BrutalButton>
+          <span className="text-[11px] text-kp-ink/60">
+            {ratingView.syncedAt
+              ? `Última sincronización: ${new Date(ratingView.syncedAt).toLocaleString("es-CO")}`
+              : "Nunca sincronizado"}
+          </span>
+        </div>
+        {editing && !initial?.google_place_id && (
+          <p className="text-[11px] text-kp-ink/60">
+            Guarda primero el Place ID para poder sincronizar.
+          </p>
+        )}
       </BrutalCard>
+
 
 
 
