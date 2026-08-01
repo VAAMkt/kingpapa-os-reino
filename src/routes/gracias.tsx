@@ -172,7 +172,7 @@ function GraciasPage() {
   const esRecoger = order?.tipo === "pickup";
   const waNumber = (sedeWa ?? "573172455336").replace(/\D/g, "");
   // Prioriza la referencia visible en Call Center para facilitar soporte.
-  const refVisible = rpNumeroComanda ?? rpPedidoId ?? order_id;
+  const refVisible = rpNumeroComanda ?? rpPedidoId ?? order_id ?? "";
 
   // Mensaje WhatsApp estructurado para optimizar el tiempo del call center.
   const waText = encodeURIComponent(
