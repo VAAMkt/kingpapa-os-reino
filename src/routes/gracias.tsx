@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { pixelPurchase } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/gracias")({
-  validateSearch: (s: Record<string, unknown>) => {
+  validateSearch: (s: Record<string, unknown>): { order_id?: string } => {
     const raw =
       typeof s.order_id === "string"
         ? s.order_id
