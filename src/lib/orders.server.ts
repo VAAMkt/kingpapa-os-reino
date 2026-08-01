@@ -757,7 +757,7 @@ async function sendPurchaseToMeta(args: {
           nombre: args.cliente.nombre,
           telefono: args.cliente.telefono,
           ciudad: "Cali",
-          externalId: args.orderId,
+          externalId: args.externalId ?? args.orderId,
           fbp: getCookie("_fbp") ?? null,
           fbc: getCookie("_fbc") ?? null,
           ip: getRequestIP({ xForwardedFor: true }) ?? null,
