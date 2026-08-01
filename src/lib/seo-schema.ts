@@ -73,9 +73,9 @@ export function organizationJsonLd() {
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
     sameAs: [
-      "https://www.instagram.com/kingpapa.co",
-      "https://www.tiktok.com/@kingpapa.co",
-      "https://www.facebook.com/kingpapa.co",
+      "https://www.instagram.com/kingpapaco",
+      "https://www.tiktok.com/@kingpapaco",
+      "https://www.facebook.com/kingpapaco",
     ],
   };
 }
