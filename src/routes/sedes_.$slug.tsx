@@ -78,6 +78,17 @@ export const Route = createFileRoute("/sedes_/$slug")({
         ? { geo: { "@type": "GeoCoordinates", latitude: sede.lat, longitude: sede.lng } }
         : {}),
       ...(sede.maps_url ? { hasMap: sede.maps_url } : {}),
+      ...(sede.google_rating != null && sede.google_reviews_count != null
+        ? {
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: Number(sede.google_rating),
+              reviewCount: Number(sede.google_reviews_count),
+              bestRating: 5,
+              worstRating: 1,
+            },
+          }
+        : {}),
       parentOrganization: { "@type": "Organization", name: "KINGPAPA", url: SITE_URL },
     };
 
