@@ -132,10 +132,13 @@ function SedesPage() {
       <section className="mx-auto max-w-7xl px-4 md:px-6 py-4">
         <div className="grid md:grid-cols-[1fr_auto] gap-3 items-start">
           <BrutalInput
+            type="search"
+            aria-label="Buscar sede por ciudad, barrio o centro comercial"
             placeholder="Busca por ciudad, barrio o centro comercial"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+
           <label htmlFor="sedes-ciudad-select" className="sr-only">
             Filtrar por ciudad
           </label>

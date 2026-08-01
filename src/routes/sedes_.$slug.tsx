@@ -54,9 +54,11 @@ export const Route = createFileRoute("/sedes_/$slug")({
     const marca = nombreMarca(sede);
     const title = `${marca} — Salchipapas en ${sede.ciudad}`.slice(0, 60);
     const z = zona(sede);
-    const desc =
+    const desc = (
       `${marca}: ${sede.direccion}${z ? `, ${z}` : ""}, ${sede.ciudad}. ` +
-      `Salchipapas a domicilio, para recoger y en mesa. Horario: ${sede.horario}.`.slice(0, 300);
+      `Salchipapas a domicilio, para recoger y en mesa.`
+    ).slice(0, 155);
+
 
     const restaurant: Record<string, unknown> = {
       "@context": "https://schema.org",

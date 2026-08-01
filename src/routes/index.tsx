@@ -146,12 +146,13 @@ function HomePage() {
               <BrutalBadge tone="black">Medallo</BrutalBadge>
             </div>
             <h1 className="font-display text-6xl sm:text-7xl md:text-8xl uppercase leading-[0.85] text-kp-ink">
-              Los REYES
+              KINGPAPA
               <br />
-              de esta
-              <br />
-              pendeja’
+              <span className="text-5xl sm:text-6xl md:text-7xl">
+                Los Reyes de la Salchipapa
+              </span>
             </h1>
+
             <p className="mt-5 text-base md:text-lg max-w-md border-l-4 border-kp-ink pl-3">
               Salchipapas monstruosas, bowls coronados y retos pa’ toda la banda. Pedí directo desde
               la web: sin comisiones, sin apps de por medio, cero drama.
