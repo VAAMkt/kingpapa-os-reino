@@ -50,17 +50,18 @@ export const Route = createFileRoute("/sedes_/$slug")({
       };
     }
 
-    const title = `KINGPAPA ${sede.nombre} — Salchipapas en ${sede.ciudad}`.slice(0, 60);
+    const marca = nombreMarca(sede);
+    const title = `${marca} — Salchipapas en ${sede.ciudad}`.slice(0, 60);
     const z = zona(sede);
     const desc =
-      `KINGPAPA ${sede.nombre}: ${sede.direccion}${z ? `, ${z}` : ""}, ${sede.ciudad}. ` +
+      `${marca}: ${sede.direccion}${z ? `, ${z}` : ""}, ${sede.ciudad}. ` +
       `Salchipapas a domicilio, para recoger y en mesa. Horario: ${sede.horario}.`.slice(0, 300);
 
     const restaurant: Record<string, unknown> = {
       "@context": "https://schema.org",
       "@type": "Restaurant",
       "@id": `${url}#restaurant`,
-      name: `KINGPAPA ${sede.nombre}`,
+      name: marca,
       url,
       address: {
         "@type": "PostalAddress",
@@ -188,7 +189,7 @@ function SedeDetalle() {
           </div>
 
           <h1 className="font-display text-4xl md:text-6xl uppercase mt-3 leading-none">
-            KINGPAPA {sede.nombre}
+            {nombreMarca(sede)}
           </h1>
           <p className="mt-3 max-w-2xl">
             {sede.direccion}
