@@ -62,7 +62,15 @@ export const Route = createFileRoute("/")({
     ],
     links: [
       { rel: "canonical", href: `${SITE_URL}/` },
-      { rel: "preload", as: "image", href: heroAsset.url, fetchpriority: "high" },
+      {
+        rel: "preload",
+        as: "image",
+        type: "image/avif",
+        href: heroAvif768.url,
+        imagesrcset: HERO_AVIF_SRCSET,
+        imagesizes: HERO_SIZES,
+        fetchpriority: "high",
+      },
     ],
     scripts: [
       { type: "application/ld+json", children: JSON.stringify(organizationJsonLd()) },
