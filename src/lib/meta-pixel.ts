@@ -80,12 +80,15 @@ export function ensureFbc(): void {
 export function pixelPageView(): void {
   if (typeof window === "undefined") return;
   ensureFbc();
-  // El snippet del head ya dispara el primer PageView: evitamos duplicarlo.
-  const w = window as Window & { __kpPixelInitialPageView?: boolean };
+  // El snippet del head ya disparó el primer PageView: no lo repetimos en el
+  // navegador, pero sí mandamos su gemelo de servidor con el MISMO event_id.
+  const w = window as Window & {
+    __kpPixelInitialPageView?: boolean;
+    __kpInitialPageViewId?: string;
+  };
   if (w.__kpPixelInitialPageView) {
     w.__kpPixelInitialPageView = false;
-    // Igual mandamos el gemelo de servidor del PageView inicial.
-    mirror("PageView", eventId("PageView"));
+    mirror("PageView", w.__kpInitialPageViewId ?? eventId("PageView"));
     return;
   }
   const id = eventId("PageView");
