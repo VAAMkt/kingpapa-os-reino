@@ -621,6 +621,10 @@ function CheckoutPage() {
                 <BrutalInput
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
+                  onBlur={() => {
+                    if (nombre.trim())
+                      void pixelAdvancedMatch({ nombre, telefono, ciudad: "Cali" });
+                  }}
                   placeholder="Nombre"
                   autoComplete="name"
                   className={errors.nombre ? "border-kp-red" : ""}
@@ -630,6 +634,10 @@ function CheckoutPage() {
                 <BrutalInput
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
+                  onBlur={() => {
+                    if (/^\d{7,}$/.test(telefono.replace(/\D/g, "")))
+                      void pixelAdvancedMatch({ nombre, telefono, ciudad: "Cali" });
+                  }}
                   placeholder="Teléfono / WhatsApp"
                   inputMode="tel"
                   autoComplete="tel"
