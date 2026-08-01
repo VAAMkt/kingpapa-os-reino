@@ -643,7 +643,9 @@ export type Database = {
           delivery_extra_km_fee: number
           delivery_max_distance_km: number | null
           direccion: string
+          google_place_id: string | null
           google_rating: number | null
+          google_rating_synced_at: string | null
           google_reviews_count: number | null
           horario: string
           horarios: Json
@@ -678,7 +680,9 @@ export type Database = {
           delivery_extra_km_fee?: number
           delivery_max_distance_km?: number | null
           direccion: string
+          google_place_id?: string | null
           google_rating?: number | null
+          google_rating_synced_at?: string | null
           google_reviews_count?: number | null
           horario?: string
           horarios?: Json
@@ -713,7 +717,9 @@ export type Database = {
           delivery_extra_km_fee?: number
           delivery_max_distance_km?: number | null
           direccion?: string
+          google_place_id?: string | null
           google_rating?: number | null
+          google_rating_synced_at?: string | null
           google_reviews_count?: number | null
           horario?: string
           horarios?: Json
