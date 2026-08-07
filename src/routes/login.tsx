@@ -2,10 +2,11 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { LoginForm } from "@/components/auth/AuthForms";
+import { authRedirect, type AuthRedirect } from "@/lib/auth-validation";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
-    redirect: typeof search.redirect === "string" ? search.redirect : "/mi-reino",
+  validateSearch: (search: Record<string, unknown>): { redirect: AuthRedirect } => ({
+    redirect: authRedirect(search.redirect),
   }),
   head: () => ({
     meta: [
