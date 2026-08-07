@@ -39,6 +39,7 @@ assert.match(loyalty, /habeas_data_accepted: z\.literal\(true\)/);
 assert.doesNotMatch(quizUi, /kp_subdito|localStorage/);
 assert.match(quizUi, /saveSubditoQuiz/);
 assert.match(quizUi, /type="checkbox"[\s\S]*required/);
+assert.match(quizUi, /isAuthenticated \? "Guardar mi clan"/);
 assert.match(miReino, /Tu clan está por descubrir/);
 assert.match(miReino, /href="\/#test-clanes"/);
 assert.match(miReino, /role="progressbar"/);

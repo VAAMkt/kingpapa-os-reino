@@ -239,7 +239,7 @@ function QuizModal({ onClose }: { onClose: () => void }) {
                   </span>
                 </label>
                 <BrutalButton block type="submit" disabled={!accepted || saving}>
-                  {saving ? "Guardando…" : hasAccount ? "Entrar y guardar mi clan" : "Crear cuenta y coronarme"}
+                  {saving ? "Guardando…" : isAuthenticated ? "Guardar mi clan" : hasAccount ? "Entrar y guardar mi clan" : "Crear cuenta y coronarme"}
                 </BrutalButton>
                 {!isAuthenticated && (
                   <button
