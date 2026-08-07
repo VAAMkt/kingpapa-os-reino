@@ -512,6 +512,7 @@ function CheckoutPage() {
             disabled={pickupUnavailable}
             onClick={() => {
               setOrderType("pickup");
+              setSelectorSedesAbierto(true);
               track("delivery_method_selected", { tipo: "pickup" });
             }}
             className={`min-h-[72px] border-2 border-kp-ink px-3 py-3 text-left transition active:translate-y-[1px] ${
