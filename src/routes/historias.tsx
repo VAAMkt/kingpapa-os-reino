@@ -76,6 +76,7 @@ function HistoriasPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 md:px-6 pb-12">
+        <h2 className="sr-only">Historias publicadas</h2>
         {isLoading ? (
           <p className="font-display uppercase text-sm">Cargando historias…</p>
         ) : error ? (

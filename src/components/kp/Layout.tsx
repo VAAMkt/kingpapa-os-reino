@@ -153,7 +153,7 @@ export function Footer() {
             </p>
           </div>
           <div>
-            <h4 className="font-display text-kp-yellow text-lg mb-3">El Reino</h4>
+            <h2 className="font-display text-kp-yellow text-lg mb-3">El Reino</h2>
             <ul className="space-y-1 text-sm">
               <li>
                 <Link to="/menu">Menú</Link>
@@ -170,7 +170,7 @@ export function Footer() {
             </ul>
           </div>
           <div>
-            <h4 className="font-display text-kp-yellow text-lg mb-3">Trabaja con la banda</h4>
+            <h2 className="font-display text-kp-yellow text-lg mb-3">Trabaja con la banda</h2>
             <ul className="space-y-1 text-sm">
               <li>
                 <a href="https://wa.me/573172455336" target="_blank" rel="noopener noreferrer">
