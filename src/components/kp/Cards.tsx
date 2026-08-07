@@ -113,14 +113,19 @@ export function LocationCard({ sede }: { sede: SedeRow }) {
 export function EventCard({ historia }: { historia: Historia }) {
   return (
     <BrutalCard tone="cheese" className="overflow-hidden flex flex-col">
-      <div className="aspect-[4/3] bg-kp-ink">
+      <Link
+        to="/historias/$slug"
+        params={{ slug: historia.slug }}
+        aria-label={`Leer historia: ${historia.titulo}`}
+        className="block aspect-[4/3] bg-kp-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-kp-ink"
+      >
         <img
           src={historia.imagen}
           alt={historia.titulo}
           loading="lazy"
           className="w-full h-full object-cover"
         />
-      </div>
+      </Link>
       <div className="p-4 flex flex-col gap-2 flex-1">
         <div className="flex items-center justify-between">
           <BrutalBadge tone="purple">{historia.categoria}</BrutalBadge>
