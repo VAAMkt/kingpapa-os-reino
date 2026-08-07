@@ -108,7 +108,7 @@ export function PostForm({ initial }: { initial?: PostRow }) {
       const cleaned = {
         ...form,
         extracto: finalExcerpt,
-        contenido_html: form.contenido_html || null,
+        contenido_html: sanitizeLegacyHtml(form.contenido_html ?? "") || null,
         video_url: form.video_url || null,
         link_original: form.link_original || null,
       };

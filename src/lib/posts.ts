@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Historia, CategoriaHistoria } from "@/types/kp";
 import type { Database } from "@/integrations/supabase/types";
+import { sanitizeLegacyHtml } from "@/lib/sanitize-html";
 
 export type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 export type PostInsert = Database["public"]["Tables"]["posts"]["Insert"];
@@ -17,7 +18,7 @@ export function mapPostToHistoria(p: PostRow): Historia {
     imagen: p.imagen_url,
     videoUrl: p.video_url ?? undefined,
     link: p.link_original ?? undefined,
-    contenidoHtml: p.contenido_html ?? undefined,
+    contenidoHtml: p.contenido_html ? sanitizeLegacyHtml(p.contenido_html) : undefined,
   };
 }
 
