@@ -1,3 +1,5 @@
+import type { Clan } from "@/lib/loyalty-model";
+
 // KINGPAPA OS — Domain types
 // TODO: Reemplazar mocks por respuestas reales del backend cuando exista.
 
@@ -105,19 +107,14 @@ export interface QuizQuestion {
   campo: "hambre" | "picante" | "presupuesto" | "ocasion" | "ciudad" | "canal" | "producto";
 }
 
-export type Arquetipo =
-  | "El Cabezón" // hambre brava + para compartir
-  | "El Rumbero" // after rumba + picante
-  | "El Obrero del Reino" // almuerzo + económico
-  | "La Reina del Antojo" // antojo mortal + picante
-  | "El Familiar Mayor"; // familia + para compartir
+export type Arquetipo = Clan;
 
 export interface Subdito {
   id?: string;
   email?: string;
   whatsapp?: string;
   ciudad?: Ciudad;
-  arquetipo?: Arquetipo;
+  arquetipo?: Clan;
   respuestas: Record<string, string>;
   createdAt: string;
 }

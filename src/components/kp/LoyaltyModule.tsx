@@ -2,6 +2,7 @@ import { useState } from "react";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { quiz, calcularArquetipo } from "@/data/quiz";
+import { CLAN_COPY } from "@/lib/loyalty-model";
 import type { Subdito } from "@/types/kp";
 
 /**
@@ -166,7 +167,7 @@ function QuizModal({ onClose }: { onClose: () => void }) {
               <div className="text-6xl">👑</div>
               <h3 className="font-display text-3xl uppercase mt-2">{arquetipo}</h3>
               <p className="text-sm mt-2 max-w-sm mx-auto">
-                Bienvenido al Reino. Vamos a mandarte combos hechos pa’ ti.
+                {CLAN_COPY[arquetipo]}
               </p>
               <BrutalButton block className="mt-5" variant="dark" onClick={onClose}>
                 Entrar al Reino
