@@ -5,7 +5,7 @@ import { quiz, calcularArquetipo } from "@/data/quiz";
 import type { Subdito } from "@/types/kp";
 
 /**
- * LoyaltyModule — registro de "súbditos del Reino" + quiz teaser.
+ * LoyaltyModule — registro de "creyentes del Reino" + quiz teaser.
  * Captura zero-party data y emails/WhatsApp.
  * TODO: POST /api/subditos { ...subdito } al backend de loyalty.
  */
@@ -16,9 +16,9 @@ export function LoyaltyModule() {
     <BrutalCard tone="purple" className="p-5 md:p-8">
       <div className="grid md:grid-cols-2 gap-6 items-center">
         <div>
-          <BrutalBadge tone="yellow">Súbditos del Reino</BrutalBadge>
+          <BrutalBadge tone="yellow">Creyentes del Reino</BrutalBadge>
           <h2 className="font-display text-4xl md:text-5xl uppercase mt-3 leading-none">
-            Hazte súbdito del Reino y come más por menos
+            Hazte creyente del Reino y come más por menos
           </h2>
           <ul className="mt-5 space-y-2 text-sm font-medium">
             <li>👑 Retos solo para miembros</li>
@@ -31,13 +31,13 @@ export function LoyaltyModule() {
               Crear mi corona digital
             </BrutalButton>
             <BrutalButton variant="ghost" size="lg" onClick={() => setOpenQuiz(true)}>
-              Hacer el test de súbdito
+              Hacer el test de creyente
             </BrutalButton>
           </div>
         </div>
 
         <BrutalCard tone="cheese" className="p-5">
-          <h3 className="font-display text-2xl uppercase">¿Qué tipo de súbdito eres?</h3>
+          <h3 className="font-display text-2xl uppercase">¿Qué tipo de creyente eres?</h3>
           <p className="text-sm mt-2 text-kp-ink/80">
             Descúbrelo en 30 segundos. 6 preguntas. Sin sermón.
           </p>
