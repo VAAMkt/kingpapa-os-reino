@@ -69,7 +69,7 @@ export function LoginForm({ redirectTo = "/mi-reino" }: { redirectTo?: string })
     <BrutalCard tone="cheese" className="p-6">
       <BrutalBadge tone="yellow">Entrar al Reino</BrutalBadge>
       <h1 className="font-display text-4xl uppercase mt-3 leading-none">Iniciar sesión</h1>
-      <p className="text-sm mt-2">Coróna te de vuelta, súbdito.</p>
+      <p className="text-sm mt-2">Coróna te de vuelta, creyente.</p>
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-3">
         <BrutalInput
@@ -101,7 +101,7 @@ export function LoginForm({ redirectTo = "/mi-reino" }: { redirectTo?: string })
       <GoogleButton label="Entrar con Google" />
 
       <p className="text-sm mt-4">
-        ¿Aún no eres súbdito?{" "}
+        ¿Aún no eres creyente?{" "}
         <Link to="/registro" className="font-display uppercase underline">
           Crear cuenta
         </Link>
@@ -133,7 +133,7 @@ export function SignupForm() {
       toast.error(error.message);
       return;
     }
-    toast.success("¡Eres oficialmente súbdito del Reino!");
+    toast.success("¡Eres oficialmente creyente del Reino!");
     navigate({ to: "/mi-reino" });
   };
 
