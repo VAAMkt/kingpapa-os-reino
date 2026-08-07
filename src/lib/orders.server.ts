@@ -62,6 +62,7 @@ type SedeRow = {
   id: string;
   nombre: string;
   rp_local_id: number | null;
+  tz?: string | null;
 };
 
 type DetallePedido = {
