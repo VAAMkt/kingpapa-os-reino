@@ -8,7 +8,7 @@ const SITE_URL =
   (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_SITE_URL) ||
   "https://kingpapacali.com";
 
-export const Route = createFileRoute("/historias/$slug")({
+export const Route = createFileRoute("/historias_/$slug")({
   loader: async ({ params, context }) => {
     const post = await context.queryClient.ensureQueryData({
       queryKey: ["posts", "public", params.slug],
