@@ -7,6 +7,7 @@ import { getMyLoyalty } from "@/lib/loyalty.functions";
 import { CLAN_COPY, getClanRankIdentity, getLoyaltyProgress } from "@/lib/loyalty-model";
 import { getMyOrders, type MyOrderRow } from "@/lib/mi-reino.functions";
 import { addItem, openCart } from "@/lib/cart";
+import { shareClanCard } from "@/lib/clan-share";
 import { toast } from "sonner";
 import { MiReinoQueryError } from "@/components/kp/MiReinoQueryError";
 
@@ -85,9 +86,32 @@ function MiReinoInicio() {
               : "Ya eres CONSAGRADO 👑"}
           </p>
         </div>
-        <BrutalLink href="/mi-reino/puntos" variant="dark" className="mt-4">
-          Canjear puntos
-        </BrutalLink>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <BrutalLink href="/mi-reino/puntos" variant="dark">
+            Canjear puntos
+          </BrutalLink>
+          {clan && identity && (
+            <BrutalButton
+              variant="primary"
+              onClick={async () => {
+                try {
+                  const result = await shareClanCard({
+                    clan,
+                    title: identity.title,
+                    rank: progress.current.name,
+                    band: progress.current.band,
+                    description: identity.description,
+                  });
+                  if (result === "downloaded") toast.success("Tarjeta descargada. ¡Súbela y etiqueta a la banda!");
+                } catch {
+                  toast.error("No pudimos crear tu tarjeta. Intenta de nuevo.");
+                }
+              }}
+            >
+              Compartir mi clan
+            </BrutalButton>
+          )}
+        </div>
       </BrutalCard>
 
       <BrutalCard tone="cheese" className="p-5">
