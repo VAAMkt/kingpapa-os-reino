@@ -44,6 +44,19 @@ const HERO_WEBP_SRCSET = [
 const HERO_SIZES = "(min-width: 768px) 50vw, 100vw";
 
 export const Route = createFileRoute("/")({
+  loader: async ({ context }) => {
+    const [sedes, posts] = await Promise.all([
+      context.queryClient.ensureQueryData({
+        queryKey: ["sedes", "public"],
+        queryFn: listPublicSedes,
+      }).catch(() => undefined),
+      context.queryClient.ensureQueryData({
+        queryKey: ["posts", "public"],
+        queryFn: listPublicPosts,
+      }).catch(() => undefined),
+    ]);
+    return { sedes, posts };
+  },
   head: () => ({
     meta: [
       { title: "KINGPAPA — El Reino" },
@@ -82,10 +95,12 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
+  const { sedes: initialSedes, posts: initialPosts } = Route.useLoaderData();
   const { data: sedesData = [] } = useQuery({
     queryKey: ["sedes", "public"],
     queryFn: listPublicSedes,
     staleTime: 60_000,
+    initialData: initialSedes,
   });
   const sedesResumen = sedesData.slice(0, 4);
   const defaultSedeSlug = sedesData[0]?.slug;
@@ -128,6 +143,7 @@ function HomePage() {
     queryKey: ["posts", "public"],
     queryFn: listPublicPosts,
     staleTime: 60_000,
+    initialData: initialPosts,
   });
   const retos = posts
     .filter((h) => h.categoria === "Retos" || h.categoria === "Festivales")
@@ -219,6 +235,19 @@ function HomePage() {
           </div>
         )}
         <div className="mt-6">
+          <p className="font-display uppercase text-sm mb-2">Todas las sedes</p>
+          <nav aria-label="Enlaces a todas las sedes KINGPAPA" className="flex flex-wrap gap-x-4 gap-y-2 mb-4">
+            {sedesData.map((s) => (
+              <Link
+                key={s.id}
+                to="/sedes/$slug"
+                params={{ slug: s.slug }}
+                className="text-sm underline underline-offset-4 decoration-2 decoration-kp-yellow"
+              >
+                {s.nombre}
+              </Link>
+            ))}
+          </nav>
           <Link
             to="/menu"
             className="font-display uppercase underline underline-offset-4 decoration-4 decoration-kp-yellow"

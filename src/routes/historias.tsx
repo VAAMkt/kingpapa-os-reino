@@ -19,6 +19,13 @@ const cats: ("Todas" | CategoriaHistoria)[] = [
 ];
 
 export const Route = createFileRoute("/historias")({
+  loader: async ({ context }) => {
+    const historias = await context.queryClient.ensureQueryData({
+      queryKey: ["posts", "public"],
+      queryFn: listPublicPosts,
+    }).catch(() => undefined);
+    return { historias };
+  },
   head: () => ({
     meta: [
       { title: "Historias del Reino — KINGPAPA" },
@@ -36,6 +43,7 @@ export const Route = createFileRoute("/historias")({
 });
 
 function HistoriasPage() {
+  const { historias: initialHistorias } = Route.useLoaderData();
   const [cat, setCat] = useState<"Todas" | CategoriaHistoria>("Todas");
   const {
     data: historias = [],
@@ -44,6 +52,7 @@ function HistoriasPage() {
   } = useQuery({
     queryKey: ["posts", "public"],
     queryFn: listPublicPosts,
+    initialData: initialHistorias,
   });
 
   const lista = useMemo(
