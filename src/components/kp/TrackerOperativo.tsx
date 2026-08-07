@@ -3,7 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
-import { supabase } from "@/integrations/supabase/client";
 import { reconcileOrder } from "@/lib/orders.reconcile.functions";
 import { getOrderTracking, type OrderTrackingSnapshot } from "@/lib/rp-tracking.functions";
 
@@ -95,7 +94,13 @@ function onlyDigits(s: string | null | undefined): string | null {
   return d.length >= 7 ? d : null;
 }
 
-export function TrackerOperativo({ orderId }: { orderId: string }) {
+export function TrackerOperativo({
+  orderId,
+  onSnapshot,
+}: {
+  orderId: string;
+  onSnapshot?: (snapshot: OrderTrackingSnapshot) => void;
+}) {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [tracking, setTracking] = useState<OrderTrackingSnapshot | null>(null);
@@ -115,7 +120,11 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     async function tick() {
       try {
         const snap = await fetchTracking({ data: { orderId } });
-        if (!cancelled) setTracking(snap);
+        if (!cancelled) {
+          setTracking(snap);
+          if (snap) onSnapshot?.(snap);
+          if (!snap) setLoading(false);
+        }
       } catch {
         // silencioso: el tracker principal sigue funcionando
       }
@@ -129,7 +138,40 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [orderId, fetchTracking]);
+  }, [orderId, fetchTracking, onSnapshot]);
+
+  useEffect(() => {
+    if (!tracking) return;
+    const next: OrderRow = {
+      id: tracking.orderId,
+      status: tracking.status as OrderStatus,
+      rp_pedido_id: tracking.rp_pedido_id,
+      cancel_reason: tracking.cancel_reason,
+      tipo: tracking.tipo,
+      updated_at: tracking.updated_at,
+      created_at: tracking.created_at,
+    };
+    orderRef.current = next;
+    setOrder(next);
+    setLoading(false);
+    if (prevStatusRef.current && next.status !== prevStatusRef.current) {
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        try {
+          new Notification("KINGPAPA 👑", { body: MICROCOPY[next.status]?.title ?? next.status });
+        } catch {
+          /* noop */
+        }
+      }
+      if (next.status === "cancelado") {
+        toast.error("Tu pedido fue cancelado. Mira el motivo abajo.");
+      }
+    }
+    prevStatusRef.current = next.status;
+  }, [tracking]);
 
   useEffect(() => {
     if (!orderId) {
@@ -137,58 +179,6 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
       return;
     }
     let cancelled = false;
-
-    function applyRow(next: OrderRow | null) {
-      if (cancelled) return;
-      orderRef.current = next;
-      setOrder(next);
-      setLoading(false);
-      if (next && prevStatusRef.current && next.status !== prevStatusRef.current) {
-        // Notificación push cuando cambia el estado y el usuario dio permiso.
-        if (
-          typeof window !== "undefined" &&
-          "Notification" in window &&
-          Notification.permission === "granted"
-        ) {
-          const copy = MICROCOPY[next.status];
-          try {
-            new Notification("KINGPAPA 👑", { body: copy?.title ?? next.status });
-          } catch {
-            /* noop */
-          }
-        }
-      }
-      if (
-        next &&
-        next.status === "cancelado" &&
-        prevStatusRef.current &&
-        prevStatusRef.current !== "cancelado"
-      ) {
-        toast.error("Tu pedido fue cancelado. Mira el motivo abajo.");
-      }
-      if (next) prevStatusRef.current = next.status;
-    }
-
-    async function fetchOrder() {
-      const { data } = await supabase
-        .from("orders")
-        .select("id, status, rp_pedido_id, cancel_reason, tipo, updated_at, created_at")
-        .eq("id", orderId)
-        .maybeSingle();
-      applyRow((data as OrderRow | null) ?? null);
-    }
-
-    fetchOrder();
-
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
-        (payload) => applyRow(payload.new as OrderRow),
-      )
-      .subscribe();
-
     reconcile({ data: { orderId } }).catch(() => {});
 
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -222,7 +212,6 @@ export function TrackerOperativo({ orderId }: { orderId: string }) {
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
     };
   }, [orderId, reconcile]);
 

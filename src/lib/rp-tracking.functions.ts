@@ -6,8 +6,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { MotorizadoInfo } from "@/lib/restaurantpe-normalize";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { ORDER_UUID_RE } from "@/lib/order-lookup";
 
 export type OrderTrackingSnapshot = {
   orderId: string;
@@ -17,18 +16,21 @@ export type OrderTrackingSnapshot = {
   created_at: string;
   updated_at: string;
   cancel_reason: string | null;
+  tipo: "delivery" | "pickup";
   motorizado: MotorizadoInfo | null;
   poll_snapshot_at: string | null;
 };
 
 export const getOrderTracking = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ orderId: z.string().regex(UUID_RE) }).parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ orderId: z.string().regex(ORDER_UUID_RE) }).parse(input),
+  )
   .handler(async ({ data }): Promise<OrderTrackingSnapshot | null> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
       .from("orders")
       .select(
-        "id, status, rp_pedido_id, rp_numero_comanda, created_at, updated_at, cancel_reason, rp_response",
+        "id, status, rp_pedido_id, rp_numero_comanda, created_at, updated_at, cancel_reason, tipo, rp_response",
       )
       .eq("id", data.orderId)
       .maybeSingle();
@@ -56,6 +58,7 @@ export const getOrderTracking = createServerFn({ method: "POST" })
       created_at: row.created_at,
       updated_at: row.updated_at,
       cancel_reason: row.cancel_reason,
+      tipo: row.tipo,
       motorizado,
       poll_snapshot_at,
     };

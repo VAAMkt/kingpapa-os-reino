@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "check:security": "node --experimental-strip-types scripts/check-admin-authorization.ts",
     "check:availability": "node --experimental-strip-types scripts/check-store-availability.ts",
+    "check:tracking-security": "node --experimental-strip-types scripts/check-order-tracking-security.ts",
     "check:loyalty-security": "node --experimental-strip-types scripts/check-loyalty-security.ts",
     "format": "prettier --write ."
   },

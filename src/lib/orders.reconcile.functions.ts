@@ -20,6 +20,7 @@ import {
   mapPolledDeliveryEstado,
   mapRpEstadoToLocal,
 } from "@/lib/restaurantpe-normalize";
+import { ORDER_UUID_RE } from "@/lib/order-lookup";
 
 const TERMINAL = new Set(["entregado", "cancelado", "error"]);
 
@@ -194,10 +195,10 @@ async function reconcileOne(orderId: string): Promise<ReconcileResult> {
   }
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export const reconcileOrder = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ orderId: z.string().regex(UUID_RE) }).parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ orderId: z.string().regex(ORDER_UUID_RE) }).parse(input),
+  )
   .handler(async ({ data }) => reconcileOne(data.orderId));
 
 // -----------------------------------------------------------------------------

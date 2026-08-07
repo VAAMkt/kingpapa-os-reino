@@ -11,7 +11,7 @@ export const Route = createFileRoute("/tracking")({
   head: () => ({
     meta: [
       { title: "Rastrea tu pedido — KINGPAPA" },
-      { name: "description", content: "Busca tu pedido por número de comanda o teléfono." },
+      { name: "description", content: "Busca tu pedido por teléfono o enlace de seguimiento." },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -27,8 +27,8 @@ function TrackingPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const q = query.trim();
-    if (q.length < 4) {
-      toast.error("Ingresa al menos 4 caracteres.");
+    if (q.length < 10) {
+      toast.error("Ingresa el teléfono completo usado en el pedido.");
       return;
     }
     setLoading(true);
@@ -53,17 +53,16 @@ function TrackingPage() {
           Rastrea tu pedido 👑
         </h1>
         <p className="mt-3 text-sm opacity-80">
-          Ingresa tu número de comanda, ID de pedido o el teléfono con el que pediste en las últimas
-          24 horas.
+          Ingresa el teléfono completo con el que pediste en las últimas 24 horas.
         </p>
         <form onSubmit={handleSubmit} className="mt-5 space-y-3">
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ej: 158716 o 3001234567"
+            placeholder="Ej: 3001234567"
             className="border-2 border-kp-ink font-display uppercase"
             autoFocus
-            inputMode="text"
+            inputMode="tel"
             autoComplete="off"
           />
           <BrutalButton type="submit" variant="dark" size="lg" block disabled={loading}>
