@@ -61,8 +61,27 @@ export const getMyLoyalty = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ account: LoyaltyAccount; ledger: LedgerRow[] }> => {
     const { supabase, userId } = context;
-    const [{ data: acc }, { data: ledger }, { count: completedOrders }, { data: profile }] =
-      await Promise.all([
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("arquetipo, whatsapp")
+      .eq("id", userId)
+      .maybeSingle()
+      .throwOnError();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email = typeof context.claims.email === "string" ? context.claims.email : null;
+    const { error: claimError } = await supabaseAdmin.rpc("claim_restaurantpe_loyalty", {
+      _user_id: userId,
+      _phone: profile?.whatsapp ?? null,
+      _email: email,
+    });
+    if (claimError) console.error("[loyalty] No se pudo reclamar el histórico", claimError.message);
+
+    const [
+      { data: acc },
+      { data: ledger },
+      { count: completedOrders },
+      { count: historicalOrders },
+    ] = await Promise.all([
       supabase
         .from("loyalty_accounts")
         .select("user_id, puntos_balance, puntos_lifetime, tier, referral_code")
@@ -84,12 +103,10 @@ export const getMyLoyalty = createServerFn({ method: "GET" })
         .eq("is_test", false)
         .is("analytics_excluded_at", null)
         .throwOnError(),
-      supabase
-        .from("profiles")
-        .select("arquetipo")
-        .eq("id", userId)
-        .maybeSingle()
-        .throwOnError(),
+      supabaseAdmin
+        .from("loyalty_rp_orders")
+        .select("delivery_id", { count: "exact", head: true })
+        .eq("user_id", userId),
     ]);
     return {
       account: {
@@ -100,7 +117,7 @@ export const getMyLoyalty = createServerFn({ method: "GET" })
           tier: "parcero",
           referral_code: "",
         }),
-        completed_orders: completedOrders ?? 0,
+        completed_orders: (completedOrders ?? 0) + (historicalOrders ?? 0),
         clan: CLANS.find((clan) => clan === profile?.arquetipo) ?? null,
       },
       ledger: (ledger ?? []) as LedgerRow[],
