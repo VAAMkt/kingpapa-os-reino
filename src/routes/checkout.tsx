@@ -210,7 +210,7 @@ function CheckoutPage() {
     const value = new Date(`${pickupDate}T${pickupTime}:00-05:00`);
     return Number.isNaN(value.getTime()) ? null : value.toISOString();
   }, [pickupDate, pickupTime]);
-  const selectedHorarios = (selectedSede?.horarios ?? {}) as HorariosMap;
+  const selectedHorarios = (selectedSede?.horarios ?? {}) as unknown as HorariosMap;
   const deliveryUnavailable =
     !!selectedSede &&
     (!selectedSede.delivery ||
