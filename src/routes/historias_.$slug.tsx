@@ -3,10 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BrutalBadge } from "@/components/ui-kp/Brutal";
 import { EventCard, formatFecha } from "@/components/kp/Cards";
 import { getPublicPostBySlug, listPublicPosts } from "@/lib/posts";
-
-const SITE_URL =
-  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_SITE_URL) ||
-  "https://kingpapacali.com";
+import { SITE_URL } from "@/lib/seo-schema";
 
 export const Route = createFileRoute("/historias_/$slug")({
   loader: async ({ params, context }) => {

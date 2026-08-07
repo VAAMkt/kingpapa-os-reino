@@ -367,7 +367,7 @@ export function PostForm({ initial }: { initial?: PostRow }) {
             {(form.titulo || "Título de la historia").slice(0, 60)} — KINGPAPA
           </div>
           <div className="text-[#006621] text-xs">
-            kingpapacali.com › historias › {form.slug || "slug"}
+            kingpapa.co › historias › {form.slug || "slug"}
           </div>
           <div className="text-[#4d5156] text-xs mt-1 line-clamp-2">
             {form.extracto ||
