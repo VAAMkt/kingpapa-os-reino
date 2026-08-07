@@ -67,8 +67,8 @@ const FAQS: FaqItem[] = [
     a: (
       <>
         Llegate a cualquier sede y pedí la del reto ($139.900). Tenés que terminar{" "}
-        <strong>4.1 kilos</strong> en menos de <strong>30 minutos</strong>. ¡Ya es 1 palo! Aplica
-        sólo para mayores de edad. 💪🏻🏰
+        <strong>4.1 kilos</strong> en menos de <strong>30 minutos</strong>. ¡GANA HASTA 10 PALOS!
+        Aplica sólo para mayores de edad.
       </>
     ),
   },
