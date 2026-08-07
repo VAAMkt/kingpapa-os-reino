@@ -15,13 +15,13 @@ import { listPublicSedes } from "@/lib/sedes";
 import { listPublicPosts } from "@/lib/posts";
 import { getMenuForSede } from "@/lib/rp.functions";
 import { rpProductoToProducto, type RpCategoriaRow, type RpProductoRow } from "@/lib/menu";
-import heroAsset from "@/assets/salchitender-lto.jpeg.asset.json";
-import heroAvif480 from "@/assets/hero-480.avif.asset.json";
-import heroAvif768 from "@/assets/hero-768.avif.asset.json";
-import heroAvif1080 from "@/assets/hero-1080.avif.asset.json";
-import heroWebp480 from "@/assets/hero-480.webp.asset.json";
-import heroWebp768 from "@/assets/hero-768.webp.asset.json";
-import heroWebp1080 from "@/assets/hero-1080.webp.asset.json";
+import heroAsset from "@/assets/munecota-1080.jpg.asset.json";
+import heroAvif480 from "@/assets/munecota-480.avif.asset.json";
+import heroAvif768 from "@/assets/munecota-768.avif.asset.json";
+import heroAvif1080 from "@/assets/munecota-1080.avif.asset.json";
+import heroWebp480 from "@/assets/munecota-480.webp.asset.json";
+import heroWebp768 from "@/assets/munecota-768.webp.asset.json";
+import heroWebp1080 from "@/assets/munecota-1080.webp.asset.json";
 import {
   faqPageJsonLd,
   organizationJsonLd,
