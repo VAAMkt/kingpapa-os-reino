@@ -7,7 +7,7 @@ import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { listSubditos } from "@/lib/admin-stats.functions";
 
 export const Route = createFileRoute("/admin/subditos")({
-  head: () => ({ meta: [{ title: "Súbditos — Admin KINGPAPA" }] }),
+  head: () => ({ meta: [{ title: "Creyentes — Admin KINGPAPA" }] }),
   component: SubditosPage,
 });
 
@@ -51,7 +51,7 @@ function SubditosPage() {
     <div className="space-y-4">
       <header className="flex flex-wrap justify-between items-end gap-3">
         <div>
-          <BrutalBadge tone="yellow">Súbditos</BrutalBadge>
+          <BrutalBadge tone="yellow">Creyentes</BrutalBadge>
           <h1 className="font-display text-4xl uppercase mt-2">La banda</h1>
           <p className="text-xs text-kp-ink/60">{data?.length ?? 0} registrados</p>
         </div>
