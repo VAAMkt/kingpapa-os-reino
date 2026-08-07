@@ -1,4 +1,39 @@
-// Limpia HTML legacy de WordPress/Divi para que TipTap lo cargue limpio.
+import sanitizeHtml from "sanitize-html";
+
+const SAFE_HTML = {
+  allowedTags: [
+    "p",
+    "br",
+    "h2",
+    "h3",
+    "h4",
+    "strong",
+    "b",
+    "em",
+    "i",
+    "s",
+    "blockquote",
+    "ul",
+    "ol",
+    "li",
+    "a",
+    "img",
+    "figure",
+    "figcaption",
+    "hr",
+    "code",
+    "pre",
+  ],
+  allowedAttributes: {
+    a: ["href", "title", "target", "rel"],
+    img: ["src", "alt", "title", "width", "height", "loading"],
+  },
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  allowedSchemesByTag: { img: ["http", "https"] },
+  allowProtocolRelative: false,
+} satisfies sanitizeHtml.IOptions;
+
+// Limpia HTML legacy de WordPress/Divi y elimina contenido ejecutable.
 export function sanitizeLegacyHtml(input: string): string {
   if (!input) return "";
   let html = input;
@@ -9,11 +44,7 @@ export function sanitizeLegacyHtml(input: string): string {
   // 2) Eliminar atributos de Lovable / Divi de tracking
   html = html.replace(/\s+data-(path-to-node|index-in-node|hash|wf-[a-z-]+)="[^"]*"/gi, "");
 
-  // 3) Quitar style="" inline y class="" largos
-  html = html.replace(/\s+style="[^"]*"/gi, "");
-  html = html.replace(/\s+class="[^"]*"/gi, "");
-
-  // 4) Decodificar entidades comunes mal escapadas (&#8243; = ", &#8217; = ')
+  // 3) Decodificar entidades comunes mal escapadas (&#8243; = ", &#8217; = ')
   const entities: Record<string, string> = {
     "&#8243;": '"',
     "&#8242;": "'",
@@ -31,11 +62,11 @@ export function sanitizeLegacyHtml(input: string): string {
     html = html.replaceAll(k, v);
   }
 
-  // 5) Colapsar párrafos vacíos y espacios consecutivos
+  // 4) Colapsar párrafos vacíos y espacios consecutivos
   html = html.replace(/<p>\s*<\/p>/gi, "");
   html = html.replace(/\n{3,}/g, "\n\n");
 
-  return html.trim();
+  return sanitizeHtml(html, SAFE_HTML).trim();
 }
 
 export function htmlToPlainText(html: string): string {
