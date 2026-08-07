@@ -989,7 +989,7 @@ function DetallesEntrega({
   quoteError: string | null;
   onSwitchToPickup: () => void;
 }) {
-  const tiempoEstimado = "40–60 min (estimado)";
+  const tiempoEstimado = esRecoger ? "20–40 min (estimado)" : "40–60 min (estimado)";
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="flex items-start justify-between gap-3 text-sm">
       <span className="font-display uppercase opacity-70">{label}</span>
