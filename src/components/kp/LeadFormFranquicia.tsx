@@ -9,6 +9,7 @@ import {
 } from "@/lib/ops-hub";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
+import { phoneSchema } from "@/lib/form-validation";
 
 /**
  * LeadFormFranquicia — flujo de 2 pasos integrado con el Ops Hub.
@@ -20,7 +21,7 @@ import { cn } from "@/lib/utils";
 const step1Schema = z.object({
   full_name: z.string().trim().min(2, "Nombre muy corto").max(120),
   email: z.string().trim().email("Email inválido").max(255),
-  phone: z.string().trim().min(7, "Teléfono inválido").max(40),
+  phone: phoneSchema,
   city: z.string().trim().min(2, "Ciudad requerida").max(120),
   privacy: z.literal(true, {
     errorMap: () => ({ message: "Debes aceptar el tratamiento de datos" }),
