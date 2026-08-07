@@ -7,6 +7,7 @@ import { getMyLoyalty, NEXT_TIER } from "@/lib/loyalty.functions";
 import { getMyOrders, type MyOrderRow } from "@/lib/mi-reino.functions";
 import { addItem, openCart } from "@/lib/cart";
 import { toast } from "sonner";
+import { MiReinoQueryError } from "@/components/kp/MiReinoQueryError";
 
 export const Route = createFileRoute("/mi-reino/")({
   component: MiReinoInicio,
@@ -16,8 +17,20 @@ function MiReinoInicio() {
   const loyaltyFn = useServerFn(getMyLoyalty);
   const ordersFn = useServerFn(getMyOrders);
   const navigate = useNavigate();
-  const { data: loyalty } = useQuery({ queryKey: ["my-loyalty"], queryFn: () => loyaltyFn() });
-  const { data: orders } = useQuery({ queryKey: ["my-orders"], queryFn: () => ordersFn() });
+  const loyaltyQuery = useQuery({ queryKey: ["my-loyalty"], queryFn: () => loyaltyFn() });
+  const ordersQuery = useQuery({ queryKey: ["my-orders"], queryFn: () => ordersFn() });
+  if (loyaltyQuery.isError || ordersQuery.isError) {
+    return (
+      <MiReinoQueryError
+        onRetry={() => {
+          void loyaltyQuery.refetch();
+          void ordersQuery.refetch();
+        }}
+      />
+    );
+  }
+  const loyalty = loyaltyQuery.data;
+  const orders = ordersQuery.data;
 
   const last = orders?.[0];
   const bal = loyalty?.account.puntos_balance ?? 0;

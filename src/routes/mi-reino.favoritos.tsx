@@ -8,6 +8,7 @@ import { repeatOrderClient } from "./mi-reino.index";
 import { openCart } from "@/lib/cart";
 import { toast } from "sonner";
 import { useState } from "react";
+import { MiReinoQueryError } from "@/components/kp/MiReinoQueryError";
 
 export const Route = createFileRoute("/mi-reino/favoritos")({
   component: Favoritos,
@@ -18,18 +19,22 @@ function Favoritos() {
   const toggleFn = useServerFn(toggleFavorite);
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { data } = useQuery({ queryKey: ["my-favorites"], queryFn: () => favFn() });
+  const favoritesQuery = useQuery({ queryKey: ["my-favorites"], queryFn: () => favFn() });
   const [editing, setEditing] = useState<string | null>(null);
   const [alias, setAlias] = useState("");
 
   const upd = useMutation({
-    mutationFn: (v: { order_id: string; alias: string | null }) => toggleFn({ data: v }),
+    mutationFn: (v: { order_id: string; alias?: string | null }) => toggleFn({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-favorites"] });
       setEditing(null);
     },
+    onError: () => toast.error("No pudimos actualizar el favorito. Intenta de nuevo."),
   });
 
+  if (favoritesQuery.isError)
+    return <MiReinoQueryError onRetry={() => void favoritesQuery.refetch()} />;
+  const data = favoritesQuery.data;
   if (!data || data.length === 0) {
     return (
       <BrutalCard tone="cheese" className="p-6">
@@ -105,11 +110,7 @@ function Favoritos() {
               <BrutalButton
                 size="sm"
                 variant="ghost"
-                onClick={() =>
-                  toggleFn({ data: { order_id: o.id } }).then(() =>
-                    qc.invalidateQueries({ queryKey: ["my-favorites"] }),
-                  )
-                }
+                onClick={() => upd.mutate({ order_id: o.id })}
               >
                 Quitar
               </BrutalButton>

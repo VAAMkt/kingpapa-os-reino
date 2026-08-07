@@ -58,13 +58,15 @@ export const getMyLoyalty = createServerFn({ method: "GET" })
       .from("loyalty_accounts")
       .select("user_id, puntos_balance, puntos_lifetime, tier, referral_code")
       .eq("user_id", userId)
-      .maybeSingle();
+      .maybeSingle()
+      .throwOnError();
     const { data: ledger } = await supabase
       .from("loyalty_ledger")
       .select("id, tipo, puntos, motivo, created_at, order_id")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(30);
+      .limit(30)
+      .throwOnError();
     return {
       account: (acc as LoyaltyAccount) ?? {
         user_id: userId,
@@ -85,7 +87,8 @@ export const listRewards = createServerFn({ method: "GET" })
       .select("id, nombre, descripcion, costo_puntos, tipo, valor, imagen, stock, orden")
       .eq("activo", true)
       .order("orden", { ascending: true })
-      .order("costo_puntos", { ascending: true });
+      .order("costo_puntos", { ascending: true })
+      .throwOnError();
     return (data ?? []) as Reward[];
   });
 
@@ -111,7 +114,8 @@ export const listMyRedemptions = createServerFn({ method: "GET" })
       )
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(50)
+      .throwOnError();
     return (data ?? []).map((r) => {
       const rec = r as unknown as Record<string, unknown>;
       const rw = rec.loyalty_rewards as { nombre: string; tipo: string; valor: number } | null;
