@@ -9,7 +9,7 @@ export const Route = createFileRoute("/registro")({
       { title: "Coronarme — KINGPAPA OS" },
       {
         name: "description",
-        content: "Hazte súbdito del Reino: combos secretos, retos y premios por frecuencia.",
+        content: "Hazte creyente del Reino: combos secretos, retos y premios por frecuencia.",
       },
       { property: "og:title", content: "Coronarme — KINGPAPA OS" },
       {
