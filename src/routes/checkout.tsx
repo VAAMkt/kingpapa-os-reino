@@ -217,7 +217,7 @@ function CheckoutPage() {
       selectedSede.kill_switch ||
       !isSedeOpenAt(selectedHorarios, selectedSede.tz, new Date()));
   const pickupUnavailable =
-    !!sedesQ.data && !sedesQ.data.some((item) => item.pickup && !item.kill_switch);
+    !!selectedSede && (!selectedSede.pickup || selectedSede.kill_switch);
   const pickupScheduleMessage =
     esRecoger && selectedSede
       ? pickupScheduleError(pickupScheduledFor, selectedHorarios, selectedSede.tz)
@@ -512,7 +512,6 @@ function CheckoutPage() {
             disabled={pickupUnavailable}
             onClick={() => {
               setOrderType("pickup");
-              setSelectorSedesAbierto(true);
               track("delivery_method_selected", { tipo: "pickup" });
             }}
             className={`min-h-[72px] border-2 border-kp-ink px-3 py-3 text-left transition active:translate-y-[1px] ${
