@@ -10,6 +10,7 @@ export type LoyaltyAccount = {
   puntos_lifetime: number;
   tier: string;
   referral_code: string;
+  completed_orders: number;
 };
 
 export type LedgerRow = {
@@ -44,36 +45,43 @@ export type Redemption = {
   reward: { nombre: string; tipo: string; valor: number } | null;
 };
 
-export const NEXT_TIER: Record<string, { name: string; target: number } | null> = {
-  parcero: { name: "rey", target: 500 },
-  rey: { name: "coronado", target: 2000 },
-  coronado: null,
-};
-
 export const getMyLoyalty = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ account: LoyaltyAccount; ledger: LedgerRow[] }> => {
     const { supabase, userId } = context;
-    const { data: acc } = await supabase
-      .from("loyalty_accounts")
-      .select("user_id, puntos_balance, puntos_lifetime, tier, referral_code")
-      .eq("user_id", userId)
-      .maybeSingle()
-      .throwOnError();
-    const { data: ledger } = await supabase
-      .from("loyalty_ledger")
-      .select("id, tipo, puntos, motivo, created_at, order_id")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(30)
-      .throwOnError();
+    const [{ data: acc }, { data: ledger }, { count: completedOrders }] = await Promise.all([
+      supabase
+        .from("loyalty_accounts")
+        .select("user_id, puntos_balance, puntos_lifetime, tier, referral_code")
+        .eq("user_id", userId)
+        .maybeSingle()
+        .throwOnError(),
+      supabase
+        .from("loyalty_ledger")
+        .select("id, tipo, puntos, motivo, created_at, order_id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(30)
+        .throwOnError(),
+      supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("status", "entregado")
+        .eq("is_test", false)
+        .is("analytics_excluded_at", null)
+        .throwOnError(),
+    ]);
     return {
-      account: (acc as LoyaltyAccount) ?? {
-        user_id: userId,
-        puntos_balance: 0,
-        puntos_lifetime: 0,
-        tier: "parcero",
-        referral_code: "",
+      account: {
+        ...((acc as Omit<LoyaltyAccount, "completed_orders"> | null) ?? {
+          user_id: userId,
+          puntos_balance: 0,
+          puntos_lifetime: 0,
+          tier: "parcero",
+          referral_code: "",
+        }),
+        completed_orders: completedOrders ?? 0,
       },
       ledger: (ledger ?? []) as LedgerRow[],
     };

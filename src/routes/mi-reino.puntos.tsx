@@ -8,8 +8,8 @@ import {
   listRewards,
   redeemReward,
   listMyRedemptions,
-  NEXT_TIER,
 } from "@/lib/loyalty.functions";
+import { getLoyaltyProgress } from "@/lib/loyalty-model";
 import { toast } from "sonner";
 import { MiReinoQueryError } from "@/components/kp/MiReinoQueryError";
 
@@ -55,9 +55,7 @@ function Puntos() {
 
   const bal = loyalty?.account.puntos_balance ?? 0;
   const life = loyalty?.account.puntos_lifetime ?? 0;
-  const tier = loyalty?.account.tier ?? "parcero";
-  const next = NEXT_TIER[tier];
-  const pct = next ? Math.min(100, Math.round((life / next.target) * 100)) : 100;
+  const progress = getLoyaltyProgress(loyalty?.account.completed_orders ?? 0);
 
   return (
     <div className="space-y-5">
@@ -67,19 +65,19 @@ function Puntos() {
             <BrutalBadge tone="yellow">Puntos del Reino</BrutalBadge>
             <p className="font-display text-6xl leading-none mt-2">{bal}</p>
             <p className="text-xs mt-1">
-              Lifetime: {life} pts · Tier: {tier.toUpperCase()}
+              Históricos: {life} pts · Rango: {progress.current.name.toUpperCase()}
             </p>
           </div>
           <span className="text-5xl">👑</span>
         </div>
         <div className="mt-4">
           <div className="h-3 border-2 border-kp-ink bg-kp-cheese overflow-hidden">
-            <div className="h-full bg-kp-yellow" style={{ width: `${pct}%` }} />
+            <div className="h-full bg-kp-yellow" style={{ width: `${progress.percent}%` }} />
           </div>
           <p className="text-xs mt-1">
-            {next
-              ? `${life}/${next.target} pts para ${next.name.toUpperCase()}`
-              : "Corona máxima 👑"}
+            {progress.next
+              ? `${progress.remaining} pedido${progress.remaining === 1 ? "" : "s"} para ${progress.next.name.toUpperCase()}`
+              : "Rango máximo 👑"}
           </p>
         </div>
       </BrutalCard>

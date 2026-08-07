@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
-import { getMyLoyalty, NEXT_TIER } from "@/lib/loyalty.functions";
+import { getMyLoyalty } from "@/lib/loyalty.functions";
+import { getLoyaltyProgress } from "@/lib/loyalty-model";
 import { getMyOrders, type MyOrderRow } from "@/lib/mi-reino.functions";
 import { addItem, openCart } from "@/lib/cart";
 import { toast } from "sonner";
@@ -34,27 +35,24 @@ function MiReinoInicio() {
 
   const last = orders?.[0];
   const bal = loyalty?.account.puntos_balance ?? 0;
-  const life = loyalty?.account.puntos_lifetime ?? 0;
-  const tier = loyalty?.account.tier ?? "parcero";
-  const next = NEXT_TIER[tier];
-  const pct = next ? Math.min(100, Math.round((life / next.target) * 100)) : 100;
+  const progress = getLoyaltyProgress(loyalty?.account.completed_orders ?? 0);
 
   return (
     <div className="grid md:grid-cols-2 gap-4">
       <BrutalCard tone="purple" className="p-5">
-        <BrutalBadge tone="yellow">Corona · {tier.toUpperCase()}</BrutalBadge>
+        <BrutalBadge tone="yellow">Rango · {progress.current.name.toUpperCase()}</BrutalBadge>
         <div className="mt-3 flex items-end gap-3">
           <p className="font-display text-6xl leading-none">{bal}</p>
           <p className="text-sm mb-1">puntos disponibles</p>
         </div>
         <div className="mt-4">
           <div className="h-3 border-2 border-kp-ink bg-kp-cheese overflow-hidden">
-            <div className="h-full bg-kp-yellow" style={{ width: `${pct}%` }} />
+            <div className="h-full bg-kp-yellow" style={{ width: `${progress.percent}%` }} />
           </div>
           <p className="text-xs mt-1">
-            {next
-              ? `${life}/${next.target} pts para ser ${next.name.toUpperCase()}`
-              : "Ya eres CORONADO, no hay más allá 👑"}
+            {progress.next
+              ? `${progress.remaining} pedido${progress.remaining === 1 ? "" : "s"} para ser ${progress.next.name.toUpperCase()}`
+              : "Ya eres CONSAGRADO 👑"}
           </p>
         </div>
         <BrutalLink href="/mi-reino/puntos" variant="dark" className="mt-4">

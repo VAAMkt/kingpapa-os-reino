@@ -1,5 +1,6 @@
 // TODO: enviar respuestas a /api/subditos para alimentar CRM/loyalty
 import type { QuizQuestion, Arquetipo } from "@/types/kp";
+import { calculateClan } from "@/lib/loyalty-model";
 
 export const quiz: QuizQuestion[] = [
   {
@@ -69,16 +70,6 @@ export const quiz: QuizQuestion[] = [
   },
 ];
 
-// TODO: lógica de arquetipo más sofisticada en el backend
 export function calcularArquetipo(respuestas: Record<string, string>): Arquetipo {
-  const ocasion = respuestas.ocasion;
-  const picante = parseInt(respuestas.picante || "0", 10);
-  const hambre = parseInt(respuestas.hambre || "0", 10);
-
-  if (ocasion === "after-rumba" && picante >= 1) return "El Rumbero";
-  if (ocasion === "almuerzo-obrero") return "El Obrero del Reino";
-  if (ocasion === "familia") return "El Familiar Mayor";
-  if (ocasion === "antojo-mortal" && picante >= 2) return "La Reina del Antojo";
-  if (hambre >= 4) return "El Cabezón";
-  return "El Cabezón";
+  return calculateClan(respuestas);
 }
