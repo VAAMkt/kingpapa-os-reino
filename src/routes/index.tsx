@@ -179,7 +179,7 @@ function HomePage() {
                 <source type="image/webp" srcSet={HERO_WEBP_SRCSET} sizes={HERO_SIZES} />
                 <img
                   src={heroAsset.url}
-                  alt="SalchiTender LTO — La Nueva Reina llegó al Reino KINGPAPA"
+                  alt="La Muñecota — hamburguesa de edición limitada de KINGPAPA por $29.900"
                   width={1080}
                   height={1080}
                   fetchPriority="high"
