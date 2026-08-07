@@ -12,7 +12,7 @@ import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { LocationCard } from "@/components/kp/Cards";
 import { FaqKing } from "@/components/kp/FaqKing";
 import { listPublicSedes, type SedeRow } from "@/lib/sedes";
-import { faqPageJsonLd, sedesLocalBusinessJsonLd, SITE_URL } from "@/lib/seo-schema";
+import { sedesItemListJsonLd, SITE_URL } from "@/lib/seo-schema";
 
 export const Route = createFileRoute("/sedes")({
   loader: async ({ context }) => {
@@ -41,11 +41,7 @@ export const Route = createFileRoute("/sedes")({
     scripts: [
       {
         type: "application/ld+json",
-        children: JSON.stringify(sedesLocalBusinessJsonLd(loaderData?.sedes ?? [])),
-      },
-      {
-        type: "application/ld+json",
-        children: JSON.stringify(faqPageJsonLd()),
+        children: JSON.stringify(sedesItemListJsonLd(loaderData?.sedes ?? [])),
       },
     ],
   }),

@@ -91,42 +91,19 @@ export function websiteJsonLd() {
 }
 
 type SedeForSchema = {
-  id: string;
   nombre: string;
-  slug?: string | null;
-  ciudad: string;
-  direccion: string;
-  horario?: string | null;
-  whatsapp?: string | null;
-  lat?: number | null;
-  lng?: number | null;
+  slug: string;
 };
 
-export function sedesLocalBusinessJsonLd(sedes: SedeForSchema[]) {
+export function sedesItemListJsonLd(sedes: SedeForSchema[]) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
     itemListElement: sedes.map((s, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      item: {
-        "@type": "Restaurant",
-        "@id": `${SITE_URL}/sedes#${s.slug ?? s.id}`,
-        name: s.nombre,
-        servesCuisine: ["Colombian", "Fast Food", "Salchipapa"],
-        address: {
-          "@type": "PostalAddress",
-          streetAddress: s.direccion,
-          addressLocality: s.ciudad,
-          addressCountry: "CO",
-        },
-        ...(s.horario ? { openingHours: s.horario } : {}),
-        ...(s.whatsapp ? { telephone: `+${s.whatsapp}` } : {}),
-        ...(s.lat != null && s.lng != null
-          ? { geo: { "@type": "GeoCoordinates", latitude: s.lat, longitude: s.lng } }
-          : {}),
-        url: `${SITE_URL}/sedes`,
-      },
+      name: s.nombre,
+      url: `${SITE_URL}/sedes/${s.slug}`,
     })),
   };
 }
