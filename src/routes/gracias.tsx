@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { TrackerOperativo } from "@/components/kp/TrackerOperativo";
 import { resolveOrderId } from "@/lib/orders.poll.functions";
-import { supabase } from "@/integrations/supabase/client";
 import { pixelPurchase } from "@/lib/meta-pixel";
+import type { OrderTrackingSnapshot } from "@/lib/rp-tracking.functions";
 
 export const Route = createFileRoute("/gracias")({
   validateSearch: (s: Record<string, unknown>): { order_id?: string } => {
@@ -66,7 +66,7 @@ function GraciasPage() {
   const [now, setNow] = useState(() => Date.now());
   const resolveFn = useServerFn(resolveOrderId);
 
-  // Resolver UUID real de orders.id (acepta UUID o rp_pedido_id numérico).
+  // Verificar el UUID no-adivinable de orders.id.
   useEffect(() => {
     if (!order_id) return;
     let cancelled = false;
@@ -81,42 +81,12 @@ function GraciasPage() {
     };
   }, [order_id, resolveFn]);
 
-  // Suscripción a la fila orders: rp_pedido_id, status y created_at.
-  useEffect(() => {
-    if (!resolvedId) return;
-    let cancelled = false;
-    type OrderLite = {
-      rp_pedido_id: string | null;
-      rp_numero_comanda: string | null;
-      status: string;
-      created_at: string;
-    };
-    const apply = (row: OrderLite | null) => {
-      if (!row || cancelled) return;
-      setRpPedidoId(row.rp_pedido_id ?? null);
-      setRpNumeroComanda(row.rp_numero_comanda ?? null);
-      setOrderStatus(row.status ?? null);
-      setOrderCreatedAt(row.created_at ?? null);
-    };
-    supabase
-      .from("orders")
-      .select("rp_pedido_id, rp_numero_comanda, status, created_at")
-      .eq("id", resolvedId)
-      .maybeSingle()
-      .then(({ data }) => apply(data as never));
-    const channel = supabase
-      .channel(`gracias-${resolvedId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${resolvedId}` },
-        (payload) => apply(payload.new as never),
-      )
-      .subscribe();
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
-  }, [resolvedId]);
+  const handleTrackingSnapshot = useCallback((snapshot: OrderTrackingSnapshot) => {
+    setRpPedidoId(snapshot.rp_pedido_id);
+    setRpNumeroComanda(snapshot.rp_numero_comanda);
+    setOrderStatus(snapshot.status);
+    setOrderCreatedAt(snapshot.created_at);
+  }, []);
 
   // Tick cada 30s para refrescar el "han pasado > 5 min" sin recargar.
   useEffect(() => {
@@ -199,7 +169,9 @@ function GraciasPage() {
         </div>
       </BrutalCard>
 
-      {resolvedId ? <TrackerOperativo orderId={resolvedId} /> : null}
+      {resolvedId ? (
+        <TrackerOperativo orderId={resolvedId} onSnapshot={handleTrackingSnapshot} />
+      ) : null}
 
       {showSlowWarning ? (
         <BrutalCard tone="cheese" className="p-4">
@@ -247,7 +219,9 @@ function GraciasPage() {
             <div className="flex justify-between">
               <span className="font-display uppercase">Subtotal</span>
               <span className="font-display">
-                {cop(order.subtotal ?? order.items.reduce((sum, i) => sum + i.precio * i.cantidad, 0))}
+                {cop(
+                  order.subtotal ?? order.items.reduce((sum, i) => sum + i.precio * i.cantidad, 0),
+                )}
               </span>
             </div>
             {!esRecoger ? (
