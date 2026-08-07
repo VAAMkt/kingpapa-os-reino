@@ -27,13 +27,12 @@ export const Route = createFileRoute("/sedes")({
       { title: "Sedes del Reino — KINGPAPA" },
       {
         name: "description",
-        content:
-          "15 sedes y creciendo. Encuentra tu KINGPAPA en Cali, Jamundí y Bogotá. Pide directo en la web o cae con el parche.",
+        content: `${loaderData?.sedes.length ?? "Nuestras"} sedes y creciendo. Encuentra tu KINGPAPA en Cali, Jamundí y Bogotá. Pide directo en la web o cae con el parche.`,
       },
       { property: "og:title", content: "Sedes del Reino — KINGPAPA" },
       {
         property: "og:description",
-        content: "15 sedes en Cali, Jamundí y Bogotá. Encuentra tu castillo más cercano.",
+        content: `${loaderData?.sedes.length ?? "Nuestras"} sedes en Cali, Jamundí y Bogotá. Encuentra tu castillo más cercano.`,
       },
       { property: "og:url", content: `${SITE_URL}/sedes` },
     ],
