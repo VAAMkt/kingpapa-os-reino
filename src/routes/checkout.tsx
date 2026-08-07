@@ -281,7 +281,7 @@ function CheckoutPage() {
     tipo === "delivery" && !!quote && !quote.ok && !outOfCoverage ? quote.message : null;
   const quoteReady = tipo === "pickup" || (!!quote && quote.ok);
   const total = useMemo(() => subtotal + deliveryFee, [subtotal, deliveryFee]);
-  const puntos = Math.floor(total / 1000) * 10;
+  const puntos = Math.floor(total / 10000) * 10;
 
   if (count === 0) {
     return (
