@@ -200,7 +200,7 @@ export function LeadFormFranquicia() {
     return (
       <BrutalCard tone="yellow" className="p-7 text-center">
         <div className="text-5xl">👑</div>
-        <h3 className="font-display text-3xl uppercase mt-2">Postulación recibida</h3>
+        <h2 className="font-display text-3xl uppercase mt-2">Postulación recibida</h2>
         <p className="mt-3 text-kp-ink/90">
           Nuestro equipo de Expansión revisa tu perfil y te contacta en los próximos días
           hábiles por email o WhatsApp.
@@ -226,9 +226,9 @@ export function LeadFormFranquicia() {
   return (
     <BrutalCard tone="cheese" className="p-5 md:p-7">
       <BrutalBadge tone="red">Franquicia</BrutalBadge>
-      <h3 className="font-display text-3xl md:text-4xl uppercase mt-3">
+      <h2 className="font-display text-3xl md:text-4xl uppercase mt-3">
         Postula tu franquicia
-      </h3>
+      </h2>
       <p className="text-sm mt-2 text-kp-ink/80">
         Dos pasos. En el primero quedas registrado, así que si te sales retomamos después.
       </p>

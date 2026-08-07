@@ -168,6 +168,7 @@ function SedesPage() {
 
       {/* LISTADO */}
       <section className="mx-auto max-w-7xl px-4 md:px-6 pb-10">
+        <h2 className="sr-only">Sedes disponibles</h2>
         {isLoading ? (
           <p className="text-center py-10 font-display uppercase text-xl">Cargando sedes…</p>
         ) : lista.length === 0 ? (

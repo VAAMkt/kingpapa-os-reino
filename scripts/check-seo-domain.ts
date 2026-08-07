@@ -7,6 +7,14 @@ const routes = readdirSync("src/routes")
   .map((file) => readFileSync(`src/routes/${file}`, "utf8"))
   .join("\n");
 const seoSchema = readFileSync("src/lib/seo-schema.ts", "utf8");
+const publicFiles = [
+  ...readdirSync("src/routes")
+    .filter((file) => file.endsWith(".tsx") && !file.startsWith("admin"))
+    .map((file) => `src/routes/${file}`),
+  ...readdirSync("src/components/kp")
+    .filter((file) => file.endsWith(".tsx"))
+    .map((file) => `src/components/kp/${file}`),
+];
 
 assert.match(seoSchema, /SITE_URL = "https:\/\/kingpapa\.co"/);
 assert.doesNotMatch(routes, /const SITE_URL\s*=/);
@@ -24,4 +32,22 @@ assert.deepEqual(sedeList.itemListElement[0], {
 });
 assert.doesNotMatch(JSON.stringify(sedeList), /"@type":"Restaurant"/);
 
-console.log("SEO canonical domain and structured-data checks passed");
+for (const file of publicFiles) {
+  const source = readFileSync(file, "utf8");
+  for (const match of source.matchAll(/<img\b[\s\S]*?\/>/g)) {
+    const tag = match[0];
+    assert.match(tag, /\balt=/, `${file}: <img> sin alt`);
+    if (!tag.includes("META_PIXEL_NOSCRIPT_SRC")) {
+      assert.doesNotMatch(tag, /\balt\s*=\s*["']\s*["']/, `${file}: alt vacío en imagen de contenido`);
+    }
+  }
+}
+
+const home = readFileSync("src/routes/index.tsx", "utf8");
+assert.match(home, /src=\{heroAsset\.url\}[\s\S]{0,300}fetchPriority="high"/);
+assert.match(readFileSync("src/routes/sedes.tsx", "utf8"), /<h2 className="sr-only">Sedes disponibles<\/h2>/);
+assert.match(readFileSync("src/routes/historias.tsx", "utf8"), /<h2 className="sr-only">Historias publicadas<\/h2>/);
+assert.doesNotMatch(readFileSync("src/components/kp/LeadFormFranquicia.tsx", "utf8"), /<h3\b/);
+assert.doesNotMatch(readFileSync("src/components/kp/Layout.tsx", "utf8"), /<h[4-6]\b/);
+
+console.log("SEO domain, structured-data, heading and image checks passed");
