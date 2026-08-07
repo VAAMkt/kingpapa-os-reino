@@ -32,7 +32,7 @@ import { Route as MiReinoPuntosRouteImport } from './routes/mi-reino.puntos'
 import { Route as MiReinoPedidosRouteImport } from './routes/mi-reino.pedidos'
 import { Route as MiReinoFavoritosRouteImport } from './routes/mi-reino.favoritos'
 import { Route as MiReinoDatosRouteImport } from './routes/mi-reino.datos'
-import { Route as HistoriasSlugRouteImport } from './routes/historias.$slug'
+import { Route as HistoriasSlugRouteImport } from './routes/historias_.$slug'
 import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 import { Route as AdminSubditosRouteImport } from './routes/admin.subditos'
 import { Route as AdminSincronizacionRouteImport } from './routes/admin.sincronizacion'
@@ -169,9 +169,9 @@ const MiReinoDatosRoute = MiReinoDatosRouteImport.update({
   getParentRoute: () => MiReinoRoute,
 } as any)
 const HistoriasSlugRoute = HistoriasSlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => HistoriasRoute,
+  id: '/historias_/$slug',
+  path: '/historias/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
   id: '/usuarios',
@@ -278,7 +278,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/gracias': typeof GraciasRoute
-  '/historias': typeof HistoriasRouteWithChildren
+  '/historias': typeof HistoriasRoute
   '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
   '/mi-reino': typeof MiReinoRouteWithChildren
@@ -322,7 +322,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/gracias': typeof GraciasRoute
-  '/historias': typeof HistoriasRouteWithChildren
+  '/historias': typeof HistoriasRoute
   '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
   '/no-autorizado': typeof NoAutorizadoRoute
@@ -365,7 +365,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/franquicias': typeof FranquiciasRoute
   '/gracias': typeof GraciasRoute
-  '/historias': typeof HistoriasRouteWithChildren
+  '/historias': typeof HistoriasRoute
   '/login': typeof LoginRoute
   '/menu': typeof MenuRoute
   '/mi-reino': typeof MiReinoRouteWithChildren
@@ -384,7 +384,7 @@ export interface FileRoutesById {
   '/admin/sincronizacion': typeof AdminSincronizacionRoute
   '/admin/subditos': typeof AdminSubditosRoute
   '/admin/usuarios': typeof AdminUsuariosRoute
-  '/historias/$slug': typeof HistoriasSlugRoute
+  '/historias_/$slug': typeof HistoriasSlugRoute
   '/mi-reino/datos': typeof MiReinoDatosRoute
   '/mi-reino/favoritos': typeof MiReinoFavoritosRoute
   '/mi-reino/pedidos': typeof MiReinoPedidosRoute
@@ -517,7 +517,7 @@ export interface FileRouteTypes {
     | '/admin/sincronizacion'
     | '/admin/subditos'
     | '/admin/usuarios'
-    | '/historias/$slug'
+    | '/historias_/$slug'
     | '/mi-reino/datos'
     | '/mi-reino/favoritos'
     | '/mi-reino/pedidos'
@@ -544,7 +544,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FranquiciasRoute: typeof FranquiciasRoute
   GraciasRoute: typeof GraciasRoute
-  HistoriasRoute: typeof HistoriasRouteWithChildren
+  HistoriasRoute: typeof HistoriasRoute
   LoginRoute: typeof LoginRoute
   MenuRoute: typeof MenuRoute
   MiReinoRoute: typeof MiReinoRouteWithChildren
@@ -554,6 +554,7 @@ export interface RootRouteChildren {
   SedesRoute: typeof SedesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TrackingRoute: typeof TrackingRoute
+  HistoriasSlugRoute: typeof HistoriasSlugRoute
   SedesSlugRoute: typeof SedesSlugRoute
   ApiPublicMetaCapiRoute: typeof ApiPublicMetaCapiRoute
   ApiPublicRpWebhookRoute: typeof ApiPublicRpWebhookRoute
@@ -724,12 +725,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MiReinoDatosRouteImport
       parentRoute: typeof MiReinoRoute
     }
-    '/historias/$slug': {
-      id: '/historias/$slug'
-      path: '/$slug'
+    '/historias_/$slug': {
+      id: '/historias_/$slug'
+      path: '/historias/$slug'
       fullPath: '/historias/$slug'
       preLoaderRoute: typeof HistoriasSlugRouteImport
-      parentRoute: typeof HistoriasRoute
+      parentRoute: typeof rootRouteImport
     }
     '/admin/usuarios': {
       id: '/admin/usuarios'
@@ -927,18 +928,6 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
-interface HistoriasRouteChildren {
-  HistoriasSlugRoute: typeof HistoriasSlugRoute
-}
-
-const HistoriasRouteChildren: HistoriasRouteChildren = {
-  HistoriasSlugRoute: HistoriasSlugRoute,
-}
-
-const HistoriasRouteWithChildren = HistoriasRoute._addFileChildren(
-  HistoriasRouteChildren,
-)
-
 interface MiReinoRouteChildren {
   MiReinoDatosRoute: typeof MiReinoDatosRoute
   MiReinoFavoritosRoute: typeof MiReinoFavoritosRoute
@@ -965,7 +954,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   FranquiciasRoute: FranquiciasRoute,
   GraciasRoute: GraciasRoute,
-  HistoriasRoute: HistoriasRouteWithChildren,
+  HistoriasRoute: HistoriasRoute,
   LoginRoute: LoginRoute,
   MenuRoute: MenuRoute,
   MiReinoRoute: MiReinoRouteWithChildren,
@@ -975,6 +964,7 @@ const rootRouteChildren: RootRouteChildren = {
   SedesRoute: SedesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TrackingRoute: TrackingRoute,
+  HistoriasSlugRoute: HistoriasSlugRoute,
   SedesSlugRoute: SedesSlugRoute,
   ApiPublicMetaCapiRoute: ApiPublicMetaCapiRoute,
   ApiPublicRpWebhookRoute: ApiPublicRpWebhookRoute,
