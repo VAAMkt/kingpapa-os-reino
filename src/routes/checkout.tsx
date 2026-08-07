@@ -20,6 +20,11 @@ import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
 import { pixelAdvancedMatch, getOrCreateExternalId } from "@/lib/meta-pixel";
+import {
+  isSedeOpenAt,
+  pickupScheduleError,
+  type HorariosMap,
+} from "@/lib/store-availability";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -43,7 +48,9 @@ export const Route = createFileRoute("/checkout")({
 
 const cop = (n: number) => "$" + n.toLocaleString("es-CO");
 type PagoMetodo = "efectivo" | "datafono";
-type FieldErrors = Partial<Record<"nombre" | "telefono" | "direccion", string>>;
+type FieldErrors = Partial<
+  Record<"nombre" | "telefono" | "direccion" | "pickupSchedule", string>
+>;
 
 const FORM_KEY = "kp.checkoutForm";
 type PersistedForm = Partial<{
@@ -198,6 +205,27 @@ function CheckoutPage() {
     () => sedesQ.data?.find((item) => item.id === sede?.sedeId) ?? null,
     [sedesQ.data, sede?.sedeId],
   );
+  const pickupScheduledFor = useMemo(() => {
+    if (!pickupDate || !pickupTime) return null;
+    const value = new Date(`${pickupDate}T${pickupTime}:00-05:00`);
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }, [pickupDate, pickupTime]);
+  const selectedHorarios = (selectedSede?.horarios ?? {}) as unknown as HorariosMap;
+  const deliveryUnavailable =
+    !!selectedSede &&
+    (!selectedSede.delivery ||
+      selectedSede.kill_switch ||
+      !isSedeOpenAt(selectedHorarios, selectedSede.tz, new Date()));
+  const pickupUnavailable =
+    !!selectedSede && (!selectedSede.pickup || selectedSede.kill_switch);
+  const pickupScheduleMessage =
+    esRecoger && selectedSede
+      ? pickupScheduleError(pickupScheduledFor, selectedHorarios, selectedSede.tz)
+      : null;
+
+  useEffect(() => {
+    if (tipo === "delivery" && deliveryUnavailable) setOrderType("pickup");
+  }, [tipo, deliveryUnavailable]);
   const pickupSedes = useMemo(
     () => (sedesQ.data ?? []).filter((item) => item.pickup && !item.kill_switch),
     [sedesQ.data],
@@ -280,8 +308,10 @@ function CheckoutPage() {
     if (!nombre.trim()) errs.nombre = "¿Cómo te llamas?";
     if (!/^\d{7,}$/.test(telefono.replace(/\D/g, ""))) errs.telefono = "Teléfono inválido";
     if (!esRecoger && !direccion.trim()) errs.direccion = "Dirección obligatoria";
-    if (esRecoger && (!pickupDate || !pickupTime)) {
-      toast.error("Selecciona el día y la hora para recoger tu pedido");
+    if (esRecoger && (pickupUnavailable || pickupScheduleMessage)) {
+      errs.pickupSchedule = pickupUnavailable
+        ? "Esta sede no ofrece recogida en este momento"
+        : pickupScheduleMessage!;
     }
     return errs;
   }
@@ -298,9 +328,7 @@ function CheckoutPage() {
         detalles: detalles || null,
       },
       notas: notas || null,
-      pickupScheduledFor: esRecoger
-        ? new Date(`${pickupDate}T${pickupTime}:00-05:00`).toISOString()
-        : null,
+      pickupScheduledFor: esRecoger ? pickupScheduledFor : null,
       items: items.map((i) => ({
         productoId: i.productoId,
         cantidad: i.cantidad,
@@ -398,9 +426,7 @@ function CheckoutPage() {
         pago,
         cliente: { nombre, telefono, direccion: esRecoger ? null : direccion, detalles },
         notas,
-        pickupScheduledFor: esRecoger
-          ? new Date(`${pickupDate}T${pickupTime}:00-05:00`).toISOString()
-          : null,
+        pickupScheduledFor: esRecoger ? pickupScheduledFor : null,
         sede: sede ? { id: sede.sedeId, slug: sede.slug, label: sede.label } : null,
         items,
         subtotal,
@@ -435,7 +461,12 @@ function CheckoutPage() {
       : esRecoger
         ? `Confirmar recogida · ${cop(total)}`
         : `¡Hablalooo! Pedir a domicilio · ${totalLabel}`;
-  const ctaDisabled = enviando || quoting || outOfCoverage || !!quoteError;
+  const ctaDisabled =
+    enviando ||
+    quoting ||
+    outOfCoverage ||
+    !!quoteError ||
+    (esRecoger ? pickupUnavailable || !!pickupScheduleMessage : deliveryUnavailable);
 
   const direccionResumen = esRecoger
     ? (sede?.label ?? "Sede")
@@ -458,6 +489,7 @@ function CheckoutPage() {
             type="button"
             role="radio"
             aria-checked={!esRecoger}
+            disabled={deliveryUnavailable}
             onClick={() => {
               setOrderType("delivery");
               setSelectorSedesAbierto(false);
@@ -477,6 +509,7 @@ function CheckoutPage() {
             type="button"
             role="radio"
             aria-checked={esRecoger}
+            disabled={pickupUnavailable}
             onClick={() => {
               setOrderType("pickup");
               track("delivery_method_selected", { tipo: "pickup" });
@@ -492,6 +525,14 @@ function CheckoutPage() {
             <span className="block text-[11px] opacity-80">Elige sede y hora</span>
           </button>
         </div>
+        {deliveryUnavailable && !esRecoger && (
+          <p className="text-xs text-kp-red">
+            Esta sede no recibe domicilios ahora. Puedes programar una recogida.
+          </p>
+        )}
+        {esRecoger && pickupScheduleMessage && (
+          <p className="text-xs text-kp-red">{pickupScheduleMessage}</p>
+        )}
       </fieldset>
 
       <div className="flex items-center justify-between gap-3 border-2 border-kp-ink bg-kp-cheese px-3 py-3">
