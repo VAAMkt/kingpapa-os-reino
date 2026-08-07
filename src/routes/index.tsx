@@ -154,7 +154,7 @@ function HomePage() {
             </h1>
 
             <p className="mt-5 text-base md:text-lg max-w-md border-l-4 border-kp-ink pl-3">
-              Salchipapas monstruosas, bowls coronados y retos pa’ toda la banda. Pedí directo desde
+              Salchipapas calidosas, bowls coronados y retos pa’ toda la banda. Pedí directo desde
               la web: sin comisiones, sin apps de por medio, cero drama.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
