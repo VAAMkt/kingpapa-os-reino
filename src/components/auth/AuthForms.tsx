@@ -7,20 +7,29 @@ import { BrutalCard, BrutalInput, BrutalBadge } from "@/components/ui-kp/Brutal"
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 
 function GoogleButton({ label }: { label: string }) {
+  const [loading, setLoading] = useState(false);
+
   const handleGoogle = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/mi-reino",
-    });
-    if (result.error) {
+    setLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin + "/mi-reino",
+      });
+      if (result.error) {
+        toast.error("No se pudo iniciar sesión con Google");
+        return;
+      }
+      if (result.redirected) return;
+      window.location.href = "/mi-reino";
+    } catch {
       toast.error("No se pudo iniciar sesión con Google");
-      return;
+    } finally {
+      setLoading(false);
     }
-    if (result.redirected) return;
-    window.location.href = "/mi-reino";
   };
 
   return (
-    <BrutalButton type="button" variant="ghost" block onClick={handleGoogle}>
+    <BrutalButton type="button" variant="ghost" block onClick={handleGoogle} disabled={loading}>
       <span className="inline-flex items-center gap-2">
         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
           <path
@@ -55,14 +64,19 @@ export function LoginForm({ redirectTo = "/mi-reino" }: { redirectTo?: string })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Bienvenido al Reino");
+      navigate({ to: redirectTo });
+    } catch {
+      toast.error("No pudimos conectarnos. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
     }
-    toast.success("Bienvenido al Reino");
-    navigate({ to: redirectTo });
   };
 
   return (
@@ -120,21 +134,26 @@ export function SignupForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/mi-reino`,
-        data: { display_name: displayName },
-      },
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/mi-reino`,
+          data: { display_name: displayName.trim() },
+        },
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("¡Eres oficialmente creyente del Reino!");
+      navigate({ to: "/mi-reino" });
+    } catch {
+      toast.error("No pudimos crear tu cuenta. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
     }
-    toast.success("¡Eres oficialmente creyente del Reino!");
-    navigate({ to: "/mi-reino" });
   };
 
   return (
@@ -150,6 +169,7 @@ export function SignupForm() {
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           required
+          minLength={2}
           maxLength={60}
         />
         <BrutalInput
@@ -198,14 +218,19 @@ export function ResetPasswordForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Contraseña actualizada");
+      navigate({ to: "/mi-reino" });
+    } catch {
+      toast.error("No pudimos actualizar la contraseña. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
     }
-    toast.success("Contraseña actualizada");
-    navigate({ to: "/mi-reino" });
   };
 
   return (
