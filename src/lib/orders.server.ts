@@ -15,6 +15,12 @@ import { quoteDeliveryInternal } from "@/lib/delivery-quote.server";
 import { restaurantPePaymentFields } from "@/lib/payment-methods";
 import { sendCapiEvents } from "@/lib/capi.server";
 import { getCookie, getRequestHeader, getRequestIP } from "@tanstack/react-start/server";
+import {
+  formatInTimeZone,
+  isSedeOpenAt,
+  pickupScheduleError,
+  type HorariosMap,
+} from "@/lib/store-availability";
 
 export type CheckoutInputItem = {
   productoId: string; // productos_master.id (uuid)
@@ -71,69 +77,6 @@ type DetallePedido = {
 };
 
 // FASE 3 — horarios + banderas operativas
-export type Ventana = { abre: string; cierra: string };
-export type HorariosMap = Partial<
-  Record<"lun" | "mar" | "mie" | "jue" | "vie" | "sab" | "dom", Ventana[]>
->;
-
-const DIAS: Array<keyof HorariosMap> = ["dom", "lun", "mar", "mie", "jue", "vie", "sab"];
-
-function nowInTz(tz: string): { dia: keyof HorariosMap; hhmm: string } {
-  const fmt = new Intl.DateTimeFormat("en-GB", {
-    timeZone: tz || "America/Bogota",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const parts = fmt.formatToParts(new Date());
-  const wd = (parts.find((p) => p.type === "weekday")?.value ?? "Sun").toLowerCase();
-  const map: Record<string, keyof HorariosMap> = {
-    sun: "dom",
-    mon: "lun",
-    tue: "mar",
-    wed: "mie",
-    thu: "jue",
-    fri: "vie",
-    sat: "sab",
-  };
-  const dia = map[wd] ?? DIAS[new Date().getDay()];
-  const hour = parts.find((p) => p.type === "hour")?.value ?? "00";
-  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
-  return { dia, hhmm: `${hour}:${minute}` };
-}
-
-function hhmmAMinutos(hhmm: string): number {
-  const [hour = "0", minute = "0"] = hhmm.split(":");
-  return Number(hour) * 60 + Number(minute);
-}
-
-/**
- * Evalúa la parte de una ventana que comienza en el día actual.
- * Si el cierre es menor o igual que la apertura, la ventana cruza medianoche.
- */
-function dentroDeVentanaQueEmpiezaHoy(hhmm: string, v: Ventana): boolean {
-  const ahora = hhmmAMinutos(hhmm);
-  const abre = hhmmAMinutos(v.abre);
-  const cierra = hhmmAMinutos(v.cierra);
-  if (abre === cierra) return true; // Convención habitual: abierto 24 horas.
-  if (cierra > abre) return ahora >= abre && ahora <= cierra;
-  return ahora >= abre;
-}
-
-/** Evalúa la parte posterior a medianoche de una ventana iniciada ayer. */
-function dentroDeVentanaDeAyer(hhmm: string, v: Ventana): boolean {
-  const ahora = hhmmAMinutos(hhmm);
-  const abre = hhmmAMinutos(v.abre);
-  const cierra = hhmmAMinutos(v.cierra);
-  return cierra < abre && ahora <= cierra;
-}
-
-function describeVentanas(vs: Ventana[]): string {
-  if (!vs || vs.length === 0) return "cerrada hoy";
-  return vs.map((v) => `${v.abre} a ${v.cierra}`).join(" y ");
-}
-
 function assertSedeOperativa(
   sede: {
     nombre: string;
@@ -143,53 +86,46 @@ function assertSedeOperativa(
     rp_local_estado: number | null;
     rp_acepta_delivery: number | null;
     delivery: boolean | null;
+    pickup: boolean | null;
   },
   tipo: "delivery" | "pickup",
-  opts: { bypass?: boolean } = {},
+  opts: { bypass?: boolean; requestedAt?: string | null } = {},
 ): void {
-  // Bypass para staff (super_admin / editor): permite pedidos de prueba 24/7,
-  // incluso fuera de horario o con kill_switch activo. Se loguea aparte.
   if (opts.bypass) return;
   if (sede.kill_switch) {
     throw new Error(
-      `"${sede.nombre}" está temporalmente cerrada hoy. Intenta más tarde o contáctanos por WhatsApp.`,
+      `"${sede.nombre}" está temporalmente cerrada. Intenta más tarde o contáctanos por WhatsApp.`,
     );
   }
-  // Banderas del POS (si están cacheadas). null = aún no sincronizado, no bloqueamos.
   if (sede.rp_local_estado != null && sede.rp_local_estado !== 1) {
     throw new Error(
       `"${sede.nombre}" no está activa en el sistema central. Contáctanos por WhatsApp.`,
     );
   }
   if (tipo === "delivery") {
-    // El toggle del admin manda: si delivery=false, se bloquea sin importar el POS.
     if (sede.delivery === false) {
       throw new Error(
         `"${sede.nombre}" no ofrece domicilio hoy. Prueba la opción de recoger en sede.`,
       );
     }
-    // Si admin dice delivery=true pero POS reporta explícitamente 0, avisamos con mensaje distinguible.
     if (sede.rp_acepta_delivery === 0) {
       throw new Error(
         `"${sede.nombre}" tiene domicilio pausado en el POS. Sincroniza sedes o revísalo en Restaurant.pe.`,
       );
     }
+    if (!isSedeOpenAt(sede.horarios, sede.tz, new Date())) {
+      throw new Error(
+        `Estamos fuera de horario en "${sede.nombre}". Programa una recogida o vuelve más tarde.`,
+      );
+    }
+    return;
   }
-  // Horarios locales.
-  const horarios = (sede.horarios ?? {}) as HorariosMap;
-  const { dia, hhmm } = nowInTz(sede.tz ?? "America/Bogota");
-  const ventanas = horarios[dia] ?? [];
-  const diaIndex = DIAS.indexOf(dia);
-  const diaAnterior = DIAS[(diaIndex + DIAS.length - 1) % DIAS.length];
-  const ventanasDeAyer = horarios[diaAnterior] ?? [];
-  const abierta =
-    ventanas.some((v) => dentroDeVentanaQueEmpiezaHoy(hhmm, v)) ||
-    ventanasDeAyer.some((v) => dentroDeVentanaDeAyer(hhmm, v));
-  if (!abierta) {
-    throw new Error(
-      `Estamos fuera de horario en "${sede.nombre}" (hoy: ${describeVentanas(ventanas)}). Vuelve más tarde o escríbenos por WhatsApp.`,
-    );
+
+  if (sede.pickup === false) {
+    throw new Error(`"${sede.nombre}" no ofrece recogida en sede.`);
   }
+  const scheduleError = pickupScheduleError(opts.requestedAt, sede.horarios, sede.tz);
+  if (scheduleError) throw new Error(scheduleError);
 }
 
 async function isStaffUser(userId: string | null | undefined): Promise<boolean> {
@@ -248,7 +184,7 @@ async function resolveOrder(input: CheckoutInput): Promise<{
   const { data: sedeRaw, error: sedeErr } = await supabaseAdmin
     .from("sedes")
     .select(
-      "id, nombre, rp_local_id, horarios, tz, kill_switch, rp_local_estado, rp_acepta_delivery, delivery",
+      "id, nombre, rp_local_id, horarios, tz, kill_switch, rp_local_estado, rp_acepta_delivery, delivery, pickup",
     )
     .eq("id", input.sedeId)
     .maybeSingle();
@@ -261,11 +197,15 @@ async function resolveOrder(input: CheckoutInput): Promise<{
     rp_local_estado: number | null;
     rp_acepta_delivery: number | null;
     delivery: boolean | null;
+    pickup: boolean | null;
   };
   if (!sede.rp_local_id) throw new Error(`La sede "${sede.nombre}" no tiene rp_local_id asignado`);
 
   const staffBypass = await isStaffUser(input.userId);
-  assertSedeOperativa(sede, input.tipo, { bypass: staffBypass });
+  assertSedeOperativa(sede, input.tipo, {
+    bypass: staffBypass,
+    requestedAt: input.pickupScheduledFor,
+  });
   if (staffBypass) {
     // Traza de pedidos de prueba para que no se confundan con tráfico real.
     await supabaseAdmin.from("rp_sync_log").insert({
@@ -409,33 +349,6 @@ async function resolveOrder(input: CheckoutInput): Promise<{
  * Devuelve el id de pedido devuelto por el POS (o el id local si Restaurant.pe
  * responde sin id pero el envío fue exitoso).
  */
-function formatPickupForRestaurantPe(iso: string): { date: string; time: string } {
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) throw new Error("Fecha de recogida inválida");
-  const delta = when.getTime() - Date.now();
-  if (delta < 20 * 60_000) {
-    throw new Error("Elige una hora de recogida con al menos 20 minutos de anticipación");
-  }
-  if (delta > 7 * 24 * 60 * 60_000) {
-    throw new Error("Solo puedes programar la recogida hasta 7 días adelante");
-  }
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Bogota",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(when);
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-  return {
-    date: `${get("year")}-${get("month")}-${get("day")}`,
-    time: `${get("hour")}:${get("minute")}`,
-  };
-}
-
 export async function submitOrder(input: CheckoutInput): Promise<{
   orderId: string;
   localId: string;
@@ -527,10 +440,10 @@ export async function submitOrder(input: CheckoutInput): Promise<{
         if (!input.pickupScheduledFor) {
           return { delivery_programado: "0", delivery_sesolicitorecojo: "0" };
         }
-        const d = new Date(input.pickupScheduledFor);
-        const pad = (n: number) => String(n).padStart(2, "0");
-        const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const { date, time } = formatInTimeZone(
+          new Date(input.pickupScheduledFor),
+          sede.tz,
+        );
         return {
           delivery_programado: "1",
           delivery_fechaentrega: date,
