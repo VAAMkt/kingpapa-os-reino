@@ -2,56 +2,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { submitOrder } from "./orders.server";
+import { checkoutSchema } from "./checkout-validation";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { rpCancelarDelivery, rpVerificarProductosAgotados } from "@/lib/restaurantpe.server";
 import { classifyOrderLookup } from "@/lib/order-lookup";
-
-const checkoutSchema = z.object({
-  sedeId: z.string().uuid(),
-  tipo: z.enum(["delivery", "pickup"]),
-  pago: z.enum(["efectivo", "datafono", "online"]),
-  cliente: z.object({
-    nombre: z.string().min(1).max(120),
-    telefono: z.string().min(7).max(40),
-    direccion: z.string().max(300).nullable().optional(),
-    detalles: z.string().max(300).nullable().optional(),
-  }),
-  notas: z.string().max(500).nullable().optional(),
-  pickupScheduledFor: z.string().datetime().nullable().optional(),
-  // Identificador anónimo del navegador para el emparejamiento en Meta.
-  externalId: z.string().max(120).nullable().optional(),
-  // Debe declararse explícitamente: Zod elimina propiedades desconocidas.
-  // Sin este campo, las coordenadas enviadas por el checkout se perdían
-  // antes de llegar a submitOrder y todos los domicilios fallaban al confirmar.
-  destino: z
-    .object({
-      lat: z.number().finite().min(-90).max(90),
-      lng: z.number().finite().min(-180).max(180),
-    })
-    .nullable()
-    .optional(),
-  items: z
-    .array(
-      z.object({
-        productoId: z.string().uuid(),
-        cantidad: z.number().int().min(1).max(50),
-        modificadores: z
-          .array(
-            z.object({
-              grupoId: z.number().int(),
-              opcionId: z.number().int(),
-            }),
-          )
-          .max(20)
-          .optional(),
-      }),
-    )
-    .min(1)
-    .max(50),
-});
 
 export const submitCheckoutOrder = createServerFn({ method: "POST" })
   .inputValidator((input) => checkoutSchema.parse(input))
