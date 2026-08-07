@@ -4,7 +4,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { phoneSchema } from "@/lib/form-validation";
-import { CLANS } from "@/lib/loyalty-model";
+import { CLANS, type Clan } from "@/lib/loyalty-model";
 
 export type LoyaltyAccount = {
   user_id: string;
@@ -13,6 +13,7 @@ export type LoyaltyAccount = {
   tier: string;
   referral_code: string;
   completed_orders: number;
+  clan: Clan | null;
 };
 
 export type LedgerRow = {
@@ -60,7 +61,8 @@ export const getMyLoyalty = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ account: LoyaltyAccount; ledger: LedgerRow[] }> => {
     const { supabase, userId } = context;
-    const [{ data: acc }, { data: ledger }, { count: completedOrders }] = await Promise.all([
+    const [{ data: acc }, { data: ledger }, { count: completedOrders }, { data: profile }] =
+      await Promise.all([
       supabase
         .from("loyalty_accounts")
         .select("user_id, puntos_balance, puntos_lifetime, tier, referral_code")
@@ -82,10 +84,16 @@ export const getMyLoyalty = createServerFn({ method: "GET" })
         .eq("is_test", false)
         .is("analytics_excluded_at", null)
         .throwOnError(),
+      supabase
+        .from("profiles")
+        .select("arquetipo")
+        .eq("id", userId)
+        .maybeSingle()
+        .throwOnError(),
     ]);
     return {
       account: {
-        ...((acc as Omit<LoyaltyAccount, "completed_orders"> | null) ?? {
+        ...((acc as Omit<LoyaltyAccount, "completed_orders" | "clan"> | null) ?? {
           user_id: userId,
           puntos_balance: 0,
           puntos_lifetime: 0,
@@ -93,6 +101,7 @@ export const getMyLoyalty = createServerFn({ method: "GET" })
           referral_code: "",
         }),
         completed_orders: completedOrders ?? 0,
+        clan: CLANS.find((clan) => clan === profile?.arquetipo) ?? null,
       },
       ledger: (ledger ?? []) as LedgerRow[],
     };

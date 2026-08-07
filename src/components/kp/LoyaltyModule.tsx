@@ -20,7 +20,7 @@ export function LoyaltyModule() {
   const [openQuiz, setOpenQuiz] = useState(false);
 
   return (
-    <BrutalCard tone="purple" className="p-5 md:p-8">
+    <BrutalCard id="test-clanes" tone="purple" className="p-5 md:p-8 scroll-mt-24">
       <div className="grid md:grid-cols-2 gap-6 items-center">
         <div>
           <BrutalBadge tone="yellow">Creyentes del Reino</BrutalBadge>
@@ -239,7 +239,7 @@ function QuizModal({ onClose }: { onClose: () => void }) {
                   </span>
                 </label>
                 <BrutalButton block type="submit" disabled={!accepted || saving}>
-                  {saving ? "Guardando…" : hasAccount ? "Entrar y guardar mi clan" : "Crear cuenta y coronarme"}
+                  {saving ? "Guardando…" : isAuthenticated ? "Guardar mi clan" : hasAccount ? "Entrar y guardar mi clan" : "Crear cuenta y coronarme"}
                 </BrutalButton>
                 {!isAuthenticated && (
                   <button

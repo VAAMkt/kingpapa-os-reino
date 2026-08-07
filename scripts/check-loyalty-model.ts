@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { calculateClan, getLoyaltyProgress } from "../src/lib/loyalty-model.ts";
+import {
+  calculateClan,
+  CLANS,
+  CLAN_RANK_IDENTITY,
+  getLoyaltyProgress,
+} from "../src/lib/loyalty-model.ts";
 
 const expectedRanks = new Map([
   [-1, "Postulante"],
@@ -25,6 +30,12 @@ assert.deepEqual(getLoyaltyProgress(2), {
   percent: 67,
 });
 assert.equal(getLoyaltyProgress(Number.NaN).orders, 0);
+
+for (const clan of CLANS) {
+  assert.equal(Object.keys(CLAN_RANK_IDENTITY[clan]).length, 5);
+}
+assert.equal(CLAN_RANK_IDENTITY["Iluminado de la Fórmula"].Militante.title, "Maestro de la Salsa");
+assert.doesNotMatch(JSON.stringify(CLAN_RANK_IDENTITY), /NXIVM|Raniere|Proctor/i);
 
 assert.equal(
   calculateClan({ hambre: "5", picante: "3", ocasion: "almuerzo-obrero" }),
