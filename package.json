@@ -14,6 +14,7 @@
     "check:tracking-security": "node --experimental-strip-types scripts/check-order-tracking-security.ts",
     "check:checkout-validation": "node --experimental-strip-types scripts/check-checkout-validation.ts",
     "check:auth-validation": "node --experimental-strip-types scripts/check-auth-validation.ts",
+    "check:mi-reino-errors": "node --experimental-strip-types scripts/check-mi-reino-errors.ts",
     "check:loyalty-security": "node --experimental-strip-types scripts/check-loyalty-security.ts",
     "check:story-xss": "node --experimental-strip-types scripts/check-story-xss.ts",
     "check:seo-domain": "node --experimental-strip-types scripts/check-seo-domain.ts",

@@ -7,6 +7,7 @@ import { getMyOrders, toggleFavorite } from "@/lib/mi-reino.functions";
 import { repeatOrderClient } from "./mi-reino.index";
 import { openCart } from "@/lib/cart";
 import { toast } from "sonner";
+import { MiReinoQueryError } from "@/components/kp/MiReinoQueryError";
 
 export const Route = createFileRoute("/mi-reino/pedidos")({
   component: Pedidos,
@@ -30,14 +31,19 @@ function Pedidos() {
   const toggleFn = useServerFn(toggleFavorite);
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({ queryKey: ["my-orders"], queryFn: () => ordersFn() });
+  const ordersQuery = useQuery({ queryKey: ["my-orders"], queryFn: () => ordersFn() });
 
   const fav = useMutation({
     mutationFn: (order_id: string) => toggleFn({ data: { order_id, alias: null } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-orders"] }),
+    onError: () => toast.error("No pudimos actualizar el favorito. Intenta de nuevo."),
   });
 
-  if (isLoading) return <p className="font-display uppercase text-sm">Cargando pedidos…</p>;
+  if (ordersQuery.isLoading)
+    return <p className="font-display uppercase text-sm">Cargando pedidos…</p>;
+  if (ordersQuery.isError)
+    return <MiReinoQueryError onRetry={() => void ordersQuery.refetch()} />;
+  const data = ordersQuery.data;
   if (!data || data.length === 0) {
     return (
       <BrutalCard tone="cheese" className="p-6">

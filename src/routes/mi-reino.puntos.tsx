@@ -11,6 +11,7 @@ import {
   NEXT_TIER,
 } from "@/lib/loyalty.functions";
 import { toast } from "sonner";
+import { MiReinoQueryError } from "@/components/kp/MiReinoQueryError";
 
 export const Route = createFileRoute("/mi-reino/puntos")({
   component: Puntos,
@@ -23,9 +24,9 @@ function Puntos() {
   const redeem = useServerFn(redeemReward);
   const qc = useQueryClient();
 
-  const { data: loyalty } = useQuery({ queryKey: ["my-loyalty"], queryFn: () => loyFn() });
-  const { data: rewards } = useQuery({ queryKey: ["rewards"], queryFn: () => rewFn() });
-  const { data: reds } = useQuery({ queryKey: ["my-redemptions"], queryFn: () => redFn() });
+  const loyaltyQuery = useQuery({ queryKey: ["my-loyalty"], queryFn: () => loyFn() });
+  const rewardsQuery = useQuery({ queryKey: ["rewards"], queryFn: () => rewFn() });
+  const redemptionsQuery = useQuery({ queryKey: ["my-redemptions"], queryFn: () => redFn() });
 
   const canjear = useMutation({
     mutationFn: (reward_id: string) => redeem({ data: { reward_id } }),
@@ -36,6 +37,21 @@ function Puntos() {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "No se pudo canjear"),
   });
+
+  if (loyaltyQuery.isError || rewardsQuery.isError || redemptionsQuery.isError) {
+    return (
+      <MiReinoQueryError
+        onRetry={() => {
+          void loyaltyQuery.refetch();
+          void rewardsQuery.refetch();
+          void redemptionsQuery.refetch();
+        }}
+      />
+    );
+  }
+  const loyalty = loyaltyQuery.data;
+  const rewards = rewardsQuery.data;
+  const reds = redemptionsQuery.data;
 
   const bal = loyalty?.account.puntos_balance ?? 0;
   const life = loyalty?.account.puntos_lifetime ?? 0;

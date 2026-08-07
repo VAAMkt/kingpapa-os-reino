@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getMyProfile, updateMyProfile } from "@/lib/mi-reino.functions";
 import { getMyLoyalty } from "@/lib/loyalty.functions";
 import { toast } from "sonner";
+import { MiReinoQueryError } from "@/components/kp/MiReinoQueryError";
 
 export const Route = createFileRoute("/mi-reino/datos")({
   component: Datos,
@@ -20,8 +21,10 @@ function Datos() {
   const updFn = useServerFn(updateMyProfile);
   const qc = useQueryClient();
 
-  const { data: profile } = useQuery({ queryKey: ["my-profile"], queryFn: () => profFn() });
-  const { data: loyalty } = useQuery({ queryKey: ["my-loyalty"], queryFn: () => loyFn() });
+  const profileQuery = useQuery({ queryKey: ["my-profile"], queryFn: () => profFn() });
+  const loyaltyQuery = useQuery({ queryKey: ["my-loyalty"], queryFn: () => loyFn() });
+  const profile = profileQuery.data;
+  const loyalty = loyaltyQuery.data;
 
   const [name, setName] = useState("");
   const [wa, setWa] = useState("");
@@ -42,6 +45,17 @@ function Datos() {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "No se pudo guardar"),
   });
+
+  if (profileQuery.isError || loyaltyQuery.isError) {
+    return (
+      <MiReinoQueryError
+        onRetry={() => {
+          void profileQuery.refetch();
+          void loyaltyQuery.refetch();
+        }}
+      />
+    );
+  }
 
   const code = loyalty?.account.referral_code ?? "";
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/?ref=${code}` : "";
