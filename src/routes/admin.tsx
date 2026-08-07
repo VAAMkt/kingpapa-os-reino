@@ -21,7 +21,7 @@ const adminNav = [
   { to: "/admin/sedes", label: "Sedes", soon: false },
   { to: "/admin/pedidos", label: "Pedidos", soon: false },
   { to: "/admin/loyalty", label: "Loyalty", soon: false },
-  { to: "/admin/subditos", label: "Súbditos", soon: false },
+  { to: "/admin/subditos", label: "Creyentes", soon: false },
   { to: "/admin/usuarios", label: "Usuarios", soon: false },
   { to: "/admin/sincronizacion", label: "Sincronización", soon: false },
   { to: "/admin/integraciones", label: "Integraciones", soon: false },

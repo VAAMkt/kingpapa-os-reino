@@ -30,7 +30,7 @@ export function OrderRouter({ compact = false }: { compact?: boolean }) {
 
   const waNumber = sede?.whatsapp || "573172455336";
   const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(
-    `Quiero pedir en ${sede?.nombre ?? "KINGPAPA"}. Soy súbdito del Reino.`,
+    `Quiero pedir en ${sede?.nombre ?? "KINGPAPA"}. Soy creyente del Reino.`,
   )}`;
 
   const rappiUrl = "https://www.rappi.com.co/restaurantes/kingpapa";

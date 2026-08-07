@@ -25,7 +25,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "¿Cómo funciona el Reto KINGPAPA?",
-    a: "En cualquier sede pedís la del reto ($139.900). Hay que terminar 4,1 kilos en menos de 30 minutos. El premio es 1 millón de pesos. Aplica solo para mayores de edad.",
+    a: "Llegate a cualquier sede y pedí la del reto ($139.900). Tenés que terminar 4.1 kilos en menos de 30 minutos. ¡GANA HASTA 10 PALOS! Aplica sólo para mayores de edad.",
   },
   {
     q: "¿Tienen algo para cumpleaños?",

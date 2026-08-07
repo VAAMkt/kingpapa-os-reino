@@ -73,7 +73,7 @@ export const productos: Producto[] = [
     id: "salchipapa-gigante",
     nombre: "Salchipapa Gigante del Reino",
     descripcion:
-      "1,8kg de papa, salchicha, chorizo, chicharrón y triple queso. Para 4–6 súbditos con hambre brava.",
+      "1,8kg de papa, salchicha, chorizo, chicharrón y triple queso. Para 4–6 creyentes con hambre brava.",
     imagen: sharePlatter,
     pesoAprox: "1.8kg",
     precioDesde: 79900,

@@ -32,9 +32,9 @@ function DashboardPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KpiCard label="Pedidos hoy" value={d.pedidosHoy.toLocaleString("es-CO")} tone="yellow" />
-        <KpiCard label="Súbditos nuevos" value={`+${d.subditosNuevos}`} tone="purple" />
+        <KpiCard label="Creyentes nuevos" value={`+${d.subditosNuevos}`} tone="purple" />
         <KpiCard
-          label="Súbditos totales"
+          label="Creyentes totales"
           value={d.subditosTotal.toLocaleString("es-CO")}
           tone="black"
         />

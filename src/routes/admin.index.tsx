@@ -75,12 +75,12 @@ function AdminDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Kpi
               tone="cheese"
-              label="Súbditos nuevos"
+              label="Creyentes nuevos"
               value={data.kpis.subditosNuevos.toString()}
             />
             <Kpi
               tone="cheese"
-              label="Súbditos totales"
+              label="Creyentes totales"
               value={data.kpis.subditosTotal.toString()}
             />
 
