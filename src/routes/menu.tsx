@@ -17,6 +17,7 @@ import { useActiveSede, setActiveSede, setExploringSede } from "@/lib/active-sed
 import { useCart, setOrderType } from "@/lib/cart";
 import { cn, prefersReducedMotion } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { SITE_URL } from "@/lib/seo-schema";
 import type { Producto, Categoria } from "@/types/kp";
 
 export const Route = createFileRoute("/menu")({
@@ -39,9 +40,9 @@ export const Route = createFileRoute("/menu")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:url", content: "/menu" },
+      { property: "og:url", content: `${SITE_URL}/menu` },
     ],
-    links: [{ rel: "canonical", href: "/menu" }],
+    links: [{ rel: "canonical", href: `${SITE_URL}/menu` }],
   }),
   component: MenuPage,
 });

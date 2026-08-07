@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BrutalBadge, BrutalChip } from "@/components/ui-kp/Brutal";
 import { EventCard } from "@/components/kp/Cards";
 import { listPublicPosts } from "@/lib/posts";
+import { SITE_URL } from "@/lib/seo-schema";
 import type { CategoriaHistoria } from "@/types/kp";
 
 const cats: ("Todas" | CategoriaHistoria)[] = [
@@ -27,9 +28,9 @@ export const Route = createFileRoute("/historias")({
       },
       { property: "og:title", content: "Historias del Reino — KINGPAPA" },
       { property: "og:description", content: "Lo que pasa en el Reino, queda coronado." },
-      { property: "og:url", content: "/historias" },
+      { property: "og:url", content: `${SITE_URL}/historias` },
     ],
-    links: [{ rel: "canonical", href: "/historias" }],
+    links: [{ rel: "canonical", href: `${SITE_URL}/historias` }],
   }),
   component: HistoriasPage,
 });

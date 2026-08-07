@@ -2,10 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 import { listAllPosts } from "@/lib/posts";
 import { listPublicSedes } from "@/lib/sedes";
-
-const SITE_URL =
-  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_SITE_URL) ||
-  "https://kingpapa.co";
+import { SITE_URL } from "@/lib/seo-schema";
 
 const STATIC_PATHS: { path: string; changefreq: string; priority: string }[] = [
   { path: "/", changefreq: "weekly", priority: "1.0" },
