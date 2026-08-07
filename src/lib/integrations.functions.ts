@@ -5,11 +5,16 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  assertUserHasAnyRole,
+  INTEGRATION_ROLES,
+} from "@/integrations/supabase/admin-authorization";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export const getIntegrationsStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
+    await assertUserHasAnyRole(context.supabase, context.userId, INTEGRATION_ROLES);
     // Último webhook crudo recibido de Restaurant.pe.
     const { data: lastRaw } = await supabaseAdmin
       .from("rp_sync_log")
