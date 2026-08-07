@@ -1,25 +1,17 @@
 // Hook público para sincronizar la reputación de Google de todas las sedes.
 //
-// Programable vía pg_cron (header `apikey` = SUPABASE_PUBLISHABLE_KEY). Sin llave = 401.
+// Programable vía pg_cron con `INTERNAL_CRON_SECRET` en Authorization.
 // Route path: /api/public/hooks/sync-google-ratings (bypassa auth por prefijo).
 
 import { createFileRoute } from "@tanstack/react-router";
+import { authorizeCronRequest } from "@/lib/cron-auth.server";
 
 export const Route = createFileRoute("/api/public/hooks/sync-google-ratings")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
-        const apikey =
-          request.headers.get("apikey") ??
-          request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
-          null;
-        if (!expected || apikey !== expected) {
-          return new Response(JSON.stringify({ error: "unauthorized" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
+        const unauthorized = authorizeCronRequest(request);
+        if (unauthorized) return unauthorized;
 
         const startedAt = Date.now();
         try {
@@ -38,7 +30,7 @@ export const Route = createFileRoute("/api/public/hooks/sync-google-ratings")({
           ok: true,
           service: "sync-google-ratings",
           method: "POST",
-          note: "POST con header apikey=<SUPABASE_PUBLISHABLE_KEY> sincroniza el rating de Google de todas las sedes con google_place_id.",
+          note: "POST autenticado sincroniza el rating de Google.",
         }),
     },
   },

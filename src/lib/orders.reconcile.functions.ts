@@ -5,6 +5,8 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertUserHasAnyRole, OPERATOR_ROLES } from "@/integrations/supabase/admin-authorization";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import {
@@ -211,46 +213,49 @@ export type OrphanRow = {
   ageMinutes: number;
 };
 
-export const listOrphanOrders = createServerFn({ method: "GET" }).handler(async () => {
-  const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-  const { data: orders, error } = await supabaseAdmin
-    .from("orders")
-    .select("id, rp_pedido_id, status, created_at")
-    .in("status", ["enviado", "recibido"])
-    .lt("created_at", cutoff)
-    .order("created_at", { ascending: false })
-    .limit(50);
-  if (error || !orders) return { orphans: [] as OrphanRow[] };
+export const listOrphanOrders = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertUserHasAnyRole(context.supabase, context.userId, OPERATOR_ROLES);
+    const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { data: orders, error } = await supabaseAdmin
+      .from("orders")
+      .select("id, rp_pedido_id, status, created_at")
+      .in("status", ["enviado", "recibido"])
+      .lt("created_at", cutoff)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error || !orders) return { orphans: [] as OrphanRow[] };
 
-  const ids = orders.map((o) => o.id);
-  if (ids.length === 0) return { orphans: [] as OrphanRow[] };
+    const ids = orders.map((o) => o.id);
+    if (ids.length === 0) return { orphans: [] as OrphanRow[] };
 
-  const { data: logs } = await supabaseAdmin
-    .from("rp_sync_log")
-    .select("payload")
-    .eq("tipo", "webhook")
-    .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    .limit(2000);
+    const { data: logs } = await supabaseAdmin
+      .from("rp_sync_log")
+      .select("payload")
+      .eq("tipo", "webhook")
+      .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .limit(2000);
 
-  const seen = new Set<string>();
-  for (const l of logs ?? []) {
-    const p = l.payload;
-    if (p && typeof p === "object" && !Array.isArray(p)) {
-      const oid = (p as Record<string, unknown>).order_id;
-      if (typeof oid === "string") seen.add(oid);
+    const seen = new Set<string>();
+    for (const l of logs ?? []) {
+      const p = l.payload;
+      if (p && typeof p === "object" && !Array.isArray(p)) {
+        const oid = (p as Record<string, unknown>).order_id;
+        if (typeof oid === "string") seen.add(oid);
+      }
     }
-  }
 
-  const now = Date.now();
-  const orphans: OrphanRow[] = orders
-    .filter((o) => !seen.has(o.id))
-    .map((o) => ({
-      id: o.id,
-      rp_pedido_id: o.rp_pedido_id,
-      status: o.status,
-      created_at: o.created_at,
-      ageMinutes: Math.floor((now - new Date(o.created_at).getTime()) / 60_000),
-    }));
+    const now = Date.now();
+    const orphans: OrphanRow[] = orders
+      .filter((o) => !seen.has(o.id))
+      .map((o) => ({
+        id: o.id,
+        rp_pedido_id: o.rp_pedido_id,
+        status: o.status,
+        created_at: o.created_at,
+        ageMinutes: Math.floor((now - new Date(o.created_at).getTime()) / 60_000),
+      }));
 
-  return { orphans };
-});
+    return { orphans };
+  });

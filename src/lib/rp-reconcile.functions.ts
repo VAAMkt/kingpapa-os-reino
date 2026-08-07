@@ -9,6 +9,8 @@
 // - `runReconcile`: ejecuta ambos (para el hook cron / botón admin).
 
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertUserHasAnyRole, OPERATOR_ROLES } from "@/integrations/supabase/admin-authorization";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   rpGetSinNotificarAQuipu,
@@ -70,134 +72,139 @@ export type QuipuBacklogResult = {
   matchedOurs: QuipuStuckRow[];
 };
 
-export const checkQuipuBacklog = createServerFn({ method: "POST" }).handler(
-  async (): Promise<QuipuBacklogResult> => {
-    const { data: sedes } = await supabaseAdmin
-      .from("sedes")
-      .select("id, slug, rp_local_id")
-      .not("rp_local_id", "is", null)
-      .eq("publicado", true);
-    type SedeLite = { id: string; slug: string; rp_local_id: number | null };
+export async function checkQuipuBacklogCore(): Promise<QuipuBacklogResult> {
+  const { data: sedes } = await supabaseAdmin
+    .from("sedes")
+    .select("id, slug, rp_local_id")
+    .not("rp_local_id", "is", null)
+    .eq("publicado", true);
+  type SedeLite = { id: string; slug: string; rp_local_id: number | null };
 
-    const bySede: QuipuBacklogResult["bySede"] = [];
-    const allStuck: Array<{ sede: SedeLite; row: RpSinQuipuRow }> = [];
+  const bySede: QuipuBacklogResult["bySede"] = [];
+  const allStuck: Array<{ sede: SedeLite; row: RpSinQuipuRow }> = [];
 
-    for (const s of sedes ?? []) {
-      const localId = Number(s.rp_local_id);
-      if (!Number.isFinite(localId) || localId <= 0) continue;
-      try {
-        const rows = await rpGetSinNotificarAQuipu(localId);
-        bySede.push({
-          sede_id: s.id,
-          sede_slug: s.slug,
-          local_id: localId,
-          total_stuck: rows.length,
-        });
-        for (const r of rows) allStuck.push({ sede: s, row: r });
-      } catch (err) {
-        bySede.push({
-          sede_id: s.id,
-          sede_slug: s.slug,
-          local_id: localId,
-          total_stuck: 0,
-          error: err instanceof Error ? err.message : "error",
-        });
-      }
-    }
-
-    if (allStuck.length === 0) {
-      const failed = bySede.filter((item) => !!item.error);
-      const checked = bySede.length - failed.length;
-      const ok = failed.length === 0;
-      await supabaseAdmin.from("rp_sync_log").insert({
-        tipo: "quipu_backlog",
-        ok,
-        mensaje: ok
-          ? `Backlog Quipu vacío en ${checked} sede(s) consultadas correctamente.`
-          : `Backlog Quipu no verificable: ${failed.length} sede(s) fallaron; ${checked} respondieron sin pedidos.`,
-        payload: { bySede, failed_sedes: failed.length, checked_sedes: checked } as unknown as Json,
+  for (const s of sedes ?? []) {
+    const localId = Number(s.rp_local_id);
+    if (!Number.isFinite(localId) || localId <= 0) continue;
+    try {
+      const rows = await rpGetSinNotificarAQuipu(localId);
+      bySede.push({
+        sede_id: s.id,
+        sede_slug: s.slug,
+        local_id: localId,
+        total_stuck: rows.length,
       });
-      return { ok, bySede, matchedOurs: [] };
-    }
-
-    // Cruce con nuestras órdenes: match por rp_pedido_id (delivery_id)
-    // o por delivery_codigointegracion == orders.id.
-    const deliveryIds = allStuck.map((s) => s.row.delivery_id).filter(Boolean);
-    const integrationIds = allStuck
-      .map((s) => s.row.delivery_codigointegracion)
-      .filter((v): v is string => !!v);
-
-    const [{ data: byDelivery }, { data: byIntegration }] = await Promise.all([
-      deliveryIds.length
-        ? supabaseAdmin
-            .from("orders")
-            .select("id, rp_pedido_id, status, created_at")
-            .in("rp_pedido_id", deliveryIds)
-        : Promise.resolve({ data: [] as never[] }),
-      integrationIds.length
-        ? supabaseAdmin
-            .from("orders")
-            .select("id, rp_pedido_id, status, created_at")
-            .in("id", integrationIds)
-        : Promise.resolve({ data: [] as never[] }),
-    ]);
-
-    type OrderLite = {
-      id: string;
-      rp_pedido_id: string | null;
-      status: string;
-      created_at: string;
-    };
-    const byDeliveryMap = new Map<string, OrderLite>();
-    for (const o of (byDelivery ?? []) as OrderLite[]) {
-      if (o.rp_pedido_id) byDeliveryMap.set(String(o.rp_pedido_id), o);
-    }
-    const byIntegrationMap = new Map<string, OrderLite>();
-    for (const o of (byIntegration ?? []) as OrderLite[]) byIntegrationMap.set(o.id, o);
-
-    const now = Date.now();
-    const matched: QuipuStuckRow[] = [];
-    for (const { sede, row } of allStuck) {
-      const byInteg = row.delivery_codigointegracion
-        ? byIntegrationMap.get(row.delivery_codigointegracion)
-        : undefined;
-      const byDel = byDeliveryMap.get(row.delivery_id);
-      const order = byInteg ?? byDel;
-      if (!order) continue;
-      // Sólo alertamos si nuestra orden sigue activa.
-      if (TERMINAL.has(order.status)) continue;
-      const fecha = row.delivery_fecha ? Date.parse(row.delivery_fecha) : now;
-      const ageMinutes = Math.max(
-        0,
-        Math.floor((now - (Number.isFinite(fecha) ? fecha : now)) / 60_000),
-      );
-      matched.push({
-        sede_id: sede.id,
-        sede_slug: sede.slug,
-        local_id: Number(sede.rp_local_id),
-        delivery_id: row.delivery_id,
-        ageMinutes,
-        matched_order_id: order.id,
-        matched_by: byInteg ? "integracion" : "rp_pedido_id",
-        cliente_nombre: row.delivery_nombres,
-        cliente_celular: row.delivery_celular,
-        delivery_estado: row.delivery_estado,
+      for (const r of rows) allStuck.push({ sede: s, row: r });
+    } catch (err) {
+      bySede.push({
+        sede_id: s.id,
+        sede_slug: s.slug,
+        local_id: localId,
+        total_stuck: 0,
+        error: err instanceof Error ? err.message : "error",
       });
     }
+  }
 
+  if (allStuck.length === 0) {
+    const failed = bySede.filter((item) => !!item.error);
+    const checked = bySede.length - failed.length;
+    const ok = failed.length === 0;
     await supabaseAdmin.from("rp_sync_log").insert({
       tipo: "quipu_backlog",
-      ok: matched.length === 0,
-      mensaje:
-        matched.length === 0
-          ? `Backlog Quipu: ${allStuck.length} stuck en RP, 0 de KingPapa.`
-          : `⚠ Backlog Quipu: ${matched.length} pedido(s) KingPapa atascados antes de Quipu.`,
-      payload: { bySede, matchedOurs: matched } as unknown as Json,
+      ok,
+      mensaje: ok
+        ? `Backlog Quipu vacío en ${checked} sede(s) consultadas correctamente.`
+        : `Backlog Quipu no verificable: ${failed.length} sede(s) fallaron; ${checked} respondieron sin pedidos.`,
+      payload: { bySede, failed_sedes: failed.length, checked_sedes: checked } as unknown as Json,
     });
+    return { ok, bySede, matchedOurs: [] };
+  }
 
-    return { ok: matched.length === 0, bySede, matchedOurs: matched };
-  },
-);
+  // Cruce con nuestras órdenes: match por rp_pedido_id (delivery_id)
+  // o por delivery_codigointegracion == orders.id.
+  const deliveryIds = allStuck.map((s) => s.row.delivery_id).filter(Boolean);
+  const integrationIds = allStuck
+    .map((s) => s.row.delivery_codigointegracion)
+    .filter((v): v is string => !!v);
+
+  const [{ data: byDelivery }, { data: byIntegration }] = await Promise.all([
+    deliveryIds.length
+      ? supabaseAdmin
+          .from("orders")
+          .select("id, rp_pedido_id, status, created_at")
+          .in("rp_pedido_id", deliveryIds)
+      : Promise.resolve({ data: [] as never[] }),
+    integrationIds.length
+      ? supabaseAdmin
+          .from("orders")
+          .select("id, rp_pedido_id, status, created_at")
+          .in("id", integrationIds)
+      : Promise.resolve({ data: [] as never[] }),
+  ]);
+
+  type OrderLite = {
+    id: string;
+    rp_pedido_id: string | null;
+    status: string;
+    created_at: string;
+  };
+  const byDeliveryMap = new Map<string, OrderLite>();
+  for (const o of (byDelivery ?? []) as OrderLite[]) {
+    if (o.rp_pedido_id) byDeliveryMap.set(String(o.rp_pedido_id), o);
+  }
+  const byIntegrationMap = new Map<string, OrderLite>();
+  for (const o of (byIntegration ?? []) as OrderLite[]) byIntegrationMap.set(o.id, o);
+
+  const now = Date.now();
+  const matched: QuipuStuckRow[] = [];
+  for (const { sede, row } of allStuck) {
+    const byInteg = row.delivery_codigointegracion
+      ? byIntegrationMap.get(row.delivery_codigointegracion)
+      : undefined;
+    const byDel = byDeliveryMap.get(row.delivery_id);
+    const order = byInteg ?? byDel;
+    if (!order) continue;
+    // Sólo alertamos si nuestra orden sigue activa.
+    if (TERMINAL.has(order.status)) continue;
+    const fecha = row.delivery_fecha ? Date.parse(row.delivery_fecha) : now;
+    const ageMinutes = Math.max(
+      0,
+      Math.floor((now - (Number.isFinite(fecha) ? fecha : now)) / 60_000),
+    );
+    matched.push({
+      sede_id: sede.id,
+      sede_slug: sede.slug,
+      local_id: Number(sede.rp_local_id),
+      delivery_id: row.delivery_id,
+      ageMinutes,
+      matched_order_id: order.id,
+      matched_by: byInteg ? "integracion" : "rp_pedido_id",
+      cliente_nombre: row.delivery_nombres,
+      cliente_celular: row.delivery_celular,
+      delivery_estado: row.delivery_estado,
+    });
+  }
+
+  await supabaseAdmin.from("rp_sync_log").insert({
+    tipo: "quipu_backlog",
+    ok: matched.length === 0,
+    mensaje:
+      matched.length === 0
+        ? `Backlog Quipu: ${allStuck.length} stuck en RP, 0 de KingPapa.`
+        : `⚠ Backlog Quipu: ${matched.length} pedido(s) KingPapa atascados antes de Quipu.`,
+    payload: { bySede, matchedOurs: matched } as unknown as Json,
+  });
+
+  return { ok: matched.length === 0, bySede, matchedOurs: matched };
+}
+
+export const checkQuipuBacklog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertUserHasAnyRole(context.supabase, context.userId, OPERATOR_ROLES);
+    return checkQuipuBacklogCore();
+  });
 
 // ---------------------------------------------------------------------------
 // Fase 2 — poll determinista de órdenes activas
@@ -215,120 +222,125 @@ export type PollResult = {
   }>;
 };
 
-export const pollActiveOrders = createServerFn({ method: "POST" }).handler(
-  async (): Promise<PollResult> => {
-    const now = Date.now();
-    const since = new Date(now - POLL_WINDOW_MS).toISOString();
-    const until = new Date(now - POLL_MIN_AGE_MS).toISOString();
+export async function pollActiveOrdersCore(): Promise<PollResult> {
+  const now = Date.now();
+  const since = new Date(now - POLL_WINDOW_MS).toISOString();
+  const until = new Date(now - POLL_MIN_AGE_MS).toISOString();
 
-    const { data: orders } = await supabaseAdmin
-      .from("orders")
-      .select("id, rp_pedido_id, status, rp_response, created_at, rp_numero_comanda")
-      .not("rp_pedido_id", "is", null)
-      .not("status", "in", "(entregado,cancelado,error)")
-      .gte("created_at", since)
-      .lte("created_at", until)
-      .order("created_at", { ascending: false })
-      .limit(60);
+  const { data: orders } = await supabaseAdmin
+    .from("orders")
+    .select("id, rp_pedido_id, status, rp_response, created_at, rp_numero_comanda")
+    .not("rp_pedido_id", "is", null)
+    .not("status", "in", "(entregado,cancelado,error)")
+    .gte("created_at", since)
+    .lte("created_at", until)
+    .order("created_at", { ascending: false })
+    .limit(60);
 
-    const changes: PollResult["changes"] = [];
-    let updated = 0;
-    let errors = 0;
+  const changes: PollResult["changes"] = [];
+  let updated = 0;
+  let errors = 0;
 
-    for (const row of orders ?? []) {
-      const deliveryId = row.rp_pedido_id;
-      if (!deliveryId) continue;
-      try {
-        const snap = await rpGetDeliveryById(deliveryId);
-        if (!snap) continue;
+  for (const row of orders ?? []) {
+    const deliveryId = row.rp_pedido_id;
+    if (!deliveryId) continue;
+    try {
+      const snap = await rpGetDeliveryById(deliveryId);
+      if (!snap) continue;
 
-        const numeric = extractDeliveryEstado(snap);
-        const mapped = mapPolledDeliveryEstado(numeric, row.status);
-        if (!mapped) continue;
+      const numeric = extractDeliveryEstado(snap);
+      const mapped = mapPolledDeliveryEstado(numeric, row.status);
+      if (!mapped) continue;
 
-        const currentRank = STATUS_RANK[row.status] ?? 0;
-        const nextRank = STATUS_RANK[mapped] ?? 0;
-        // No regresar. Sólo actualizamos si es progresión estricta.
-        if (nextRank <= currentRank) {
-          // Aun así refrescamos comanda/motorizado si aparecieron.
-          const comanda = extractComandaNumber(snap);
-          const moto = extractMotorizadoInfo(snap);
-          const patch: Record<string, unknown> = {};
-          if (comanda && !row.rp_numero_comanda) patch.rp_numero_comanda = comanda;
-          if (moto.nombre || Object.keys(patch).length > 0) {
-            const merged = mergeRpResponse(row.rp_response, {
-              poll_snapshot_at: new Date().toISOString(),
-              poll_delivery_estado: numeric,
-              live_motorizado: moto,
-            });
-            patch.rp_response = merged as unknown as Json;
-            await supabaseAdmin
-              .from("orders")
-              .update(patch as never)
-              .eq("id", row.id);
-          }
-          continue;
-        }
-
+      const currentRank = STATUS_RANK[row.status] ?? 0;
+      const nextRank = STATUS_RANK[mapped] ?? 0;
+      // No regresar. Sólo actualizamos si es progresión estricta.
+      if (nextRank <= currentRank) {
+        // Aun así refrescamos comanda/motorizado si aparecieron.
         const comanda = extractComandaNumber(snap);
         const moto = extractMotorizadoInfo(snap);
-        const merged = mergeRpResponse(row.rp_response, {
-          poll_snapshot_at: new Date().toISOString(),
-          poll_delivery_estado: numeric,
-          poll_status: mapped,
-          live_motorizado: moto,
-        });
-        const patch: Record<string, unknown> = {
-          status: mapped,
-          rp_response: merged as unknown as Json,
-        };
+        const patch: Record<string, unknown> = {};
         if (comanda && !row.rp_numero_comanda) patch.rp_numero_comanda = comanda;
-        if (mapped === "cancelado") {
-          patch.cancelled_at = new Date().toISOString();
-          patch.cancel_reason =
-            "poll_reconcile: delivery_estado=0 tras haber avanzado (anulado en Restaurant.pe)";
+        if (moto.nombre || Object.keys(patch).length > 0) {
+          const merged = mergeRpResponse(row.rp_response, {
+            poll_snapshot_at: new Date().toISOString(),
+            poll_delivery_estado: numeric,
+            live_motorizado: moto,
+          });
+          patch.rp_response = merged as unknown as Json;
+          await supabaseAdmin
+            .from("orders")
+            .update(patch as never)
+            .eq("id", row.id);
         }
-        await supabaseAdmin
-          .from("orders")
-          .update(patch as never)
-          .eq("id", row.id);
+        continue;
+      }
 
-        await supabaseAdmin.from("rp_sync_log").insert({
-          tipo: "poll_reconcile",
-          ok: true,
-          mensaje: `poll: ${row.status} → ${mapped} (delivery_estado=${numeric})`,
-          payload: {
-            order_id: row.id,
-            rp_pedido_id: deliveryId,
-            from: row.status,
-            to: mapped,
-            delivery_estado: numeric,
-          } as unknown as Json,
-        });
-        changes.push({
+      const comanda = extractComandaNumber(snap);
+      const moto = extractMotorizadoInfo(snap);
+      const merged = mergeRpResponse(row.rp_response, {
+        poll_snapshot_at: new Date().toISOString(),
+        poll_delivery_estado: numeric,
+        poll_status: mapped,
+        live_motorizado: moto,
+      });
+      const patch: Record<string, unknown> = {
+        status: mapped,
+        rp_response: merged as unknown as Json,
+      };
+      if (comanda && !row.rp_numero_comanda) patch.rp_numero_comanda = comanda;
+      if (mapped === "cancelado") {
+        patch.cancelled_at = new Date().toISOString();
+        patch.cancel_reason =
+          "poll_reconcile: delivery_estado=0 tras haber avanzado (anulado en Restaurant.pe)";
+      }
+      await supabaseAdmin
+        .from("orders")
+        .update(patch as never)
+        .eq("id", row.id);
+
+      await supabaseAdmin.from("rp_sync_log").insert({
+        tipo: "poll_reconcile",
+        ok: true,
+        mensaje: `poll: ${row.status} → ${mapped} (delivery_estado=${numeric})`,
+        payload: {
           order_id: row.id,
-          rp_pedido_id: String(deliveryId),
+          rp_pedido_id: deliveryId,
           from: row.status,
           to: mapped,
-        });
-        updated += 1;
-      } catch (err) {
-        errors += 1;
-        await supabaseAdmin.from("rp_sync_log").insert({
-          tipo: "poll_reconcile",
-          ok: false,
-          mensaje: err instanceof Error ? err.message : "poll error",
-          payload: {
-            order_id: row.id,
-            rp_pedido_id: deliveryId,
-          } as unknown as Json,
-        });
-      }
+          delivery_estado: numeric,
+        } as unknown as Json,
+      });
+      changes.push({
+        order_id: row.id,
+        rp_pedido_id: String(deliveryId),
+        from: row.status,
+        to: mapped,
+      });
+      updated += 1;
+    } catch (err) {
+      errors += 1;
+      await supabaseAdmin.from("rp_sync_log").insert({
+        tipo: "poll_reconcile",
+        ok: false,
+        mensaje: err instanceof Error ? err.message : "poll error",
+        payload: {
+          order_id: row.id,
+          rp_pedido_id: deliveryId,
+        } as unknown as Json,
+      });
     }
+  }
 
-    return { scanned: orders?.length ?? 0, updated, errors, changes };
-  },
-);
+  return { scanned: orders?.length ?? 0, updated, errors, changes };
+}
+
+export const pollActiveOrders = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertUserHasAnyRole(context.supabase, context.userId, OPERATOR_ROLES);
+    return pollActiveOrdersCore();
+  });
 
 function mergeRpResponse(prev: unknown, patch: Record<string, unknown>): Record<string, unknown> {
   const base =
@@ -338,34 +350,37 @@ function mergeRpResponse(prev: unknown, patch: Record<string, unknown>): Record<
   return { ...base, ...patch };
 }
 
-export const runReconcile = createServerFn({ method: "POST" }).handler(async () => {
-  const [poll, backlog] = await Promise.all([
-    // Poll primero — más importante para el usuario final.
-    (async () => {
-      try {
-        return await pollActiveOrders({} as never);
-      } catch (err) {
-        return {
-          scanned: 0,
-          updated: 0,
-          errors: 1,
-          changes: [],
-          error: err instanceof Error ? err.message : "poll fatal",
-        };
-      }
-    })(),
-    (async () => {
-      try {
-        return await checkQuipuBacklog({} as never);
-      } catch (err) {
-        return {
-          ok: false,
-          bySede: [],
-          matchedOurs: [],
-          error: err instanceof Error ? err.message : "backlog fatal",
-        };
-      }
-    })(),
-  ]);
-  return { poll, backlog };
-});
+export const runReconcile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertUserHasAnyRole(context.supabase, context.userId, OPERATOR_ROLES);
+    const [poll, backlog] = await Promise.all([
+      // Poll primero — más importante para el usuario final.
+      (async () => {
+        try {
+          return await pollActiveOrdersCore();
+        } catch (err) {
+          return {
+            scanned: 0,
+            updated: 0,
+            errors: 1,
+            changes: [],
+            error: err instanceof Error ? err.message : "poll fatal",
+          };
+        }
+      })(),
+      (async () => {
+        try {
+          return await checkQuipuBacklogCore();
+        } catch (err) {
+          return {
+            ok: false,
+            bySede: [],
+            matchedOurs: [],
+            error: err instanceof Error ? err.message : "backlog fatal",
+          };
+        }
+      })(),
+    ]);
+    return { poll, backlog };
+  });

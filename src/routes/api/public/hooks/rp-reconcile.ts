@@ -4,34 +4,25 @@
 //   - checkQuipuBacklog: alerta pedidos KingPapa atascados antes de Quipu.
 //   - pollActiveOrders: pull determinista de estado desde el tenant.
 //
-// Puede llamarse manualmente desde /admin/integraciones o programarse vía
-// pg_cron (SUPABASE_ANON_KEY en header `apikey`). Sin llave = 401.
+// Puede programarse vía pg_cron con `INTERNAL_CRON_SECRET` en Authorization.
 //
 // Route path: /api/public/hooks/rp-reconcile  (bypassa auth por prefijo).
 
 import { createFileRoute } from "@tanstack/react-router";
-import { checkQuipuBacklog, pollActiveOrders } from "@/lib/rp-reconcile.functions";
+import { authorizeCronRequest } from "@/lib/cron-auth.server";
+import { checkQuipuBacklogCore, pollActiveOrdersCore } from "@/lib/rp-reconcile.functions";
 
 export const Route = createFileRoute("/api/public/hooks/rp-reconcile")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
-        const apikey =
-          request.headers.get("apikey") ??
-          request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
-          null;
-        if (!expected || apikey !== expected) {
-          return new Response(JSON.stringify({ error: "unauthorized" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
+        const unauthorized = authorizeCronRequest(request);
+        if (unauthorized) return unauthorized;
 
         const startedAt = Date.now();
         const [pollRes, backlogRes] = await Promise.allSettled([
-          pollActiveOrders({} as never),
-          checkQuipuBacklog({} as never),
+          pollActiveOrdersCore(),
+          checkQuipuBacklogCore(),
         ]);
         return Response.json({
           ok: true,
@@ -48,7 +39,7 @@ export const Route = createFileRoute("/api/public/hooks/rp-reconcile")({
           ok: true,
           service: "rp-reconcile",
           method: "POST",
-          note: "POST con header apikey=<SUPABASE_PUBLISHABLE_KEY> ejecuta la reconciliación.",
+          note: "POST autenticado ejecuta la reconciliación.",
         }),
     },
   },
