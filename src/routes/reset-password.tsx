@@ -3,7 +3,10 @@ import { ResetPasswordForm } from "@/components/auth/AuthForms";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
-    meta: [{ title: "Nueva contraseña — KINGPAPA OS" }],
+    meta: [
+      { title: "Nueva contraseña — KINGPAPA OS" },
+      { name: "robots", content: "noindex" },
+    ],
   }),
   component: ResetPasswordPage,
 });

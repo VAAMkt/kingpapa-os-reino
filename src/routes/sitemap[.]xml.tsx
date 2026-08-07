@@ -10,8 +10,6 @@ const STATIC_PATHS: { path: string; changefreq: string; priority: string }[] = [
   { path: "/sedes", changefreq: "monthly", priority: "0.8" },
   { path: "/historias", changefreq: "daily", priority: "0.9" },
   { path: "/franquicias", changefreq: "monthly", priority: "0.7" },
-  { path: "/login", changefreq: "yearly", priority: "0.2" },
-  { path: "/registro", changefreq: "yearly", priority: "0.2" },
 ];
 
 export const Route = createFileRoute("/sitemap.xml")({
