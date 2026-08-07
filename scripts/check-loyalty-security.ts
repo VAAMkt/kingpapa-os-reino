@@ -15,6 +15,7 @@ const earnSql = readFileSync(
 const checkout = readFileSync(new URL("../src/routes/checkout.tsx", import.meta.url), "utf8");
 const loyalty = readFileSync(new URL("../src/lib/loyalty.functions.ts", import.meta.url), "utf8");
 const miReino = readFileSync(new URL("../src/routes/mi-reino.index.tsx", import.meta.url), "utf8");
+const clanShare = readFileSync(new URL("../src/lib/clan-share.ts", import.meta.url), "utf8");
 const quizUi = readFileSync(new URL("../src/components/kp/LoyaltyModule.tsx", import.meta.url), "utf8");
 const quizSql = readFileSync(
   new URL("../supabase/migrations/20260807090000_persist_loyalty_quiz.sql", import.meta.url),
@@ -43,6 +44,11 @@ assert.match(quizUi, /isAuthenticated \? "Guardar mi clan"/);
 assert.match(miReino, /Tu clan está por descubrir/);
 assert.match(miReino, /href="\/#test-clanes"/);
 assert.match(miReino, /role="progressbar"/);
+assert.match(miReino, /Compartir mi clan/);
+assert.match(clanShare, /canvas\.width = 1080/);
+assert.match(clanShare, /canvas\.height = 1920/);
+assert.match(clanShare, /navigator\.canShare/);
+assert.match(clanShare, /link\.download = file\.name/);
 assert.match(quizSql, /REVOKE INSERT ON TABLE public\.subditos FROM anon, authenticated/);
 assert.match(quizSql, /habeas_data_accepted_at = now\(\)/);
 assert.match(quizSql, /quiz_clan IS NOT NULL AND quiz_accepted/);
