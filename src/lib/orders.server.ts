@@ -62,6 +62,7 @@ type SedeRow = {
   id: string;
   nombre: string;
   rp_local_id: number | null;
+  tz?: string | null;
 };
 
 type DetallePedido = {
@@ -442,7 +443,7 @@ export async function submitOrder(input: CheckoutInput): Promise<{
         }
         const { date, time } = formatInTimeZone(
           new Date(input.pickupScheduledFor),
-          sede.tz,
+          sede.tz ?? "America/Bogota",
         );
         return {
           delivery_programado: "1",
