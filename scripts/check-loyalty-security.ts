@@ -14,6 +14,11 @@ const earnSql = readFileSync(
 );
 const checkout = readFileSync(new URL("../src/routes/checkout.tsx", import.meta.url), "utf8");
 const loyalty = readFileSync(new URL("../src/lib/loyalty.functions.ts", import.meta.url), "utf8");
+const quizUi = readFileSync(new URL("../src/components/kp/LoyaltyModule.tsx", import.meta.url), "utf8");
+const quizSql = readFileSync(
+  new URL("../supabase/migrations/20260807090000_persist_loyalty_quiz.sql", import.meta.url),
+  "utf8",
+);
 
 assert.match(sql, /DROP POLICY IF EXISTS "loyalty_accounts: dueño actualiza"/);
 assert.match(sql, /DROP POLICY IF EXISTS "loyalty_accounts: dueño inserta"/);
@@ -27,6 +32,14 @@ assert.match(loyalty, /\.eq\("user_id", userId\)/);
 assert.match(loyalty, /\.eq\("status", "entregado"\)/);
 assert.match(loyalty, /\.eq\("is_test", false\)/);
 assert.match(loyalty, /\.is\("analytics_excluded_at", null\)/);
+assert.match(loyalty, /saveSubditoQuiz[\s\S]*\.middleware\(\[requireSupabaseAuth\]\)/);
+assert.match(loyalty, /habeas_data_accepted: z\.literal\(true\)/);
+assert.doesNotMatch(quizUi, /kp_subdito|localStorage/);
+assert.match(quizUi, /saveSubditoQuiz/);
+assert.match(quizUi, /type="checkbox"[\s\S]*required/);
+assert.match(quizSql, /REVOKE INSERT ON TABLE public\.subditos FROM anon, authenticated/);
+assert.match(quizSql, /habeas_data_accepted_at = now\(\)/);
+assert.match(quizSql, /quiz_clan IS NOT NULL AND quiz_accepted/);
 assert.ok(
   earnSql.indexOf("IF inserted_ledger_id IS NULL THEN RETURN NEW") <
     earnSql.indexOf("UPDATE public.loyalty_accounts"),

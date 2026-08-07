@@ -750,6 +750,8 @@ export type Database = {
           ciudad: string | null
           created_at: string
           email: string | null
+          habeas_data_accepted_at: string | null
+          habeas_data_version: string | null
           id: string
           respuestas: Json
           source: string
@@ -761,6 +763,8 @@ export type Database = {
           ciudad?: string | null
           created_at?: string
           email?: string | null
+          habeas_data_accepted_at?: string | null
+          habeas_data_version?: string | null
           id?: string
           respuestas?: Json
           source?: string
@@ -772,6 +776,8 @@ export type Database = {
           ciudad?: string | null
           created_at?: string
           email?: string | null
+          habeas_data_accepted_at?: string | null
+          habeas_data_version?: string | null
           id?: string
           respuestas?: Json
           source?: string

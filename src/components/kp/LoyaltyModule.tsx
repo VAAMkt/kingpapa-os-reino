@@ -1,14 +1,20 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { BrutalCard, BrutalBadge, BrutalInput } from "@/components/ui-kp/Brutal";
 import { BrutalButton } from "@/components/ui-kp/BrutalButton";
 import { quiz, calcularArquetipo } from "@/data/quiz";
 import { CLAN_COPY } from "@/lib/loyalty-model";
-import type { Subdito } from "@/types/kp";
+import { saveSubditoQuiz, type QuizAnswers } from "@/lib/loyalty.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+
+const PRIVACY_POLICY_URL =
+  "https://kingpapacali.com/wp-content/uploads/2024/02/PO-CM-15-POLITICA-DE-TRATAMIENTO-DE-DATOS.docx.pdf";
 
 /**
  * LoyaltyModule — registro de "creyentes del Reino" + quiz teaser.
  * Captura zero-party data y emails/WhatsApp.
- * TODO: POST /api/subditos { ...subdito } al backend de loyalty.
  */
 export function LoyaltyModule() {
   const [openQuiz, setOpenQuiz] = useState(false);
@@ -46,17 +52,17 @@ export function LoyaltyModule() {
             <div className="border-2 border-kp-ink p-2">
               🍻
               <br />
-              Rumbero
+              After
             </div>
             <div className="border-2 border-kp-ink p-2">
               👷
               <br />
-              Obrero
+              Acero
             </div>
             <div className="border-2 border-kp-ink p-2">
               👑
               <br />
-              Cabezón
+              Fórmula
             </div>
           </div>
           <BrutalButton block className="mt-4" onClick={() => setOpenQuiz(true)}>
@@ -71,10 +77,17 @@ export function LoyaltyModule() {
 }
 
 function QuizModal({ onClose }: { onClose: () => void }) {
+  const { user, isAuthenticated } = useAuth();
+  const saveQuiz = useServerFn(saveSubditoQuiz);
   const [idx, setIdx] = useState(0);
   const [respuestas, setRespuestas] = useState<Record<string, string>>({});
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [password, setPassword] = useState("");
+  const [accepted, setAccepted] = useState(false);
+  const [hasAccount, setHasAccount] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [done, setDone] = useState(false);
 
   const total = quiz.length;
@@ -87,23 +100,54 @@ function QuizModal({ onClose }: { onClose: () => void }) {
     else setIdx(total); // pasa a captura de contacto
   }
 
-  function submit() {
+  async function submit(event: FormEvent) {
+    event.preventDefault();
     const arquetipo = calcularArquetipo(respuestas);
-    const subdito: Subdito = {
-      email,
+    const payload = {
       whatsapp,
       arquetipo,
-      respuestas,
-      ciudad: respuestas.ciudad as Subdito["ciudad"],
-      createdAt: new Date().toISOString(),
+      respuestas: respuestas as QuizAnswers,
+      ciudad: respuestas.ciudad,
+      habeas_data_accepted: true as const,
     };
-    // TODO: POST /api/subditos
+    setSaving(true);
     try {
-      localStorage.setItem("kp_subdito", JSON.stringify(subdito));
-    } catch {
-      /* ignore */
+      if (isAuthenticated) {
+        await saveQuiz({ data: payload });
+      } else if (hasAccount) {
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) throw error;
+        await saveQuiz({ data: payload });
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/mi-reino`,
+            data: {
+              display_name: email.split("@")[0],
+              whatsapp,
+              ciudad: respuestas.ciudad,
+              quiz_clan: arquetipo,
+              quiz_respuestas: respuestas,
+              habeas_data_accepted: true,
+              habeas_data_version: "PO-CM-15/2024-01-31",
+            },
+          },
+        });
+        if (error) throw error;
+        if (data.session) await saveQuiz({ data: payload });
+        else setNeedsConfirmation(true);
+      }
+      setDone(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No pudimos guardar tu clan";
+      toast.error(/already registered|already been registered/i.test(message)
+        ? "Ese correo ya tiene cuenta. Elige ‘Ya tengo cuenta’."
+        : message);
+    } finally {
+      setSaving(false);
     }
-    setDone(true);
   }
 
   const arquetipo = done ? calcularArquetipo(respuestas) : null;
@@ -142,23 +186,71 @@ function QuizModal({ onClose }: { onClose: () => void }) {
             <>
               <h3 className="font-display text-2xl uppercase">Última cosa, papi</h3>
               <p className="text-sm mt-1">Para coronarte y enviarte los combos secretos.</p>
-              <div className="mt-4 space-y-3">
-                <BrutalInput
-                  type="email"
-                  placeholder="tu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+              <form className="mt-4 space-y-3" onSubmit={submit}>
+                {isAuthenticated ? (
+                  <p className="text-sm">Guardaremos tu clan en {user?.email}.</p>
+                ) : (
+                  <>
+                    <BrutalInput
+                      type="email"
+                      placeholder="tu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                    <BrutalInput
+                      type="password"
+                      placeholder={hasAccount ? "Tu contraseña" : "Crea una contraseña"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      minLength={8}
+                      required
+                    />
+                  </>
+                )}
                 <BrutalInput
                   type="tel"
                   placeholder="WhatsApp (3xx xxx xxxx)"
                   value={whatsapp}
                   onChange={(e) => setWhatsapp(e.target.value)}
+                  minLength={7}
+                  required
                 />
-                <BrutalButton block onClick={submit} disabled={!email && !whatsapp}>
-                  Coronarme
+                <label className="flex items-start gap-2 text-xs text-left">
+                  <input
+                    type="checkbox"
+                    checked={accepted}
+                    onChange={(e) => setAccepted(e.target.checked)}
+                    required
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Autorizo a KINGPAPA a tratar mis datos para gestionar mi cuenta, beneficios y
+                    comunicaciones, conforme a la{" "}
+                    <a
+                      href={PRIVACY_POLICY_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline font-bold"
+                    >
+                      política de tratamiento de datos
+                    </a>
+                    .
+                  </span>
+                </label>
+                <BrutalButton block type="submit" disabled={!accepted || saving}>
+                  {saving ? "Guardando…" : hasAccount ? "Entrar y guardar mi clan" : "Crear cuenta y coronarme"}
                 </BrutalButton>
-              </div>
+                {!isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={() => setHasAccount((value) => !value)}
+                    className="block mx-auto text-xs underline font-bold"
+                  >
+                    {hasAccount ? "Quiero crear mi cuenta" : "Ya tengo cuenta"}
+                  </button>
+                )}
+              </form>
             </>
           )}
 
@@ -169,8 +261,19 @@ function QuizModal({ onClose }: { onClose: () => void }) {
               <p className="text-sm mt-2 max-w-sm mx-auto">
                 {CLAN_COPY[arquetipo]}
               </p>
-              <BrutalButton block className="mt-5" variant="dark" onClick={onClose}>
-                Entrar al Reino
+              {needsConfirmation && (
+                <p className="text-xs mt-3">Revisa tu correo para confirmar la cuenta. Tu clan ya quedó guardado.</p>
+              )}
+              <BrutalButton
+                block
+                className="mt-5"
+                variant="dark"
+                onClick={() => {
+                  if (!needsConfirmation) window.location.href = "/mi-reino";
+                  else onClose();
+                }}
+              >
+                {needsConfirmation ? "Entendido" : "Entrar a Mi Reino"}
               </BrutalButton>
             </div>
           )}

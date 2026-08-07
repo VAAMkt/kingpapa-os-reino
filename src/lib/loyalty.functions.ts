@@ -3,6 +3,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { phoneSchema } from "@/lib/form-validation";
+import { CLANS } from "@/lib/loyalty-model";
 
 export type LoyaltyAccount = {
   user_id: string;
@@ -43,6 +45,15 @@ export type Redemption = {
   used_at: string | null;
   created_at: string;
   reward: { nombre: string; tipo: string; valor: number } | null;
+};
+
+export type QuizAnswers = {
+  hambre: "1" | "3" | "5";
+  picante: "0" | "1" | "3";
+  ocasion: "parche" | "after-rumba" | "almuerzo-obrero" | "familia" | "antojo-mortal";
+  presupuesto: "bajo" | "medio" | "alto";
+  ciudad: "Cali" | "Bogotá" | "Jamundí" | "Medellín";
+  canal: "web" | "whatsapp" | "rappi" | "didi" | "pickup";
 };
 
 export const getMyLoyalty = createServerFn({ method: "GET" })
@@ -141,54 +152,55 @@ export const listMyRedemptions = createServerFn({ method: "GET" })
   });
 
 export const saveSubditoQuiz = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({
-        email: z.string().email().optional().nullable(),
-        whatsapp: z.string().max(40).optional().nullable(),
-        arquetipo: z.string().max(50).optional().nullable(),
-        ciudad: z.string().max(80).optional().nullable(),
-        respuestas: z.record(z.string(), z.string()).default({}),
+        whatsapp: phoneSchema,
+        arquetipo: z.enum(CLANS),
+        ciudad: z.string().trim().min(2).max(80),
+        respuestas: z.object({
+          hambre: z.enum(["1", "3", "5"]),
+          picante: z.enum(["0", "1", "3"]),
+          ocasion: z.enum(["parche", "after-rumba", "almuerzo-obrero", "familia", "antojo-mortal"]),
+          presupuesto: z.enum(["bajo", "medio", "alto"]),
+          ciudad: z.enum(["Cali", "Bogotá", "Jamundí", "Medellín"]),
+          canal: z.enum(["web", "whatsapp", "rappi", "didi", "pickup"]),
+        }),
+        habeas_data_accepted: z.literal(true),
       })
-      .refine((v) => !!(v.email || v.whatsapp), { message: "Email o WhatsApp requerido" })
       .parse(input),
   )
-  .handler(async ({ data }) => {
-    // Best-effort: si el email ya existe (índice único), reintenta como update.
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // Intenta enlazar con el user_id si vino Authorization
-    let user_id: string | null = null;
-    try {
-      const { getRequestHeader } = await import("@tanstack/react-start/server");
-      const auth = getRequestHeader("authorization");
-      if (auth?.startsWith("Bearer ")) {
-        const { createClient } = await import("@supabase/supabase-js");
-        const url = process.env.SUPABASE_URL;
-        const key = process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (url && key) {
-          const sb = createClient(url, key, {
-            global: { headers: { Authorization: auth } },
-          });
-          const { data: u } = await sb.auth.getUser();
-          user_id = u.user?.id ?? null;
-        }
-      }
-    } catch {
-      /* invitado */
-    }
-
+    const email = typeof context.claims.email === "string" ? context.claims.email : null;
     const row = {
-      user_id,
-      email: data.email ?? null,
-      whatsapp: data.whatsapp ?? null,
-      arquetipo: data.arquetipo ?? null,
-      ciudad: data.ciudad ?? null,
+      user_id: context.userId,
+      email,
+      whatsapp: data.whatsapp,
+      arquetipo: data.arquetipo,
+      ciudad: data.ciudad,
       respuestas: data.respuestas,
       source: "quiz",
+      habeas_data_accepted_at: new Date().toISOString(),
+      habeas_data_version: "PO-CM-15/2024-01-31",
     };
-    const { error } = await supabaseAdmin.from("subditos").insert(row);
-    if (error && !/duplicate key/i.test(error.message)) {
-      throw new Error(error.message);
+
+    const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
+      {
+        id: context.userId,
+        whatsapp: data.whatsapp,
+        ciudad: data.ciudad,
+        arquetipo: data.arquetipo,
+      },
+      { onConflict: "id" },
+    );
+    const { error: quizError } = await supabaseAdmin
+      .from("subditos")
+      .upsert(row, { onConflict: "user_id" });
+    if (profileError || quizError) {
+      console.error("[loyalty] No se pudo guardar el test", profileError ?? quizError);
+      throw new Error("No pudimos guardar tu clan. Intenta de nuevo.");
     }
-    return { ok: true };
+    return { ok: true, arquetipo: data.arquetipo };
   });
