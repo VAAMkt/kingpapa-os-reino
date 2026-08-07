@@ -58,6 +58,84 @@ export const LOYALTY_RANKS = [
   { name: "Consagrado", band: "Dorada", minOrders: 24 },
 ] as const;
 
+type LoyaltyRankName = (typeof LOYALTY_RANKS)[number]["name"];
+
+export const CLAN_RANK_IDENTITY: Record<
+  Clan,
+  Record<LoyaltyRankName, { title: string; description: string }>
+> = {
+  "Legión de Acero": {
+    Postulante: {
+      title: "Recluta de Forja",
+      description: "Tu carácter empieza a templarse bajo el fuego y el carbohidrato puro.",
+    },
+    Iniciado: {
+      title: "Yunque Activo",
+      description: "Ya soportas la intensidad del menú y no te quiebras ante pedidos grandes.",
+    },
+    Militante: {
+      title: "Martillo de Acero",
+      description: "Lideras los pedidos de la banda cuando el hambre exige abundancia.",
+    },
+    Guardián: {
+      title: "Forjador de Almas",
+      description: "Dominas el territorio y reúnes a la Legión alrededor de la mesa.",
+    },
+    Consagrado: {
+      title: "Soberano de la Forja",
+      description: "Tu resistencia ya es leyenda y puedes guiar a toda la Legión.",
+    },
+  },
+  "Tripulación del After": {
+    Postulante: {
+      title: "Navegante de la Sombra",
+      description: "Inicias tu ruta nocturna guiado por las luces del Reino.",
+    },
+    Iniciado: {
+      title: "Iniciado del After",
+      description: "Ya sabes convertir una salida cualquiera en un ritual con la banda.",
+    },
+    Militante: {
+      title: "Explorador Nocturno",
+      description: "Movilizas al parche cuando la noche exige una corona abundante.",
+    },
+    Guardián: {
+      title: "Comandante de la Noche",
+      description: "Tu presencia mantiene encendida la mística del descontrol.",
+    },
+    Consagrado: {
+      title: "Astrónomo de la Catarsis",
+      description: "Eres el faro que guía a toda la Tripulación después de medianoche.",
+    },
+  },
+  "Iluminado de la Fórmula": {
+    Postulante: {
+      title: "Neófito de la Orden",
+      description: "Empiezas a descubrir la matemática detrás del sabor perfecto.",
+    },
+    Iniciado: {
+      title: "Alquimista del Sabor",
+      description: "Combinas las salsas del Reino con intención y precisión.",
+    },
+    Militante: {
+      title: "Maestro de la Salsa",
+      description: "Tu paladar ya puede orientar a quienes buscan la fórmula correcta.",
+    },
+    Guardián: {
+      title: "Guardián de la Fórmula",
+      description: "Custodias los secretos del Rey y dominas cada combinación.",
+    },
+    Consagrado: {
+      title: "Oráculo de la Fórmula",
+      description: "Has alcanzado el nivel supremo de la ciencia sagrada del sabor.",
+    },
+  },
+};
+
+export function getClanRankIdentity(clan: Clan, rank: LoyaltyRankName) {
+  return CLAN_RANK_IDENTITY[clan][rank];
+}
+
 export function getLoyaltyProgress(completedOrders: number) {
   const orders = Number.isFinite(completedOrders) ? Math.max(0, Math.floor(completedOrders)) : 0;
   let rankIndex = LOYALTY_RANKS.length - 1;

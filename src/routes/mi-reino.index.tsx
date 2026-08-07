@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { BrutalCard, BrutalBadge } from "@/components/ui-kp/Brutal";
 import { BrutalButton, BrutalLink } from "@/components/ui-kp/BrutalButton";
 import { getMyLoyalty } from "@/lib/loyalty.functions";
-import { getLoyaltyProgress } from "@/lib/loyalty-model";
+import { CLAN_COPY, getClanRankIdentity, getLoyaltyProgress } from "@/lib/loyalty-model";
 import { getMyOrders, type MyOrderRow } from "@/lib/mi-reino.functions";
 import { addItem, openCart } from "@/lib/cart";
 import { toast } from "sonner";
@@ -30,28 +30,58 @@ function MiReinoInicio() {
       />
     );
   }
+  if (loyaltyQuery.isLoading || ordersQuery.isLoading) {
+    return <p className="font-display uppercase text-sm">Cargando tu Reino…</p>;
+  }
   const loyalty = loyaltyQuery.data;
   const orders = ordersQuery.data;
 
   const last = orders?.[0];
   const bal = loyalty?.account.puntos_balance ?? 0;
   const progress = getLoyaltyProgress(loyalty?.account.completed_orders ?? 0);
+  const clan = loyalty?.account.clan ?? null;
+  const identity = clan ? getClanRankIdentity(clan, progress.current.name) : null;
 
   return (
     <div className="grid md:grid-cols-2 gap-4">
       <BrutalCard tone="purple" className="p-5">
-        <BrutalBadge tone="yellow">Rango · {progress.current.name.toUpperCase()}</BrutalBadge>
+        <BrutalBadge tone="yellow">
+          Banda {progress.current.band} · {progress.current.name.toUpperCase()}
+        </BrutalBadge>
+        {clan && identity ? (
+          <div className="mt-3">
+            <p className="text-xs font-display uppercase text-kp-yellow">{clan}</p>
+            <h2 className="font-display text-3xl uppercase leading-none mt-1">{identity.title}</h2>
+            <p className="text-sm mt-2">{identity.description}</p>
+            <p className="text-xs mt-2 opacity-75">{CLAN_COPY[clan]}</p>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <h2 className="font-display text-3xl uppercase leading-none">Tu clan está por descubrir</h2>
+            <p className="text-sm mt-2">Haz el test de 30 segundos y reclama tu identidad en la banda.</p>
+            <BrutalLink href="/#test-clanes" variant="dark" className="mt-3">
+              Descubrir mi clan
+            </BrutalLink>
+          </div>
+        )}
         <div className="mt-3 flex items-end gap-3">
           <p className="font-display text-6xl leading-none">{bal}</p>
           <p className="text-sm mb-1">puntos disponibles</p>
         </div>
         <div className="mt-4">
-          <div className="h-3 border-2 border-kp-ink bg-kp-cheese overflow-hidden">
+          <div
+            className="h-3 border-2 border-kp-ink bg-kp-cheese overflow-hidden"
+            role="progressbar"
+            aria-label={`Progreso hacia ${progress.next?.name ?? "el rango máximo"}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress.percent}
+          >
             <div className="h-full bg-kp-yellow" style={{ width: `${progress.percent}%` }} />
           </div>
           <p className="text-xs mt-1">
             {progress.next
-              ? `${progress.remaining} pedido${progress.remaining === 1 ? "" : "s"} para ser ${progress.next.name.toUpperCase()}`
+              ? `${progress.orders} completado${progress.orders === 1 ? "" : "s"} · ${progress.remaining} pedido${progress.remaining === 1 ? "" : "s"} para ser ${progress.next.name.toUpperCase()}`
               : "Ya eres CONSAGRADO 👑"}
           </p>
         </div>
