@@ -60,11 +60,25 @@ export function LoginForm({ redirectTo = "/mi-reino" }: { redirectTo?: string })
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoverySent, setRecoverySent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      if (recoveryMode) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) {
+          toast.error("No pudimos enviar el enlace. Intenta de nuevo.");
+          return;
+        }
+        setRecoverySent(true);
+        toast.success("Revisa tu correo para recuperar la contraseña");
+        return;
+      }
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) {
         toast.error(error.message);
@@ -73,7 +87,11 @@ export function LoginForm({ redirectTo = "/mi-reino" }: { redirectTo?: string })
       toast.success("Bienvenido al Reino");
       navigate({ to: redirectTo });
     } catch {
-      toast.error("No pudimos conectarnos. Intenta de nuevo.");
+      toast.error(
+        recoveryMode
+          ? "No pudimos enviar el enlace. Intenta de nuevo."
+          : "No pudimos conectarnos. Intenta de nuevo.",
+      );
     } finally {
       setLoading(false);
     }
@@ -81,9 +99,15 @@ export function LoginForm({ redirectTo = "/mi-reino" }: { redirectTo?: string })
 
   return (
     <BrutalCard tone="cheese" className="p-6">
-      <BrutalBadge tone="yellow">Entrar al Reino</BrutalBadge>
-      <h1 className="font-display text-4xl uppercase mt-3 leading-none">Iniciar sesión</h1>
-      <p className="text-sm mt-2">Coróna te de vuelta, creyente.</p>
+      <BrutalBadge tone="yellow">{recoveryMode ? "Recuperar Reino" : "Entrar al Reino"}</BrutalBadge>
+      <h1 className="font-display text-4xl uppercase mt-3 leading-none">
+        {recoveryMode ? "Recuperar contraseña" : "Iniciar sesión"}
+      </h1>
+      <p className="text-sm mt-2">
+        {recoveryMode
+          ? "Te enviaremos un enlace seguro a tu correo."
+          : "Corónate de vuelta, creyente."}
+      </p>
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-3">
         <BrutalInput
@@ -93,33 +117,52 @@ export function LoginForm({ redirectTo = "/mi-reino" }: { redirectTo?: string })
           onChange={(e) => setEmail(e.target.value)}
           required
         />
-        <BrutalInput
-          type="password"
-          placeholder="Contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-        />
-        <BrutalButton type="submit" block disabled={loading}>
-          {loading ? "Entrando..." : "Entrar"}
-        </BrutalButton>
+        {!recoveryMode && (
+          <BrutalInput
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+          />
+        )}
+        {recoverySent ? (
+          <p role="status" className="border-2 border-kp-ink bg-kp-yellow p-3 text-sm">
+            Si el correo está registrado, recibirás el enlace en unos minutos.
+          </p>
+        ) : (
+          <BrutalButton type="submit" block disabled={loading}>
+            {loading ? "Enviando..." : recoveryMode ? "Enviar enlace" : "Entrar"}
+          </BrutalButton>
+        )}
       </form>
 
-      <div className="flex items-center gap-3 my-4">
+      <button
+        type="button"
+        className="mt-3 text-sm font-display uppercase underline"
+        onClick={() => {
+          setRecoveryMode((value) => !value);
+          setRecoverySent(false);
+        }}
+      >
+        {recoveryMode ? "← Volver a iniciar sesión" : "Olvidé mi contraseña"}
+      </button>
+
+      {!recoveryMode && <div className="flex items-center gap-3 my-4">
         <div className="flex-1 h-px bg-kp-ink/30" />
         <span className="text-xs font-display uppercase">o</span>
         <div className="flex-1 h-px bg-kp-ink/30" />
-      </div>
+      </div>}
 
-      <GoogleButton label="Entrar con Google" />
+      {!recoveryMode && <GoogleButton label="Entrar con Google" />}
 
-      <p className="text-sm mt-4">
+      {!recoveryMode && <p className="text-sm mt-4">
         ¿Aún no eres creyente?{" "}
         <Link to="/registro" className="font-display uppercase underline">
           Crear cuenta
         </Link>
-      </p>
+      </p>}
     </BrutalCard>
   );
 }
