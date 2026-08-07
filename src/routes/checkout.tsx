@@ -217,7 +217,7 @@ function CheckoutPage() {
       selectedSede.kill_switch ||
       !isSedeOpenAt(selectedHorarios, selectedSede.tz, new Date()));
   const pickupUnavailable =
-    !!selectedSede && (!selectedSede.pickup || selectedSede.kill_switch);
+    !!sedesQ.data && !sedesQ.data.some((item) => item.pickup && !item.kill_switch);
   const pickupScheduleMessage =
     esRecoger && selectedSede
       ? pickupScheduleError(pickupScheduledFor, selectedHorarios, selectedSede.tz)
