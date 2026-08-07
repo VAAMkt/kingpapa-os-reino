@@ -45,6 +45,11 @@ for (const file of publicFiles) {
 
 const home = readFileSync("src/routes/index.tsx", "utf8");
 assert.match(home, /src=\{heroAsset\.url\}[\s\S]{0,300}fetchPriority="high"/);
+assert.match(home, /loader: async[\s\S]*ensureQueryData[\s\S]*listPublicSedes[\s\S]*listPublicPosts/);
+assert.match(home, /sedesData\.map[\s\S]*to="\/sedes\/\$slug"/);
+const historias = readFileSync("src/routes/historias.tsx", "utf8");
+assert.match(historias, /loader: async[\s\S]*ensureQueryData[\s\S]*listPublicPosts/);
+assert.match(historias, /initialData: initialHistorias/);
 assert.match(readFileSync("src/routes/sedes.tsx", "utf8"), /<h2 className="sr-only">Sedes disponibles<\/h2>/);
 assert.match(readFileSync("src/routes/historias.tsx", "utf8"), /<h2 className="sr-only">Historias publicadas<\/h2>/);
 assert.doesNotMatch(readFileSync("src/components/kp/LeadFormFranquicia.tsx", "utf8"), /<h3\b/);
