@@ -289,10 +289,7 @@ function tenantBase(): string {
       ? `${sub}.${parsed.hostname}`
       : parsed.hostname;
   const existingPath = parsed.pathname.replace(/\/+$/, "");
-  const basePath =
-    existingPath && existingPath !== "/"
-      ? existingPath
-      : "/restaurant/api/rest";
+  const basePath = existingPath && existingPath !== "/" ? existingPath : "/restaurant/api/rest";
   return `${parsed.protocol}//${hostname}${basePath}`;
 }
 
@@ -386,6 +383,19 @@ function extractRows(raw: unknown): Record<string, unknown>[] {
   return [];
 }
 
+export async function rpListDeliveriesByLocal(
+  localId: string | number,
+  page = 1,
+  pageSize = 100,
+): Promise<Record<string, unknown>[]> {
+  const id = String(localId).trim();
+  if (!id || page < 1 || pageSize < 1) throw new Error("Parámetros de listado RP inválidos");
+  const raw = await rpTenantFetch<unknown>(
+    `/delivery/obtenerDeliverysPorLocalSimple/${id}/${page}/${pageSize}/0`,
+  );
+  return extractRows(raw);
+}
+
 /**
  * Resuelve el delivery_id real usando la llave canónica que enviamos al POS.
  * Evita correlacionar por hora, teléfono o "pedido más reciente".
@@ -397,11 +407,9 @@ export async function rpFindDeliveryByIntegrationCode(input: {
   const localId = String(input.localId).trim();
   const code = input.integrationCode.trim();
   if (!localId || !code) return null;
-  const raw = await rpTenantFetch<unknown>(
-    `/delivery/obtenerDeliverysPorLocalSimple/${localId}/1/100/0`,
-  );
+  const rows = await rpListDeliveriesByLocal(localId, 1, 100);
   return (
-    extractRows(raw).find((row) => {
+    rows.find((row) => {
       const value =
         row.delivery_codigointegracion ??
         row.delivery_codigo_integracion ??

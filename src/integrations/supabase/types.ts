@@ -127,6 +127,69 @@ export type Database = {
           },
         ]
       }
+      loyalty_rp_orders: {
+        Row: {
+          channel_id: number
+          created_at: string
+          customer_email: string | null
+          customer_phone: string | null
+          delivered_at: string | null
+          delivery_id: string
+          local_id: number
+          total: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          channel_id: number
+          created_at?: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          delivered_at?: string | null
+          delivery_id: string
+          local_id: number
+          total?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          channel_id?: number
+          created_at?: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          delivered_at?: string | null
+          delivery_id?: string
+          local_id?: number
+          total?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      loyalty_rp_sync_state: {
+        Row: {
+          backfill_complete: boolean
+          last_error: string | null
+          local_id: number
+          next_page: number
+          updated_at: string
+        }
+        Insert: {
+          backfill_complete?: boolean
+          last_error?: string | null
+          local_id: number
+          next_page?: number
+          updated_at?: string
+        }
+        Update: {
+          backfill_complete?: boolean
+          last_error?: string | null
+          local_id?: number
+          next_page?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       loyalty_redemptions: {
         Row: {
           codigo: string
@@ -815,6 +878,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_restaurantpe_loyalty: {
+        Args: { _email: string | null; _phone: string | null; _user_id: string }
+        Returns: Json
+      }
       loyalty_calc_tier: { Args: { lifetime: number }; Returns: string }
       redeem_reward: {
         Args: { _reward_id: string }

@@ -10,6 +10,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { authorizeCronRequest } from "@/lib/cron-auth.server";
+import { syncRestaurantPeLoyaltyHistoryCore } from "@/lib/loyalty-history.server";
 import { checkQuipuBacklogCore, pollActiveOrdersCore } from "@/lib/rp-reconcile.functions";
 
 export const Route = createFileRoute("/api/public/hooks/rp-reconcile")({
@@ -20,9 +21,10 @@ export const Route = createFileRoute("/api/public/hooks/rp-reconcile")({
         if (unauthorized) return unauthorized;
 
         const startedAt = Date.now();
-        const [pollRes, backlogRes] = await Promise.allSettled([
+        const [pollRes, backlogRes, loyaltyHistoryRes] = await Promise.allSettled([
           pollActiveOrdersCore(),
           checkQuipuBacklogCore(),
+          syncRestaurantPeLoyaltyHistoryCore(),
         ]);
         return Response.json({
           ok: true,
@@ -32,6 +34,10 @@ export const Route = createFileRoute("/api/public/hooks/rp-reconcile")({
             backlogRes.status === "fulfilled"
               ? backlogRes.value
               : { error: String(backlogRes.reason) },
+          loyalty_history:
+            loyaltyHistoryRes.status === "fulfilled"
+              ? loyaltyHistoryRes.value
+              : { error: String(loyaltyHistoryRes.reason) },
         });
       },
       GET: async () =>
