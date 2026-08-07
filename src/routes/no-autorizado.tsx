@@ -4,7 +4,10 @@ import { BrutalLink } from "@/components/ui-kp/BrutalButton";
 
 export const Route = createFileRoute("/no-autorizado")({
   head: () => ({
-    meta: [{ title: "Sin acceso al Reino — KINGPAPA OS" }],
+    meta: [
+      { title: "Sin acceso al Reino — KINGPAPA OS" },
+      { name: "robots", content: "noindex" },
+    ],
   }),
   component: NoAutorizadoPage,
 });
