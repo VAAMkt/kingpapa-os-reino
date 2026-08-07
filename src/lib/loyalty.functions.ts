@@ -54,8 +54,6 @@ export const getMyLoyalty = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ account: LoyaltyAccount; ledger: LedgerRow[] }> => {
     const { supabase, userId } = context;
-    // Asegura fila; falla suave.
-    await supabase.from("loyalty_accounts").insert({ user_id: userId }).select().maybeSingle();
     const { data: acc } = await supabase
       .from("loyalty_accounts")
       .select("user_id, puntos_balance, puntos_lifetime, tier, referral_code")
