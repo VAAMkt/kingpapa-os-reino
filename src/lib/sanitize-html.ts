@@ -34,7 +34,7 @@ const SAFE_HTML = {
 } satisfies sanitizeHtml.IOptions;
 
 // Limpia HTML legacy de WordPress/Divi y elimina contenido ejecutable.
-export function sanitizeLegacyHtml(input: string): string {
+export function sanitizeLegacyHtml(input: string, imageAlt?: string): string {
   if (!input) return "";
   let html = input;
 
@@ -66,7 +66,20 @@ export function sanitizeLegacyHtml(input: string): string {
   html = html.replace(/<p>\s*<\/p>/gi, "");
   html = html.replace(/\n{3,}/g, "\n\n");
 
-  return sanitizeHtml(html, SAFE_HTML).trim();
+  return sanitizeHtml(
+    html,
+    imageAlt
+      ? {
+          ...SAFE_HTML,
+          transformTags: {
+            img: (tagName, attribs) => ({
+              tagName,
+              attribs: { ...attribs, alt: attribs.alt?.trim() || imageAlt },
+            }),
+          },
+        }
+      : SAFE_HTML,
+  ).trim();
 }
 
 export function htmlToPlainText(html: string): string {

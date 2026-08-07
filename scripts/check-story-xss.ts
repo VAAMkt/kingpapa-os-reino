@@ -16,5 +16,9 @@ assert.equal(
   sanitizeLegacyHtml("<h2>Historia</h2><p><strong>Seguro</strong></p>"),
   "<h2>Historia</h2><p><strong>Seguro</strong></p>",
 );
+assert.equal(
+  sanitizeLegacyHtml('<img src="https://kingpapa.co/foto.jpg" alt="">', "Imagen de la historia"),
+  '<img src="https://kingpapa.co/foto.jpg" alt="Imagen de la historia" />',
+);
 
 console.log("Story HTML XSS checks passed");
