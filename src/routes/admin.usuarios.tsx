@@ -62,14 +62,14 @@ function UsuariosPage() {
   return (
     <div className="space-y-6">
       <header>
-        <BrutalBadge tone="yellow">Súbditos</BrutalBadge>
+        <BrutalBadge tone="yellow">Creyentes</BrutalBadge>
         <h1 className="font-display text-4xl uppercase mt-2 leading-none">Usuarios & Roles</h1>
         <p className="text-sm text-kp-ink/70 mt-1">
           Asigna o retira roles. Solo <b>super_admin</b> ve esta sección.
         </p>
       </header>
 
-      {isLoading && <p className="font-display uppercase text-sm">Cargando súbditos…</p>}
+      {isLoading && <p className="font-display uppercase text-sm">Cargando creyentes…</p>}
       {error && (
         <BrutalCard tone="red" className="p-4">
           <p className="font-display uppercase text-sm">Error: {(error as Error).message}</p>
